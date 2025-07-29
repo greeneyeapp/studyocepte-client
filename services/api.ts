@@ -15,15 +15,29 @@ export interface EditorSettings {
   sepia?: number;
 }
 
-export interface Project {
+export interface ProductPhoto {
+  id: string;
+  productId: string;
+  originalImageUrl: string;
+  processedImageUrl?: string;
+  thumbnailUrl?: string;
+  status: 'processing' | 'completed' | 'failed';
+  editorSettings?: EditorSettings;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Product {
   id: string;
   name: string;
   createdAt: string;
   updatedAt: string;
-  status?: 'processing' | 'completed' | 'failed';
-  thumbnailUrl?: string; 
-  originalImageUrl?: string; 
-  editorSettings?: EditorSettings;
+  photoCount: number;
+  coverThumbnailUrl?: string; // İlk fotoğrafın thumbnail'i
+}
+
+export interface ProductDetail extends Product {
+  photos: ProductPhoto[];
 }
 
 export interface User {
@@ -84,7 +98,7 @@ apiClient.interceptors.response.use(
 
 // --- API FONKSİYONLARI ---
 export const api = {
-  // DÜZELTME: Login fonksiyonu artık sunucunun beklediği gibi JSON gönderiyor.
+  // Auth endpoints
   login: async (email: string, password: string): Promise<TokenResponse> => {
     const response = await apiClient.post<TokenResponse>('/auth/login', {
       email: email,
@@ -107,17 +121,28 @@ export const api = {
     return response.data;
   },
 
-  fetchProjects: async (): Promise<Project[]> => {
-    const response = await apiClient.get<Project[]>('/projects');
+  // Product endpoints
+  fetchProducts: async (): Promise<Product[]> => {
+    const response = await apiClient.get<Product[]>('/products');
     return response.data;
   },
 
-  fetchProjectById: async (projectId: string): Promise<Project> => {
-    const response = await apiClient.get<Project>(`/projects/${projectId}`);
+  fetchProductById: async (productId: string): Promise<ProductDetail> => {
+    const response = await apiClient.get<ProductDetail>(`/products/${productId}`);
     return response.data;
   },
 
-  createProject: async (imageUri: string, name: string): Promise<Project> => {
+  createProduct: async (name: string): Promise<Product> => {
+    const response = await apiClient.post<Product>('/products', { name });
+    return response.data;
+  },
+  
+  deleteProduct: async (productId: string): Promise<void> => {
+    await apiClient.delete(`/products/${productId}`);
+  },
+
+  // Photo endpoints
+  uploadPhoto: async (productId: string, imageUri: string): Promise<ProductPhoto> => {
     const formData = new FormData();
     const uriParts = imageUri.split('/');
     const fileName = uriParts.pop() || 'photo.jpg';
@@ -126,21 +151,32 @@ export const api = {
         fileType = 'image/png';
     }
     formData.append('file', { uri: imageUri, name: fileName, type: fileType } as any);
-    formData.append('name', name);
-    const response = await apiClient.post<Project>('/projects/upload-image', formData, {
+    
+    const response = await apiClient.post<ProductPhoto>(`/products/${productId}/photos`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
   },
-  
-  deleteProject: async (projectId: string): Promise<void> => {
-    await apiClient.delete(`/projects/${projectId}`);
+
+  fetchPhotoById: async (photoId: string): Promise<ProductPhoto> => {
+    const response = await apiClient.get<ProductPhoto>(`/photos/${photoId}`);
+    return response.data;
   },
 
-  saveProject: async (projectId: string, settings: EditorSettings): Promise<void> => {
-    await apiClient.put(`/projects/${projectId}/settings`, settings);
+  savePhotoSettings: async (photoId: string, settings: EditorSettings): Promise<void> => {
+    await apiClient.put(`/photos/${photoId}/settings`, settings);
   },
 
+  applyFiltersToPhoto: async (photoId: string, settings: EditorSettings): Promise<ProductPhoto> => {
+    const response = await apiClient.put<ProductPhoto>(`/photos/${photoId}/apply-filters`, settings);
+    return response.data;
+  },
+
+  deletePhoto: async (photoId: string): Promise<void> => {
+    await apiClient.delete(`/photos/${photoId}`);
+  },
+
+  // Background endpoints
   fetchBackgrounds: async (): Promise<Background[]> => {
     const response = await apiClient.get<Background[]>('/backgrounds');
     return response.data;

@@ -1,9 +1,9 @@
 // kodlar/stores/useEditorStore.ts
 import { create } from 'zustand';
-import { api, Project, Background, EditorSettings } from '@/services/api';
+import { api, ProductPhoto, Background, EditorSettings } from '@/services/api';
 
 interface EditorState {
-  activeProject: Project | null;
+  activePhoto: ProductPhoto | null;
   backgrounds: Background[];
   settings: EditorSettings;
   isLoading: boolean;
@@ -12,10 +12,11 @@ interface EditorState {
 }
 
 interface EditorActions {
-  setActiveProject: (project: Project) => void;
+  setActivePhoto: (photo: ProductPhoto) => void;
+  setActivePhotoById: (photoId: string) => Promise<void>;
   fetchBackgrounds: () => Promise<void>;
   updateSettings: (newSettings: Partial<EditorSettings>) => void;
-  saveProject: () => Promise<void>;
+  saveChanges: () => Promise<void>;
   resetSettings: () => void;
   clearError: () => void;
   clearStore: () => void;
@@ -25,28 +26,45 @@ const defaultSettings: EditorSettings = {
   backgroundId: 'bg1',
   shadow: 0.5,
   lighting: 0.7,
-  brightness: 1,
-  contrast: 1,
-  saturation: 1,
-  hue: 0,
-  sepia: 0,
+  brightness: 1.0,
+  contrast: 1.0,
+  saturation: 1.0,
+  hue: 0.0,
+  sepia: 0.0,
 };
 
 export const useEditorStore = create<EditorState & EditorActions>((set, get) => ({
-  activeProject: null,
+  activePhoto: null,
   backgrounds: [],
   settings: defaultSettings,
   isLoading: false,
   isSaving: false,
   error: null,
 
-  setActiveProject: (project: Project) => {
-    const loadedSettings = { ...defaultSettings, ...project.editorSettings };
+  setActivePhoto: (photo: ProductPhoto) => {
+    const loadedSettings = { ...defaultSettings, ...photo.editorSettings };
     set({
-      // DÜZELTME: Projenin bir kopyasını oluşturarak "donmuş nesne" hatasını engelle
-      activeProject: { ...project },
+      activePhoto: { ...photo },
       settings: loadedSettings,
     });
+  },
+
+  setActivePhotoById: async (photoId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const photo = await api.fetchPhotoById(photoId);
+      const loadedSettings = { ...defaultSettings, ...photo.editorSettings };
+      set({
+        activePhoto: photo,
+        settings: loadedSettings,
+        isLoading: false,
+      });
+    } catch (error: any) {
+      set({ 
+        error: error.message || 'Fotoğraf yüklenemedi.',
+        isLoading: false 
+      });
+    }
   },
 
   fetchBackgrounds: async () => {
@@ -63,32 +81,41 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   },
 
   updateSettings: (newSettings: Partial<EditorSettings>) => {
-    set(state => ({ settings: { ...state.settings, ...newSettings } }));
+    // DÜZELTME: NaN değerleri filtrele
+    const safeSettings: Partial<EditorSettings> = {};
+    
+    Object.entries(newSettings).forEach(([key, value]) => {
+      if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
+        safeSettings[key as keyof EditorSettings] = value;
+      } else if (typeof value === 'string') {
+        safeSettings[key as keyof EditorSettings] = value;
+      }
+    });
+    
+    set(state => ({ settings: { ...state.settings, ...safeSettings } }));
   },
 
-  saveProject: async () => {
-    const { activeProject, settings } = get();
-    if (!activeProject) {
-      const error = 'Kaydedilecek aktif proje bulunamadı.';
+  saveChanges: async () => {
+    const { activePhoto, settings } = get();
+    if (!activePhoto) {
+      const error = 'Kaydedilecek aktif fotoğraf bulunamadı.';
       set({ error });
       throw new Error(error);
     }
 
     set({ isSaving: true, error: null });
     try {
-      await api.saveProject(activeProject.id, settings);
-      // DÜZELTME: State'i güncellerken donmuş nesne sorununu engelle
-      set(state => {
-        if (!state.activeProject) return {};
-        const updatedProject = { ...state.activeProject, editorSettings: settings };
-        return { activeProject: updatedProject };
-      });
+      // Apply filters and get updated photo
+      const updatedPhoto = await api.applyFiltersToPhoto(activePhoto.id, settings);
+      
+      set(state => ({
+        activePhoto: updatedPhoto,
+        isSaving: false
+      }));
     } catch (error: any) {
-      const errorMessage = error.message || 'Proje kaydedilemedi.';
-      set({ error: errorMessage });
+      const errorMessage = error.message || 'Değişiklikler kaydedilemedi.';
+      set({ error: errorMessage, isSaving: false });
       throw new Error(errorMessage);
-    } finally {
-      set({ isSaving: false });
     }
   },
 
@@ -97,6 +124,6 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   clearError: () => set({ error: null }),
   
   clearStore: () => {
-    set({ activeProject: null, settings: defaultSettings });
+    set({ activePhoto: null, settings: defaultSettings });
   },
 }));

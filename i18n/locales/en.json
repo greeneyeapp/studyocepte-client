@@ -27,32 +27,31 @@
     "tryAgain": "Please try again."
   },
   "home": {
-    "title": "My Projects",
+    "title": "My Products",
     "today": "Today",
     "yesterday": "Yesterday"
   },
-  "projects": {
-    "title": "Projects",
-    "nameYourProject": "Name Your Project",
-    "defaultProjectName": "Project",
-    "empty": "No projects yet",
-    "emptySubtitle": "Create your first project to get started",
-    "createProject": "Create Project",
-    "loading": "Loading projects...",
+  "products": {
+    "title": "Products",
+    "nameYourProduct": "Name Your Product",
+    "productNamePlaceholder": "You can enter a product name (optional)",
+    "empty": "No products yet",
+    "emptySubtitle": "Create your first product to get started",
+    "createProduct": "Create Product",
+    "loading": "Loading products...",
     "uploadImage": "Upload Image",
     "selectFromGallery": "Select from Gallery",
     "takePhoto": "Take Photo",
-    "projectCreated": "Project sent for processing. You will see it soon!",
-    "createProjectTitle": "Create New Project",
-    "createProjectMessage": "How do you want to add your product image?",
-    "processingProjectTitle": "Processing in Progress",
-    "processingProjectMessage": "This project is currently being processed. Please wait until it's finished to edit.",
-    "failedProjectTitle": "Processing Failed",
-    "failedProjectMessage": "This project could not be processed. Please try creating a new one.",
-    "statusProcessing": "Processing...",
-    "statusFailed": "Failed",
+    "productCreated": "Product created successfully!",
+    "createProductTitle": "Create New Product",
+    "createProductMessage": "How do you want to add your product image?",
     "noImage": "No Image",
-    "projectNamePlaceholder": "You can enter a project name (optional)"
+    "photos": "photos"
+  },
+  "projects": {
+    "title": "Projects",
+    "selectFromGallery": "Select from Gallery",
+    "takePhoto": "Take Photo"
   },
   "editor": {
     "adjust": "Adjust",
@@ -69,10 +68,10 @@
     "lighting": "Lighting",
     "save": "Save",
     "saving": "Saving...",
-    "saved": "Project saved successfully",
-    "saveFailed": "Failed to save project.",
-    "noProjectTitle": "No Active Project",
-    "noProjectSubtitle": "Please select or create a project from the 'Projects' tab to start editing.",
+    "saved": "Changes saved successfully",
+    "saveFailed": "Failed to save changes.",
+    "noActivePhoto": "No Active Photo",
+    "noActivePhotoSubtitle": "Please select a photo to start editing.",
     "resetSettings": "Reset Settings"
   },
   "settings": {
@@ -120,7 +119,7 @@
       "cameraMessage": "Please grant permission to access your camera in settings."
     },
     "errors": {
-      "createProject": "Failed to create project."
+      "createProduct": "Failed to create product."
     },
     "comingSoon": "Coming Soon"
   }

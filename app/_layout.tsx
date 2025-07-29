@@ -7,7 +7,7 @@ import i18n from '@/i18n';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { LoadingService } from '@/components/Loading/LoadingService';
-import { GlobalUIProvider } from '@/context/GlobalUIProvider'; // YENİ IMPORT
+import { GlobalUIProvider } from '@/context/GlobalUIProvider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -59,7 +59,13 @@ function RootLayoutNav() {
     return null;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {

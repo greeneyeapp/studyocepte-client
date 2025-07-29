@@ -27,32 +27,31 @@
     "tryAgain": "Lütfen tekrar deneyin."
   },
   "home": {
-    "title": "Projelerim",
+    "title": "Ürünlerim",
     "today": "Bugün",
     "yesterday": "Dün"
   },
-  "projects": {
-    "title": "Projeler",
-    "nameYourProject": "Projenize İsim Verin",
-    "defaultProjectName": "Proje",
-    "empty": "Henüz proje yok",
-    "emptySubtitle": "Başlamak için ilk projenizi oluşturun",
-    "createProject": "Proje Oluştur",
-    "loading": "Projeler yükleniyor...",
+  "products": {
+    "title": "Ürünler",
+    "nameYourProduct": "Ürününüze İsim Verin",
+    "productNamePlaceholder": "Ürün ismini girebilirsiniz (zorunlu değil)",
+    "empty": "Henüz ürün yok",
+    "emptySubtitle": "Başlamak için ilk ürününüzü oluşturun",
+    "createProduct": "Ürün Oluştur",
+    "loading": "Ürünler yükleniyor...",
     "uploadImage": "Resim Yükle",
     "selectFromGallery": "Galeriden Seç",
     "takePhoto": "Fotoğraf Çek",
-    "projectCreated": "Proje işlenmek üzere gönderildi. Yakında göreceksiniz!",
-    "createProjectTitle": "Yeni Proje Oluştur",
-    "createProjectMessage": "Ürün resminizi nasıl eklemek istersiniz?",
-    "processingProjectTitle": "İşleme Devam Ediyor",
-    "processingProjectMessage": "Bu proje şu anda işleniyor. Düzenlemek için bitmesini bekleyin.",
-    "failedProjectTitle": "İşleme Başarısız Oldu",
-    "failedProjectMessage": "Bu proje işlenemedi. Lütfen yeni bir proje oluşturmayı deneyin.",
-    "statusProcessing": "İşleniyor...",
-    "statusFailed": "Başarısız",
+    "productCreated": "Ürün başarıyla oluşturuldu!",
+    "createProductTitle": "Yeni Ürün Oluştur",
+    "createProductMessage": "Ürün resminizi nasıl eklemek istersiniz?",
     "noImage": "Resim Yok",
-    "projectNamePlaceholder": "Proje ismini girebilirsiniz (zorunlu değil)"
+    "photos": "fotoğraf"
+  },
+  "projects": {
+    "title": "Projeler",
+    "selectFromGallery": "Galeriden Seç",
+    "takePhoto": "Fotoğraf Çek"
   },
   "editor": {
     "adjust": "Ayarla",
@@ -69,10 +68,10 @@
     "lighting": "Aydınlatma",
     "save": "Kaydet",
     "saving": "Kaydediliyor...",
-    "saved": "Proje başarıyla kaydedildi",
-    "saveFailed": "Proje kaydedilemedi.",
-    "noProjectTitle": "Aktif Proje Yok",
-    "noProjectSubtitle": "Düzenlemeye başlamak için 'Projeler' sekmesinden bir proje seçin veya yeni bir proje oluşturun.",
+    "saved": "Değişiklikler başarıyla kaydedildi",
+    "saveFailed": "Değişiklikler kaydedilemedi.",
+    "noActivePhoto": "Aktif Fotoğraf Yok",
+    "noActivePhotoSubtitle": "Düzenlemeye başlamak için bir fotoğraf seçin.",
     "resetSettings": "Ayarları Sıfırla"
   },
   "settings": {
@@ -120,7 +119,7 @@
       "cameraMessage": "Ayarlardan kameranıza erişim izni vermelisiniz."
     },
     "errors": {
-      "createProject": "Proje oluşturulamadı."
+      "createProduct": "Ürün oluşturulamadı."
     },
     "comingSoon": "Yakında"
   }

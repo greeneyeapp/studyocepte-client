@@ -1,3 +1,4 @@
+// kodlar/stores/useProductStore.ts
 import { create } from 'zustand';
 import { api, Product, ProductDetail } from '@/services/api';
 
@@ -14,6 +15,9 @@ interface ProductActions {
   createProductAndUpload: (name: string, imageUri: string) => Promise<Product | undefined>;
   uploadAnotherPhoto: (productId: string, imageUri: string) => Promise<void>;
   clearActiveProduct: () => void;
+  refreshProducts: () => Promise<void>;
+  getProductById: (productId: string) => Product | undefined;
+  clearError: () => void;
 }
 
 export const useProductStore = create<ProductState & ProductActions>((set, get) => ({
@@ -70,5 +74,19 @@ export const useProductStore = create<ProductState & ProductActions>((set, get) 
       }
   },
 
+  refreshProducts: async () => {
+    try {
+      const products = await api.fetchProducts();
+      set({ products, error: null });
+    } catch (error: any) {
+      console.error("Ürün yenileme hatası:", error);
+    }
+  },
+
+  getProductById: (productId: string) => {
+    return get().products.find(p => p.id === productId);
+  },
+
   clearActiveProduct: () => set({ activeProduct: null }),
+  clearError: () => set({ error: null }),
 }));

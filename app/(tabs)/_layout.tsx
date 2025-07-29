@@ -40,11 +40,20 @@ export default function TabLayout() {
         }}
       />
       
-      {/* YENİ DİNAMİK ROTA TANIMI */}
+      {/* Product detail sayfası - Tab bar'da görünmez */}
       <Tabs.Screen
-        name="[projectId]" // Dosya adıyla eşleşiyor
+        name="product"
         options={{
-          href: null, // Tab bar'da görünmez yap
+          href: null, // Tab bar'da görünmez
+          title: t('products.title'),
+        }}
+      />
+
+      {/* Editor sayfası - Tab bar'da görünmez */}
+      <Tabs.Screen
+        name="editor"
+        options={{
+          href: null, // Tab bar'da görünmez
           title: t('editor.title'),
         }}
       />

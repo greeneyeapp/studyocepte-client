@@ -14,11 +14,10 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
-import { useProjectStore } from '@/stores/useProductStore';
-import { useEditorStore } from '@/stores/useEditorStore';
+import { useProductStore } from '@/stores/useProductStore';
 import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
 import { Card } from '@/components/Card';
-import { Project } from '@/services/api';
+import { Product } from '@/services/api';
 import { ToastService } from '@/components/Toast/ToastService';
 import { LoadingService } from '@/components/Loading/LoadingService';
 import { Layout } from '@/constants/Layout';
@@ -28,10 +27,10 @@ import { InputDialogService } from '@/components/Dialog/InputDialogService';
 const numColumns = Layout.isTablet ? 4 : 3;
 
 // SAAT DİLİMİNDEN ETKİLENMEYEN, KESİN TARİH GRUPLAMA FONKSİYONU
-const groupProjectsByDate = (projects: Project[], t: (key: string) => string, language: string) => {
-  if (!projects.length) return [];
-  const sortedProjects = [...projects].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  const groups: { [key: string]: Project[] } = {};
+const groupProductsByDate = (products: Product[], t: (key: string) => string, language: string) => {
+  if (!products.length) return [];
+  const sortedProducts = [...products].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const groups: { [key: string]: Product[] } = {};
 
   const today = new Date();
   const yesterday = new Date();
@@ -39,22 +38,22 @@ const groupProjectsByDate = (projects: Project[], t: (key: string) => string, la
 
   const isSameDay = (d1: Date, d2: Date) => d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
 
-  sortedProjects.forEach(project => {
-    const projectDate = new Date(project.createdAt); // UTC tarihini yerel saate çevirir
+  sortedProducts.forEach(product => {
+    const productDate = new Date(product.createdAt);
     let key = '';
-    if (isSameDay(projectDate, today)) key = t('home.today');
-    else if (isSameDay(projectDate, yesterday)) key = t('home.yesterday');
-    else key = projectDate.toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' });
+    if (isSameDay(productDate, today)) key = t('home.today');
+    else if (isSameDay(productDate, yesterday)) key = t('home.yesterday');
+    else key = productDate.toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' });
     if (!groups[key]) groups[key] = [];
-    groups[key].push(project);
+    groups[key].push(product);
   });
 
   // SectionList'in her bir satırını bir item olarak görmesi için veriyi yeniden yapılandırıyoruz
   return Object.keys(groups).map(key => {
     const chunkedData = [];
-    const projects = groups[key];
-    for (let i = 0; i < projects.length; i += numColumns) {
-      chunkedData.push(projects.slice(i, i + numColumns));
+    const products = groups[key];
+    for (let i = 0; i < products.length; i += numColumns) {
+      chunkedData.push(products.slice(i, i + numColumns));
     }
     return { title: key, data: chunkedData };
   });
@@ -63,111 +62,96 @@ const groupProjectsByDate = (projects: Project[], t: (key: string) => string, la
 export default function HomeScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const { projects, isLoading, fetchProjects, createProject, refreshProjects } = useProjectStore();
-  const { setActiveProject } = useEditorStore();
+  const { products, isLoading, fetchProducts, createProductAndUpload, refreshProducts } = useProductStore();
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
-    fetchProjects();
+    fetchProducts();
   }, []);
 
-  useEffect(() => {
-    const isProcessing = projects.some(p => p.status === 'processing');
-    if (isProcessing) {
-      const interval = setInterval(() => {
-        refreshProjects();
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [projects, refreshProjects]);
+  const productSections = useMemo(() => groupProductsByDate(products, t, i18n.language), [products, t, i18n.language]);
 
-  const projectSections = useMemo(() => groupProjectsByDate(projects, t, i18n.language), [projects, t, i18n.language]);
-
-  const handleCreateNewProject = () => {
+  const handleCreateNewProduct = () => {
     const d = new Date();
     const defaultName = `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
     InputDialogService.show({
-      title: t('projects.nameYourProject'),
-      placeholder: t('projects.projectNamePlaceholder'),
+      title: t('products.nameYourProduct'),
+      placeholder: t('products.productNamePlaceholder'),
       onConfirm: (name) => {
         askForImageSource(name.trim() || defaultName);
       },
     });
   };
 
-  const askForImageSource = (projectName: string) => {
+  const askForImageSource = (productName: string) => {
     BottomSheetService.show({
-      title: t('projects.createProjectTitle'),
+      title: t('products.createProductTitle'),
       actions: [
-        { id: 'gallery', text: t('projects.selectFromGallery'), icon: 'image', onPress: () => pickImageFromGallery(projectName) },
-        { id: 'camera', text: t('projects.takePhoto'), icon: 'camera', onPress: () => takePhoto(projectName) },
+        { id: 'gallery', text: t('projects.selectFromGallery'), icon: 'image', onPress: () => pickImageFromGallery(productName) },
+        { id: 'camera', text: t('projects.takePhoto'), icon: 'camera', onPress: () => takePhoto(productName) },
       ],
     });
   };
 
-  const pickImageFromGallery = async (projectName: string) => {
+  const pickImageFromGallery = async (productName: string) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { ToastService.show({ type: 'error', text1: t('common.permissions.galleryTitle'), text2: t('common.permissions.galleryMessage') }); return; }
+    if (status !== 'granted') { 
+      ToastService.show({ type: 'error', text1: t('common.permissions.galleryTitle'), text2: t('common.permissions.galleryMessage') }); 
+      return; 
+    }
     const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: false, quality: 1 });
     if (!result.canceled && result.assets) {
-      await createProjectWithImage(result.assets[0].uri, projectName);
+      await createProductWithImage(result.assets[0].uri, productName);
     }
   };
 
-  const takePhoto = async (projectName: string) => {
+  const takePhoto = async (productName: string) => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') { ToastService.show({ type: 'error', text1: t('common.permissions.cameraTitle'), text2: t('common.permissions.cameraMessage') }); return; }
+    if (status !== 'granted') { 
+      ToastService.show({ type: 'error', text1: t('common.permissions.cameraTitle'), text2: t('common.permissions.cameraMessage') }); 
+      return; 
+    }
     const result = await ImagePicker.launchCameraAsync({ allowsEditing: false, quality: 1 });
     if (!result.canceled && result.assets) {
-      await createProjectWithImage(result.assets[0].uri, projectName);
+      await createProductWithImage(result.assets[0].uri, productName);
     }
   };
 
-  const createProjectWithImage = async (imageUri: string, projectName: string) => {
+  const createProductWithImage = async (imageUri: string, productName: string) => {
     setIsCreating(true);
     LoadingService.show();
     try {
-      await createProject(imageUri, projectName);
-      ToastService.show({ type: 'success', text1: t('common.success'), text2: t('projects.projectCreated') });
+      await createProductAndUpload(productName, imageUri);
+      ToastService.show({ type: 'success', text1: t('common.success'), text2: t('products.productCreated') });
     } catch (e: any) {
-      ToastService.show({ type: 'error', text1: t('common.error'), text2: e.message || t('common.errors.createProject') });
+      ToastService.show({ type: 'error', text1: t('common.error'), text2: e.message || t('common.errors.createProduct') });
     } finally {
       setIsCreating(false);
       LoadingService.hide();
     }
   };
 
-  const handleProjectPress = (project: Project) => {
-    if (project.status !== 'completed') {
-      ToastService.show({
-        type: project.status === 'failed' ? 'error' : 'info',
-        text1: project.status === 'failed' ? t('projects.failedProjectTitle') : t('projects.processingProjectTitle'),
-        text2: project.status === 'failed' ? t('projects.failedProjectMessage') : t('projects.processingProjectMessage'),
-      });
-      return;
-    }
+  const handleProductPress = (product: Product) => {
     router.push({
-      pathname: '/(tabs)/[projectId]',
-      params: { projectId: project.id },
+      pathname: '/(tabs)/product/[productId]',
+      params: { productId: product.id },
     });
   };
 
-  const renderProjectRow = ({ item }: { item: Project[] }) => (
+  const renderProductRow = ({ item }: { item: Product[] }) => (
     <View style={styles.row}>
-      {item.map((project) => (
-        <View key={project.id} style={styles.cardWrapper}>
-          <TouchableOpacity onPress={() => handleProjectPress(project)} activeOpacity={0.8}>
+      {item.map((product) => (
+        <View key={product.id} style={styles.cardWrapper}>
+          <TouchableOpacity onPress={() => handleProductPress(product)} activeOpacity={0.8}>
             <Card padding="none">
               <Image
-                source={{ uri: project.thumbnailUrl || `https://via.placeholder.com/150?text=${t('projects.noImage')}` }}
-                style={styles.projectImage}
+                source={{ uri: product.coverThumbnailUrl || `https://via.placeholder.com/150?text=${t('products.noImage')}` }}
+                style={styles.productImage}
               />
-              {project.status !== 'completed' && (
-                <View style={styles.statusOverlay}>
-                  {project.status === 'processing' && <ActivityIndicator color={Colors.card} />}
-                  {project.status === 'failed' && <Feather name="alert-triangle" size={24} color={Colors.card} />}
-                </View>
-              )}
+              <View style={styles.productInfo}>
+                <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
+                <Text style={styles.photoCount}>{product.photoCount} {t('products.photos')}</Text>
+              </View>
             </Card>
           </TouchableOpacity>
         </View>
@@ -182,29 +166,29 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Text style={styles.title}>{t('home.title')}</Text>
+        <Text style={styles.title}>{t('products.title')}</Text>
       </View>
 
       <SectionList
-        sections={projectSections}
+        sections={productSections}
         keyExtractor={(item, index) => 'row-' + index}
         renderSectionHeader={({ section: { title } }) => <Text style={styles.sectionHeader}>{title}</Text>}
-        renderItem={renderProjectRow}
+        renderItem={renderProductRow}
         ListEmptyComponent={() => !isLoading && (
           <View style={styles.emptyContainer}>
-            <Feather name="folder" size={48} color={Colors.textSecondary} />
-            <Text style={styles.emptyText}>{t('projects.empty')}</Text>
-            <Text style={styles.emptySubtext}>{t('projects.emptySubtitle')}</Text>
+            <Feather name="package" size={48} color={Colors.textSecondary} />
+            <Text style={styles.emptyText}>{t('products.empty')}</Text>
+            <Text style={styles.emptySubtext}>{t('products.emptySubtitle')}</Text>
           </View>
         )}
-        ListFooterComponent={isLoading && projects.length === 0 ? <ActivityIndicator style={{ margin: Spacing.lg }} /> : null}
+        ListFooterComponent={isLoading && products.length === 0 ? <ActivityIndicator style={{ margin: Spacing.lg }} /> : null}
         contentContainerStyle={styles.listContainer}
-        onRefresh={fetchProjects}
+        onRefresh={fetchProducts}
         refreshing={isLoading}
       />
       <TouchableOpacity
         style={[styles.fab, isCreating && styles.fabDisabled]}
-        onPress={handleCreateNewProject}
+        onPress={handleCreateNewProduct}
         activeOpacity={0.8}
         disabled={isCreating || isLoading}
       >
@@ -222,8 +206,10 @@ const styles = StyleSheet.create({
   sectionHeader: { ...Typography.body, fontWeight: '600', color: Colors.textSecondary, marginBottom: Spacing.sm, marginTop: Spacing.lg, paddingHorizontal: Spacing.md },
   row: { flexDirection: 'row' },
   cardWrapper: { width: `${100 / numColumns}%`, padding: Spacing.sm },
-  projectImage: { width: '100%', aspectRatio: 1, borderRadius: BorderRadius.lg, backgroundColor: Colors.gray100 },
-  statusOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', borderRadius: BorderRadius.lg },
+  productImage: { width: '100%', aspectRatio: 1, borderTopLeftRadius: BorderRadius.lg, borderTopRightRadius: BorderRadius.lg, backgroundColor: Colors.gray100 },
+  productInfo: { padding: Spacing.md },
+  productName: { ...Typography.bodyMedium, color: Colors.textPrimary, marginBottom: Spacing.xs },
+  photoCount: { ...Typography.caption, color: Colors.textSecondary },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', height: Layout.screen.height * 0.6 },
   emptyText: { ...Typography.h2, color: Colors.textPrimary, marginTop: Spacing.md },
   emptySubtext: { ...Typography.body, color: Colors.textSecondary, marginTop: Spacing.sm, textAlign: 'center' },
