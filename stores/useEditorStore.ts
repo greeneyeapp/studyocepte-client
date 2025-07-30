@@ -1,4 +1,4 @@
-// stores/useEditorStore.ts - Enhanced Version
+// stores/useEditorStore.ts - Enhanced Version with Apple Photos Features
 import { create } from 'zustand';
 import { api, ProductPhoto, Background, EditorSettings } from '@/services/api';
 import { ToastService } from '@/components/Toast/ToastService';
@@ -62,7 +62,7 @@ interface EditorActions {
   centerPhoto: () => void;
   resetPhotoPosition: () => void;
   
-  // Preset filters
+  // Preset filters - YENİ EKLENEN FONKSİYON
   applyPresetFilter: (presetName: string) => void;
 }
 
@@ -105,38 +105,47 @@ const defaultSettings: EnhancedEditorSettings = {
   effectTarget: 'photo',
 };
 
-// Preset filter configurations
+// Preset filter configurations - Apple Photos tarzı
 const presetFilters = {
   original: {
     exposure: 0, highlights: 0, shadows: 0, brightness: 0, contrast: 0, 
     saturation: 0, vibrance: 0, warmth: 0, tint: 0, clarity: 0, noise: 0, vignette: 0
   },
   vivid: {
-    saturation: 30, vibrance: 20, warmth: 10, contrast: 15, clarity: 10
+    saturation: 30, vibrance: 20, warmth: 10, contrast: 15, clarity: 10,
+    exposure: 5, highlights: -5, shadows: 5
   },
   dramatic: {
-    contrast: 40, highlights: -20, shadows: 20, clarity: 25, vignette: 15
+    contrast: 40, highlights: -20, shadows: 20, clarity: 25, vignette: 15,
+    saturation: 10, exposure: -5, warmth: 5
   },
   mono: {
-    saturation: -100, contrast: 20, clarity: 15, vignette: 10
+    saturation: -100, contrast: 20, clarity: 15, vignette: 10,
+    highlights: -10, shadows: 10, exposure: 5
   },
   vintage: {
-    warmth: 40, contrast: -10, vignette: 30, saturation: -20, shadows: 15
+    warmth: 40, contrast: -10, vignette: 30, saturation: -20, shadows: 15,
+    exposure: -10, highlights: -15, clarity: -5, tint: 10
   },
   cool: {
-    warmth: -30, tint: -20, saturation: 10, highlights: 10
+    warmth: -30, tint: -20, saturation: 10, highlights: 10,
+    contrast: 5, clarity: 5, vibrance: 15
   },
   warm: {
-    warmth: 25, tint: 10, exposure: 5, shadows: -10
+    warmth: 25, tint: 10, exposure: 5, shadows: -10,
+    saturation: 15, vibrance: 10, contrast: 5
   },
   fade: {
-    highlights: -30, shadows: 20, contrast: -20, saturation: -15
+    highlights: -30, shadows: 20, contrast: -20, saturation: -15,
+    exposure: 10, warmth: 5, clarity: -10, vignette: 5
   },
   cinema: {
-    contrast: 30, shadows: 25, highlights: -15, warmth: 5, vignette: 20
+    contrast: 30, shadows: 25, highlights: -15, warmth: 5, vignette: 20,
+    saturation: -5, clarity: 15, exposure: -5
   },
   bright: {
-    exposure: 20, highlights: 15, shadows: -10, vibrance: 15
+    exposure: 20, highlights: 15, shadows: -10, vibrance: 15,
+    contrast: 10, clarity: 10, saturation: 5, warmth: 5
   },
 };
 
@@ -181,11 +190,9 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     };
 
     set({
-      // DÜZELTME: activePhoto.originalImageUrl için processedImageUrl kullan
-      // rawImageUrl client'a gönderilmediği için, orijinal olarak processedImageUrl'i kabul ediyoruz.
       activePhoto: { 
         ...photo, 
-        originalImageUrl: photo.processedImageUrl, // processedImageUrl'i orijinal olarak kabul et
+        originalImageUrl: photo.processedImageUrl,
       }, 
       settings: loadedSettings,
       originalPhotoPosition: {
@@ -290,8 +297,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
         lighting: settings.brightness / 100, 
       };
       
-      // Backend'deki update_photo_settings endpoint'ini çağırıyoruz
-      await api.updatePhotoSettings(activePhoto.id, apiSettings);
+      await api.savePhotoSettings(activePhoto.id, apiSettings);
       
       set(state => ({
         isSaving: false,
@@ -326,6 +332,11 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       settings: { ...defaultSettings },
       hasUnsavedChanges: true,
     });
+    ToastService.show({ 
+      type: 'success', 
+      text1: 'Sıfırlandı', 
+      text2: 'Tüm ayarlar varsayılan değerlere döndürüldü.' 
+    });
   },
 
   centerPhoto: () => {
@@ -334,6 +345,11 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       photoY: 0.5,
       photoScale: 1.0,
       photoRotation: 0,
+    });
+    ToastService.show({ 
+      type: 'success', 
+      text1: 'Hizalandı', 
+      text2: 'Fotoğraf merkeze hizalandı.' 
     });
   },
 
@@ -347,10 +363,14 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     });
   },
 
+  // YENİ EKLENEN FONKSİYON: Apple Photos tarzı preset filtreler - Toast'sız
   applyPresetFilter: (presetName: string) => {
     const preset = presetFilters[presetName as keyof typeof presetFilters];
     if (preset) {
-      get().updateSettings(preset);
+      get().updateSettings({ ...preset });
+      // Toast mesajını kaldırdık - sadece sessizce uygula
+    } else {
+      console.warn(`Bilinmeyen preset filtre: ${presetName}`);
     }
   },
 
