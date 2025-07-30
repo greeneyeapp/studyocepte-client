@@ -21,6 +21,7 @@ export interface ProductPhoto {
   originalImageUrl: string;
   processedImageUrl?: string;
   thumbnailUrl?: string;
+  rawImageUrl?: string;
   status: 'processing' | 'completed' | 'failed';
   editorSettings?: EditorSettings;
   createdAt: string;

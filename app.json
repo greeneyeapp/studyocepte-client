@@ -46,7 +46,8 @@
           "savePhotosPermission": "App needs permission to save your edited product images to your photo library.",
           "isAccessPrivileged": true
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

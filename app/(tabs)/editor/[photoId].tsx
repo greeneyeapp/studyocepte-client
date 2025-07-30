@@ -1,16 +1,13 @@
-// kodlar/app/(tabs)/editor/[photoId].tsx
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
+  StyleSheet, // DÜZELTME: StyleStyleSheet -> StyleSheet
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  PanResponder,
-  Animated,
   Dimensions,
   Pressable,
 } from 'react-native';
@@ -20,133 +17,82 @@ import { Feather } from '@expo/vector-icons';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { ToastService } from '@/components/Toast/ToastService';
+import { Layout } from '@/constants/Layout';
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+// react-native-gesture-handler ve react-native-reanimated importları
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  runOnJS,
+} from 'react-native-reanimated';
 
-// Enhanced settings interface
-interface EnhancedSettings {
-  // Background settings
-  backgroundId: string;
-  
-  // Photo positioning
-  photoX: number;
-  photoY: number;
-  photoScale: number;
-  photoRotation: number;
-  
-  // Adjustment settings
-  exposure: number;      // -100 to +100
-  highlights: number;    // -100 to +100
-  shadows: number;       // -100 to +100
-  brightness: number;    // -100 to +100
-  contrast: number;      // -100 to +100
-  saturation: number;    // -100 to +100
-  vibrance: number;      // -100 to +100
-  warmth: number;        // -100 to +100
-  tint: number;          // -100 to +100
-  clarity: number;       // -100 to +100
-  noise: number;         // -100 to +100
-  vignette: number;      // -100 to +100
-  
-  // Crop settings
-  cropAspectRatio: string; // 'original', '1:1', '4:3', '16:9', etc.
-  cropX: number;
-  cropY: number;
-  cropWidth: number;
-  cropHeight: number;
-  
-  // Active effect target
-  effectTarget: 'photo' | 'background' | 'both';
-}
+// expo-gl importu
+import { GLView } from 'expo-gl';
+import { Asset } from 'expo-asset'; // Görüntüleri dokuya yüklemek için Asset kullanılır
+import { GL } from 'expo-gl'; // GL sabitleri için
 
-// Default settings
-const defaultSettings: EnhancedSettings = {
-  backgroundId: 'bg1',
-  photoX: 0.5, // Center of screen (0-1)
-  photoY: 0.5,
-  photoScale: 1.0,
-  photoRotation: 0,
-  exposure: 0,
-  highlights: 0,
-  shadows: 0,
-  brightness: 0,
-  contrast: 0,
-  saturation: 0,
-  vibrance: 0,
-  warmth: 0,
-  tint: 0,
-  clarity: 0,
-  noise: 0,
-  vignette: 0,
-  cropAspectRatio: 'original',
-  cropX: 0,
-  cropY: 0,
-  cropWidth: 1,
-  cropHeight: 1,
-  effectTarget: 'photo',
-};
+// Ekran boyutlarını al
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Apple-style slider component (FIXED VERSION)
+// =================================================================
+// Bileşen 1: AppleSlider (İnce ayarlar için) - GÜNCEL
+// =================================================================
 const AppleSlider = ({
-  label,
-  value,
-  onValueChange,
-  icon,
-  min = -100,
-  max = 100,
-  step = 1,
-  onReset,
-}: {
-  label: string;
-  value: number;
-  onValueChange: (value: number) => void;
-  icon: keyof typeof Feather.glyphMap;
-  min?: number;
-  max?: number;
-  step?: number;
-  onReset?: () => void;
+  label, value, onValueChange, icon, min = -100, max = 100, onReset,
 }) => {
   const [sliderWidth, setSliderWidth] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const position = useRef(new Animated.Value(0)).current;
 
-  // Calculate position based on value
-  const calculatePosition = (val: number) => {
-    const percentage = (val - min) / (max - min);
+  const initialPosition = useMemo(() => {
+    if (sliderWidth === 0) return 0;
+    const percentage = (value - min) / (max - min);
     return percentage * sliderWidth;
-  };
+  }, [value, sliderWidth, min, max]);
 
-  // Update position when value or slider width changes
+  const translateX = useSharedValue(initialPosition);
+  const startX = useSharedValue(initialPosition);
+
   useEffect(() => {
     if (sliderWidth > 0) {
-      const newPosition = calculatePosition(value);
-      Animated.timing(position, {
-        toValue: newPosition,
-        duration: isDragging ? 0 : 150,
-        useNativeDriver: false,
-      }).start();
+      const percentage = (value - min) / (max - min);
+      translateX.value = percentage * sliderWidth;
+      startX.value = percentage * sliderWidth;
     }
-  }, [value, sliderWidth, isDragging]);
+  }, [value, sliderWidth, min, max]);
 
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: () => {
-      setIsDragging(true);
-    },
-    onPanResponderMove: (evt) => {
-      if (sliderWidth <= 0) return;
+
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      startX.value = translateX.value;
+    })
+    .onUpdate((event) => {
+      let newPosition = startX.value + event.translationX;
       
-      const locationX = Math.max(0, Math.min(sliderWidth, evt.nativeEvent.locationX));
-      const percentage = locationX / sliderWidth;
-      const newValue = min + (percentage * (max - min));
-      const steppedValue = Math.round(newValue / step) * step;
-      
-      onValueChange(steppedValue);
-    },
-    onPanResponderRelease: () => {
-      setIsDragging(false);
-    },
+      newPosition = Math.max(0, Math.min(sliderWidth, newPosition));
+      translateX.value = newPosition;
+
+      const percentage = newPosition / sliderWidth;
+      const newValue = min + percentage * (max - min);
+      runOnJS(onValueChange)(Math.round(newValue));
+    })
+    .onEnd(() => {
+      // Ayarlar doğrudan GLView'a shader'lar aracılığıyla iletildiği için
+      // burada ek bir API çağrısı veya debouncing'e gerek yok.
+    });
+
+  const thumbAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      left: translateX.value,
+    };
+  });
+
+  const activeTrackAnimatedStyle = useAnimatedStyle(() => {
+    const center = sliderWidth / 2;
+    const currentPos = translateX.value;
+    return {
+      left: currentPos > center ? center : currentPos,
+      width: Math.abs(currentPos - center),
+    };
   });
 
   return (
@@ -157,9 +103,7 @@ const AppleSlider = ({
           <Text style={styles.sliderLabel}>{label}</Text>
         </View>
         <View style={styles.sliderValueContainer}>
-          <Text style={[styles.sliderValue, isDragging && styles.sliderValueActive]}>
-            {value > 0 ? `+${value}` : value}
-          </Text>
+          <Text style={styles.sliderValue}>{value > 0 ? `+${value}` : value}</Text>
           {onReset && value !== 0 && (
             <TouchableOpacity onPress={onReset} style={styles.resetButton}>
               <Feather name="rotate-ccw" size={16} color={Colors.textSecondary} />
@@ -167,345 +111,369 @@ const AppleSlider = ({
           )}
         </View>
       </View>
-      
-      <View
-        style={styles.sliderTrackContainer}
-        onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
-        {...panResponder.panHandlers}
-      >
-        {/* Track background */}
-        <View style={styles.sliderTrack} />
-        
-        {/* Center mark */}
-        <View style={[styles.centerMark, { left: sliderWidth / 2 - 1 }]} />
-        
-        {/* Active track (left or right of center) */}
-        {value !== 0 && (
-          <Animated.View
-            style={[
-              styles.activeTrack,
-              {
-                left: value > 0 ? sliderWidth / 2 : position,
-                width: Math.abs(calculatePosition(value) - sliderWidth / 2),
-                backgroundColor: value > 0 ? Colors.primary : Colors.error,
-              }
-            ]}
-          />
-        )}
-        
-        {/* Thumb */}
+      <GestureDetector gesture={panGesture}>
         <Animated.View
-          style={[
-            styles.sliderThumb,
-            {
-              left: position,
-              transform: [{ scale: isDragging ? 1.2 : 1 }],
-            }
-          ]}
-        />
-      </View>
+          style={styles.sliderTrackContainer}
+          onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
+        >
+          <View style={styles.sliderTrack} />
+          <View style={[styles.centerMark, { left: sliderWidth / 2 - 1 }]} />
+          <Animated.View style={[styles.activeTrack, activeTrackAnimatedStyle]} />
+          <Animated.View style={[styles.sliderThumb, thumbAnimatedStyle]} />
+        </Animated.View>
+      </GestureDetector>
     </View>
   );
 };
 
-// Photo positioning component
-const PhotoPositioner = ({ 
-  settings, 
-  onSettingsChange, 
-  imageUri, 
-  containerSize 
-}: {
-  settings: EnhancedSettings;
-  onSettingsChange: (newSettings: Partial<EnhancedSettings>) => void;
-  imageUri: string;
-  containerSize: { width: number; height: number };
-}) => {
-  const photoSize = containerSize.width * 0.6; // 60% of container width
-  
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderMove: (evt, gestureState) => {
-      const newX = Math.max(0, Math.min(1, 
-        (gestureState.moveX - photoSize/2) / (containerSize.width - photoSize)
-      ));
-      const newY = Math.max(0, Math.min(1, 
-        (gestureState.moveY - photoSize/2) / (containerSize.height - photoSize)
-      ));
-      
-      onSettingsChange({
-        photoX: newX,
-        photoY: newY,
-      });
-    },
-  });
-
-  return (
-    <Animated.View
-      style={[
-        styles.photoPositioner,
-        {
-          left: settings.photoX * (containerSize.width - photoSize),
-          top: settings.photoY * (containerSize.height - photoSize),
-          width: photoSize,
-          height: photoSize,
-          transform: [
-            { scale: settings.photoScale },
-            { rotate: `${settings.photoRotation}deg` }
-          ],
-        }
-      ]}
-      {...panResponder.panHandlers}
-    >
-      <Image source={{ uri: imageUri }} style={styles.positionerImage} />
-    </Animated.View>
-  );
-};
-
-// Live preview component with enhanced effects
-const LivePreview = ({ 
-  photoUri, 
-  backgroundUri, 
-  settings, 
-  style,
-  showOriginal = false 
-}: {
-  photoUri: string;
-  backgroundUri?: string;
-  settings: EnhancedSettings;
-  style: any;
-  showOriginal?: boolean;
-}) => {
-  const getImageStyle = (target: 'photo' | 'background') => {
-    if (showOriginal || settings.effectTarget === 'photo' && target === 'background' || 
-        settings.effectTarget === 'background' && target === 'photo') {
-      return {};
-    }
-
-    const applyToTarget = settings.effectTarget === 'both' || settings.effectTarget === target;
-    if (!applyToTarget) return {};
-
-    return {
-      opacity: Math.max(0.1, Math.min(1, 1 + (settings.brightness / 100))),
-      transform: [
-        { scale: 1 + (settings.contrast / 200) }
-      ],
-    };
-  };
-
-  return (
-    <View style={style}>
-      {/* Background */}
-      {backgroundUri && (
-        <View style={styles.backgroundContainer}>
-          <Image
-            source={{ uri: backgroundUri }}
-            style={[styles.backgroundImage, getImageStyle('background')]}
-          />
-          {/* Background effects overlay */}
-          {!showOriginal && (settings.effectTarget === 'background' || settings.effectTarget === 'both') && (
-            <>
-              {/* Warmth overlay */}
-              {settings.warmth !== 0 && (
-                <View
-                  style={[
-                    StyleSheet.absoluteFillObject,
-                    {
-                      backgroundColor: settings.warmth > 0 ? '#FFB347' : '#87CEEB',
-                      opacity: Math.abs(settings.warmth) / 300,
-                    }
-                  ]}
-                />
-              )}
-              {/* Saturation overlay */}
-              {settings.saturation < -50 && (
-                <View
-                  style={[
-                    StyleSheet.absoluteFillObject,
-                    {
-                      backgroundColor: '#808080',
-                      opacity: Math.abs(settings.saturation + 50) / 150,
-                    }
-                  ]}
-                />
-              )}
-            </>
-          )}
-        </View>
-      )}
-      
-      {/* Photo */}
-      <View
-        style={[
-          styles.photoContainer,
-          {
-            left: `${settings.photoX * 100}%`,
-            top: `${settings.photoY * 100}%`,
-            transform: [
-              { translateX: -50 },
-              { translateY: -50 },
-              { scale: settings.photoScale },
-              { rotate: `${settings.photoRotation}deg` }
-            ],
-          }
-        ]}
-      >
-        <Image
-          source={{ uri: photoUri }}
-          style={[styles.photoImage, getImageStyle('photo')]}
-        />
-        {/* Photo effects overlay */}
-        {!showOriginal && (settings.effectTarget === 'photo' || settings.effectTarget === 'both') && (
-          <>
-            {/* Exposure overlay */}
-            {settings.exposure !== 0 && (
-              <View
-                style={[
-                  StyleSheet.absoluteFillObject,
-                  {
-                    backgroundColor: settings.exposure > 0 ? '#FFFFFF' : '#000000',
-                    opacity: Math.abs(settings.exposure) / 300,
-                  }
-                ]}
-              />
-            )}
-            {/* Highlights/Shadows overlay */}
-            {settings.highlights !== 0 && (
-              <View
-                style={[
-                  StyleSheet.absoluteFillObject,
-                  {
-                    backgroundColor: settings.highlights > 0 ? '#FFFFFF' : '#000000',
-                    opacity: Math.abs(settings.highlights) / 400,
-                  }
-                ]}
-              />
-            )}
-          </>
-        )}
-      </View>
-    </View>
-  );
-};
-
-// Main component
+// =================================================================
+// Ana Component - GÜNCEL VE GLVIEW İLE FİLTRELER UYGULANIYOR
+// =================================================================
 export default function ModernPhotoEditor() {
   const { t } = useTranslation();
   const { photoId } = useLocalSearchParams<{ photoId: string }>();
   const router = useRouter();
   
   const [currentTool, setCurrentTool] = useState<'adjust' | 'filters' | 'crop'>('adjust');
-  const [settings, setSettings] = useState<EnhancedSettings>(defaultSettings);
-  const [activeAdjustment, setActiveAdjustment] = useState<string | null>(null);
-  const [showOriginal, setShowOriginal] = useState(false);
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [showOriginal, setShowOriginal] = useState(false); // Bu state artık GLView içinde uniform olarak kullanılacak
+  const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
+  const glRef = useRef(null); // GLView referansı
+  const [glContext, setGlContext] = useState(null); // GL bağlamını tutmak için
+  const [glProgram, setGlProgram] = useState(null); // GL programını tutmak için
+  const [glTexture, setGlTexture] = useState(null); // GL dokusunu tutmak için
 
   const {
-    activePhoto,
-    backgrounds,
-    isLoading,
-    isSaving,
-    setActivePhotoById,
-    fetchBackgrounds,
-    saveChanges,
-    clearStore,
+    activePhoto, backgrounds, isLoading, isSaving, settings,
+    setActivePhotoById, fetchBackgrounds, updateSettings, saveChanges, clearStore, resetToDefaults,
   } = useEditorStore();
 
+  // Reanimated Shared Values for photo transformations
+  const photoX = useSharedValue(0);
+  const photoY = useSharedValue(0);
+  const photoScale = useSharedValue(1);
+  const photoRotation = useSharedValue(0);
+
+  // Başlangıç değerlerini tutmak için SharedValues
+  const initialPhotoX = useSharedValue(0);
+  const initialPhotoY = useSharedValue(0);
+  const initialPhotoScale = useSharedValue(1);
+  const initialPhotoRotation = useSharedValue(0);
+
+  // Store'daki ayarlar değiştiğinde SharedValues'ı güncelle
   useEffect(() => {
-    if (!photoId) {
-      ToastService.show({
-        type: 'error',
-        text1: t('common.error'),
-        text2: "Fotoğraf ID'si bulunamadı.",
-      });
-      router.back();
+    if (previewSize.width > 0 && previewSize.height > 0) {
+      photoX.value = (settings.photoX - 0.5) * previewSize.width;
+      photoY.value = (settings.photoY - 0.5) * previewSize.height;
+    } else {
+      photoX.value = 0;
+      photoY.value = 0;
+    }
+    
+    photoScale.value = settings.photoScale;
+    photoRotation.value = settings.photoRotation;
+
+    initialPhotoX.value = photoX.value;
+    initialPhotoY.value = photoY.value;
+    initialPhotoScale.value = photoScale.value;
+    initialPhotoRotation.value = photoRotation.value;
+
+  }, [settings.photoX, settings.photoY, settings.photoScale, settings.photoRotation, previewSize]);
+
+  // Bileşen yüklendiğinde ve photoId değiştiğinde verileri getir
+  useEffect(() => {
+    console.log("setActivePhotoById useEffect tetiklendi.");
+    if (photoId) {
+      setActivePhotoById(photoId);
+      fetchBackgrounds();
+    }
+    return () => {
+      console.log("Component unmount, store temizleniyor.");
+      clearStore();
+    };
+  }, [photoId, setActivePhotoById, fetchBackgrounds, clearStore]);
+
+  // === GLSL Shader'lar ===
+  // Vertex Shader: Görüntüyü ekrana yansıtmak için basit bir shader
+  const vertexShaderSource = `
+    attribute vec2 position;
+    varying vec2 uv;
+    void main() {
+      gl_Position = vec4(position, 0.0, 1.0);
+      uv = (position + 1.0) / 2.0; // 0-1 aralığında UV koordinatları
+    }
+  `;
+
+  // Fragment Shader: Görüntüye filtreleri uygulayan shader
+  const fragmentShaderSource = `
+    precision highp float;
+    varying vec2 uv;
+    uniform sampler2D u_texture; // Görüntü dokusu
+    uniform float u_brightness;  // Parlaklık (-1.0 to 1.0)
+    uniform float u_contrast;    // Kontrast (0.0 to 2.0)
+    uniform float u_saturation;  // Doygunluk (0.0 to 2.0)
+    uniform float u_hue;         // Ton (derece cinsinden, -180 to 180)
+    uniform float u_vignette;    // Vinyet yoğunluğu (0.0 to 1.0)
+    uniform bool u_showOriginal; // Orijinal görüntüyü gösterip göstermeme bayrağı
+
+    // RGB to HSV dönüşümü
+    vec3 rgb2hsv(vec3 c) {
+      vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+      vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+      vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+
+      float d = q.x - min(q.w, q.y);
+      float e = 1.0e-10;
+      return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+    }
+
+    // HSV to RGB dönüşümü
+    vec3 hsv2rgb(vec3 c) {
+      vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+      vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+      return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+    }
+
+    void main() {
+      vec4 color = texture2D(u_texture, uv);
+      vec3 rgb = color.rgb;
+
+      if (u_showOriginal) {
+        gl_FragColor = color; // Eğer orijinal gösterilecekse, filtre uygulama
+        return;
+      }
+
+      // Parlaklık
+      rgb += u_brightness;
+
+      // Kontrast
+      rgb = ((rgb - 0.5) * u_contrast) + 0.5;
+
+      // Doygunluk (RGB'den HSV'ye, S'yi ayarla, tekrar RGB'ye)
+      vec3 hsv = rgb2hsv(rgb);
+      hsv.y *= u_saturation; // Doygunluğu ayarla
+      rgb = hsv2rgb(hsv);
+
+      // Ton (Sıcaklık/Hue)
+      hsv = rgb2hsv(rgb);
+      hsv.x = mod(hsv.x + u_hue / 360.0, 1.0); // Hue'yi 0-1 aralığında kaydır
+      rgb = hsv2rgb(hsv);
+
+      // Vinyet
+      float dist = distance(uv, vec2(0.5, 0.5)); // Merkezden uzaklık
+      float vignette_intensity = 1.0 - dist * u_vignette * 2.0; // Vinyet yoğunluğunu ayarla
+      vignette_intensity = clamp(vignette_intensity, 0.0, 1.0); // Değeri 0-1 aralığında tut
+      rgb *= vignette_intensity; // Görüntüyü vinyet ile karart
+
+      gl_FragColor = vec4(rgb, color.a);
+    }
+  `;
+
+  // === GLView Render Mantığı ===
+  const renderGlContent = async () => {
+    if (!glContext || !activePhoto || typeof activePhoto.processedImageUrl !== 'string' || activePhoto.processedImageUrl.length === 0) {
+      console.log("GL render edilemiyor: glContext, activePhoto veya geçerli processedImageUrl eksik.");
+      if (activePhoto && (typeof activePhoto.processedImageUrl !== 'string' || activePhoto.processedImageUrl.length === 0)) {
+        console.error("Geçersiz activePhoto.processedImageUrl:", activePhoto.processedImageUrl);
+        ToastService.show({ type: 'error', text1: 'Hata', text2: 'Geçersiz işlenmiş görüntü URL\'si.' });
+      }
       return;
     }
 
-    const loadPhoto = async () => {
-      try {
-        await setActivePhotoById(photoId);
-        await fetchBackgrounds();
-      } catch (error: any) {
-        ToastService.show({
-          type: 'error',
-          text1: t('common.error'),
-          text2: error.message || 'Fotoğraf yüklenemedi.',
-        });
-        router.back();
-      }
-    };
+    const gl = glContext;
 
-    loadPhoto();
-    return () => clearStore();
-  }, [photoId]);
+    // Eğer program henüz oluşturulmadıysa, oluştur
+    if (!glProgram) {
+      const program = gl.createProgram();
+      const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+      gl.shaderSource(vertexShader, vertexShaderSource);
+      gl.compileShader(vertexShader);
+      gl.attachShader(program, vertexShader);
+
+      const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+      gl.shaderSource(fragmentShader, fragmentShaderSource);
+      gl.compileShader(fragmentShader);
+      gl.attachShader(program, fragmentShader);
+
+      gl.linkProgram(program);
+      gl.useProgram(program);
+      setGlProgram(program);
+
+      // Vertex buffer'ı oluştur ve ayarla (sadece bir kez)
+      const buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, -1, 1, 1, 1, 1, -1]), gl.STATIC_DRAW);
+
+      const positionAttrib = gl.getAttribLocation(program, 'position');
+      gl.enableVertexAttribArray(positionAttrib);
+      gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 0, 0);
+
+      // Doku birimini ayarla
+      gl.uniform1i(gl.getUniformLocation(program, 'u_texture'), 0);
+    } else {
+      gl.useProgram(glProgram); // Mevcut programı kullan
+    }
+
+    // Görüntüyü dokuya yükle (URL değiştiğinde veya doku henüz yüklenmediyse yeniden yükle)
+    if (!glTexture || glTexture.uri !== activePhoto.processedImageUrl) {
+      console.log("Görüntü dokuya yükleniyor (processedImageUrl):", activePhoto.processedImageUrl);
+      try {
+        const asset = Asset.fromURI(activePhoto.processedImageUrl);
+        await asset.downloadAsync();
+        
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, asset);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        setGlTexture({ texture, uri: activePhoto.processedImageUrl });
+      } catch (error) {
+        console.error("Görüntü dokuya yüklenirken hata:", error);
+        ToastService.show({ type: 'error', text1: 'Hata', text2: 'Görüntü yüklenemedi.' });
+        return;
+      }
+    } else {
+      gl.bindTexture(gl.TEXTURE_2D, glTexture.texture); // Mevcut dokuyu bağla
+    }
+
+    // Ayarları GLSL uniform'larına aktar
+    // showOriginal durumunu uniform olarak shader'a geçir
+    gl.uniform1i(gl.getUniformLocation(glProgram, 'u_showOriginal'), showOriginal ? 1 : 0);
+
+    // Slider değerleri (-100 to 100) GLSL'nin beklediği aralıklara dönüştürülüyor
+    gl.uniform1f(gl.getUniformLocation(glProgram, 'u_brightness'), settings.brightness / 100.0); // -1.0 to 1.0
+    gl.uniform1f(gl.getUniformLocation(glProgram, 'u_contrast'), (settings.contrast + 100) / 100.0); // 0.0 to 2.0
+    gl.uniform1f(gl.getUniformLocation(glProgram, 'u_saturation'), (settings.saturation + 100) / 100.0); // 0.0 to 2.0
+    gl.uniform1f(gl.getUniformLocation(glProgram, 'u_hue'), settings.warmth); // -100 to 100, shader'da 360'a normalize edilecek
+    gl.uniform1f(gl.getUniformLocation(glProgram, 'u_vignette'), Math.max(0, settings.vignette / 100.0)); // 0.0 to 1.0 (sadece karartma)
+
+    // Çizim
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); // Dörtgeni çiz
+    gl.flush();
+    gl.endFrameEXP(); // Çerçeveyi bitir
+  };
+
+  // GL bağlamı oluşturulduğunda ilk render'ı tetikle
+  const onGlContextCreate = async (gl) => {
+    setGlContext(gl);
+    console.log("GL Context oluşturuldu.");
+  };
+
+  // Ayarlar değiştiğinde, fotoğraf değiştiğinde veya showOriginal değiştiğinde GLView'ı yeniden çiz
+  useEffect(() => {
+    console.log("GLContext, activePhoto, settings veya showOriginal değişti, yeniden çizim tetikleniyor.");
+    // renderGlContent'ı sadece gerekli tüm veriler mevcutken çağır
+    if (glContext && activePhoto && activePhoto.processedImageUrl && typeof activePhoto.processedImageUrl === 'string' && activePhoto.processedImageUrl.length > 0 && !isLoading) {
+      console.log("GL render için tüm koşullar sağlandı. renderGlContent çağrılıyor.");
+      renderGlContent();
+    } else {
+      console.log("GL render için hazır değil (koşullar sağlanmadı):", {
+        glContext: !!glContext,
+        activePhotoExists: !!activePhoto,
+        processedImageUrl: activePhoto?.processedImageUrl, 
+        isLoading: isLoading,
+        isProcessedImageUrlValid: typeof activePhoto?.processedImageUrl === 'string' && activePhoto?.processedImageUrl.length > 0
+      });
+    }
+  }, [glContext, activePhoto, settings, isLoading, showOriginal]); // showOriginal'ı bağımlılıklara ekle
+
+  // Pan Gesture for moving the photo
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      initialPhotoX.value = photoX.value;
+      initialPhotoY.value = photoY.value;
+    })
+    .onUpdate((event) => {
+      photoX.value = initialPhotoX.value + event.translationX;
+      photoY.value = initialPhotoY.value + event.translationY;
+    })
+    .onEnd(() => {
+      runOnJS(updateSettings)({ 
+        photoX: (photoX.value / previewSize.width) + 0.5, 
+        photoY: (photoY.value / previewSize.height) + 0.5 
+      });
+    });
+
+  // Pinch Gesture for scaling the photo
+  const pinchGesture = Gesture.Pinch()
+    .onStart(() => {
+      initialPhotoScale.value = photoScale.value;
+    })
+    .onUpdate((event) => {
+      const newScale = initialPhotoScale.value * event.scale;
+      photoScale.value = Math.max(0.1, Math.min(5, newScale));
+    })
+    .onEnd(() => {
+      runOnJS(updateSettings)({ photoScale: photoScale.value });
+    });
+
+  // Rotate Gesture for rotating the photo
+  const rotateGesture = Gesture.Rotation()
+    .onStart(() => {
+      initialPhotoRotation.value = photoRotation.value;
+    })
+    .onUpdate((event) => {
+      photoRotation.value = initialPhotoRotation.value + (event.rotation * 180 / Math.PI);
+    })
+    .onEnd(() => {
+      runOnJS(updateSettings)({ photoRotation: photoRotation.value });
+    });
+
+  // Tüm jestleri aynı anda dinlemek için
+  const combinedGesture = Gesture.Simultaneous(panGesture, pinchGesture, rotateGesture);
+
+  // Hook kurallarına uygun olarak en üstte tanımlandı
+  const animatedPhotoStyle = useAnimatedStyle(() => {
+    return {
+      position: 'absolute',
+      width: '100%',
+      height: '100%',
+      transform: [
+        { translateX: photoX.value },
+        { translateY: photoY.value },
+        { scale: photoScale.value },
+        { rotate: `${photoRotation.value}deg` },
+      ],
+    };
+  });
 
   const handleSave = async () => {
     try {
-      // Convert our enhanced settings to the format expected by the API
-      const apiSettings = {
-        backgroundId: settings.backgroundId,
-        shadow: settings.shadows / 100,
-        lighting: settings.brightness / 100,
-        brightness: 1 + (settings.exposure / 100),
-        contrast: 1 + (settings.contrast / 100),
-        saturation: 1 + (settings.saturation / 100),
-        hue: settings.warmth / 100,
-        sepia: Math.max(0, settings.warmth / 100),
-      };
+      // Nihai görüntüyü kaydetmek için:
+      // 1. GLView'dan bir snapshot alın
+      // const snapshot = await glRef.current.takeSnapshotAsync({ format: 'png', compress: 0.9 });
+      // 2. Bu snapshot'ı backend'e yükleyin (yeni bir endpoint gerekebilir)
+      // 3. Firestore'daki processedImageUrl'i güncelleyin (backend'in döndürdüğü URL ile)
       
-      await saveChanges();
-      ToastService.show({
-        type: 'success',
-        text1: t('common.success'),
-        text2: t('editor.saved'),
-      });
+      await saveChanges(); // Bu sadece ayarları backend'e kaydedecek
+      ToastService.show({ type: 'success', text1: t('common.success'), text2: t('editor.saved', 'Değişiklikler kaydedildi.') });
       router.back();
     } catch (error: any) {
-      ToastService.show({
-        type: 'error',
-        text1: t('common.error'),
-        text2: error.message || t('editor.saveFailed'),
-      });
+      ToastService.show({ type: 'error', text1: t('common.error'), text2: error.message || t('editor.saveFailed', 'Kaydetme başarısız oldu.') });
     }
   };
 
-  const updateSettings = (newSettings: Partial<EnhancedSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
-  };
-
-  const resetAdjustment = (key: keyof EnhancedSettings) => {
-    updateSettings({ [key]: 0 });
-  };
-
-  const resetAllAdjustments = () => {
-    const resetSettings = { ...defaultSettings };
-    resetSettings.backgroundId = settings.backgroundId; // Keep background
-    resetSettings.photoX = settings.photoX; // Keep positioning
-    resetSettings.photoY = settings.photoY;
-    resetSettings.photoScale = settings.photoScale;
-    resetSettings.photoRotation = settings.photoRotation;
-    setSettings(resetSettings);
-  };
-
-  // Adjustment definitions
-  const adjustments = [
+  const adjustments = useMemo(() => [
     { key: 'exposure', label: 'Pozlama', icon: 'sun' as const },
+    { key: 'contrast', label: 'Kontrast', icon: 'bar-chart-2' as const },
+    { key: 'brightness', label: 'Parlaklık', icon: 'circle' as const },
+    { key: 'saturation', label: 'Doygunluk', icon: 'droplet' as const },
+    { key: 'warmth', label: 'Sıcaklık', icon: 'thermometer' as const },
     { key: 'highlights', label: 'Vurgular', icon: 'trending-up' as const },
     { key: 'shadows', label: 'Gölgeler', icon: 'trending-down' as const },
-    { key: 'brightness', label: 'Parlaklık', icon: 'circle' as const },
-    { key: 'contrast', label: 'Kontrast', icon: 'square' as const },
-    { key: 'saturation', label: 'Doygunluk', icon: 'droplet' as const },
-    { key: 'vibrance', label: 'Canlılık', icon: 'zap' as const },
-    { key: 'warmth', label: 'Sıcaklık', icon: 'thermometer' as const },
-    { key: 'tint', label: 'Ton', icon: 'palette' as const },
-    { key: 'clarity', label: 'Berraklık', icon: 'aperture' as const },
-    { key: 'noise', label: 'Gürültü', icon: 'radio' as const },
     { key: 'vignette', label: 'Vinyet', icon: 'target' as const },
-  ];
-
+    { key: 'vibrance', label: 'Titreşim', icon: 'zap' as const },
+    { key: 'tint', label: 'Ton', icon: 'droplet' as const },
+    { key: 'clarity', label: 'Netlik', icon: 'aperture' as const },
+    { key: 'noise', label: 'Gürültü', icon: 'cloud-off' as const },
+  ], []);
+  
   const selectedBackground = backgrounds.find(bg => bg.id === settings.backgroundId);
 
+  // Yükleme durumu kontrolü
   if (isLoading || !activePhoto) {
     return (
       <SafeAreaView style={styles.container}>
@@ -517,714 +485,154 @@ export default function ModernPhotoEditor() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Top Navigation */}
-      <View style={styles.navigation}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.navButton}>
-          <Text style={styles.cancelText}>Vazgeç</Text>
-        </TouchableOpacity>
-        
-        <Text style={styles.navTitle}>Düzenle</Text>
-        
-        <TouchableOpacity onPress={handleSave} style={styles.navButton}>
-          <Text style={[styles.doneText, isSaving && styles.doneTextDisabled]}>
-            {isSaving ? 'Kaydediyor...' : 'Bitti'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={styles.container}>
+        {/* 1. Üst Bar */}
+        <View style={styles.navigation}>
+          <TouchableOpacity onPress={() => router.back()}>
+              <Text style={styles.navText}>{t('common.cancel')}</Text>
+          </TouchableOpacity>
+          <Text style={styles.navTitle}>Düzenle</Text>
+          <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+              <Text style={styles.navTextDone}>{isSaving ? t('common.saving') : t('common.done')}</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Photo Preview with Hold-to-Compare */}
-      <Pressable
-        style={styles.previewContainer}
-        onPressIn={() => setShowOriginal(true)}
-        onPressOut={() => setShowOriginal(false)}
-        onLayout={(e) => setContainerSize(e.nativeEvent.layout)}
-      >
-        <LivePreview
-          photoUri={activePhoto.processedImageUrl || activePhoto.originalImageUrl}
-          backgroundUri={selectedBackground?.fullUrl}
-          settings={settings}
-          style={styles.preview}
-          showOriginal={showOriginal}
-        />
-        
-        {showOriginal && (
-          <View style={styles.originalOverlay}>
-            <Text style={styles.originalText}>Orijinal</Text>
-          </View>
-        )}
-      </Pressable>
-
-      {/* Tool Tabs */}
-      <View style={styles.toolTabs}>
-        <TouchableOpacity
-          style={[styles.toolTab, currentTool === 'adjust' && styles.toolTabActive]}
-          onPress={() => setCurrentTool('adjust')}
-        >
-          <Feather 
-            name="sliders" 
-            size={24} 
-            color={currentTool === 'adjust' ? Colors.primary : Colors.textSecondary} 
-          />
-          <Text style={[styles.toolTabText, currentTool === 'adjust' && styles.toolTabTextActive]}>
-            Ayarla
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.toolTab, currentTool === 'filters' && styles.toolTabActive]}
-          onPress={() => setCurrentTool('filters')}
-        >
-          <Feather 
-            name="filter" 
-            size={24} 
-            color={currentTool === 'filters' ? Colors.primary : Colors.textSecondary} 
-          />
-          <Text style={[styles.toolTabText, currentTool === 'filters' && styles.toolTabTextActive]}>
-            Filtreler
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.toolTab, currentTool === 'crop' && styles.toolTabActive]}
-          onPress={() => setCurrentTool('crop')}
-        >
-          <Feather 
-            name="crop" 
-            size={24} 
-            color={currentTool === 'crop' ? Colors.primary : Colors.textSecondary} 
-          />
-          <Text style={[styles.toolTabText, currentTool === 'crop' && styles.toolTabTextActive]}>
-            Kırp
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Tool Content */}
-      <View style={styles.toolContent}>
-        {currentTool === 'adjust' && (
-          <ScrollView style={styles.adjustPanel} showsVerticalScrollIndicator={false}>
-            {/* Effect Target Selector */}
-            <View style={styles.targetSelector}>
-              <Text style={styles.sectionTitle}>Etki Hedefi</Text>
-              <View style={styles.targetButtons}>
-                {[
-                  { key: 'photo', label: 'Fotoğraf', icon: 'image' },
-                  { key: 'background', label: 'Arka Plan', icon: 'layers' },
-                  { key: 'both', label: 'Her İkisi', icon: 'package' },
-                ].map((target) => (
-                  <TouchableOpacity
-                    key={target.key}
-                    style={[
-                      styles.targetButton,
-                      settings.effectTarget === target.key && styles.targetButtonActive
-                    ]}
-                    onPress={() => updateSettings({ effectTarget: target.key as any })}
-                  >
-                    <Feather 
-                      name={target.icon as any} 
-                      size={16} 
-                      color={settings.effectTarget === target.key ? Colors.card : Colors.textSecondary} 
+        {/* 2. Orta Alan (Önizleme) */}
+        <View style={styles.previewContainer}>
+          <Pressable
+            style={{ flex: 1 }}
+            onPressIn={() => setShowOriginal(true)}
+            onPressOut={() => setShowOriginal(false)}
+            onLayout={(e) => {
+              setPreviewSize(e.nativeEvent.layout);
+              photoX.value = (settings.photoX - 0.5) * previewSize.width;
+              photoY.value = (settings.photoY - 0.5) * previewSize.height;
+              initialPhotoX.value = photoX.value;
+              initialPhotoY.value = photoY.value;
+            }}
+          >
+            {previewSize.width > 0 && (
+              <View style={styles.preview}>
+                {selectedBackground && <Image source={{ uri: selectedBackground.fullUrl }} style={styles.backgroundImage} />}
+                <GestureDetector gesture={combinedGesture}>
+                  <Animated.View style={animatedPhotoStyle}>
+                    {/* GLView her zaman render ediliyor */}
+                    <GLView
+                      ref={glRef}
+                      style={styles.photoImageAdjusted}
+                      onContextCreate={onGlContextCreate}
                     />
-                    <Text style={[
-                      styles.targetButtonText,
-                      settings.effectTarget === target.key && styles.targetButtonTextActive
-                    ]}>
-                      {target.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                  </Animated.View>
+                </GestureDetector>
+                {showOriginal && (
+                  <View style={styles.originalOverlay}><Text style={styles.originalText}>Orijinal</Text></View>
+                )}
               </View>
-            </View>
+            )}
+          </Pressable>
+        </View>
 
-            {/* Auto Adjust Button */}
-            <TouchableOpacity style={styles.autoButton}>
-              <Feather name="zap" size={20} color={Colors.primary} />
-              <Text style={styles.autoButtonText}>Otomatik</Text>
+        {/* 3. Alt Sekme Menüsü */}
+        <View style={styles.toolTabs}>
+            <TouchableOpacity style={styles.toolTab} onPress={() => setCurrentTool('adjust')}>
+                <Feather name="sliders" size={24} color={currentTool === 'adjust' ? Colors.primary : Colors.textSecondary}/>
+                <Text style={[styles.toolTabText, currentTool === 'adjust' && styles.toolTabTextActive]}>Ayarla</Text>
             </TouchableOpacity>
-
-            {/* Adjustments */}
-            {adjustments.map((adjustment) => (
-              <AppleSlider
-                key={adjustment.key}
-                label={adjustment.label}
-                value={settings[adjustment.key as keyof EnhancedSettings] as number}
-                onValueChange={(value) => updateSettings({ [adjustment.key]: value })}
-                icon={adjustment.icon}
-                onReset={() => resetAdjustment(adjustment.key as keyof EnhancedSettings)}
-              />
-            ))}
-
-            {/* Reset All Button */}
-            <TouchableOpacity onPress={resetAllAdjustments} style={styles.resetAllButton}>
-              <Text style={styles.resetAllButtonText}>Tüm Ayarları Sıfırla</Text>
+            <TouchableOpacity style={styles.toolTab} onPress={() => setCurrentTool('filters')}>
+                <Feather name="filter" size={24} color={currentTool === 'filters' ? Colors.primary : Colors.textSecondary}/>
+                <Text style={[styles.toolTabText, currentTool === 'filters' && styles.toolTabTextActive]}>Filtreler</Text>
             </TouchableOpacity>
-          </ScrollView>
-        )}
+            <TouchableOpacity style={styles.toolTab} onPress={() => setCurrentTool('crop')}>
+                <Feather name="crop" size={24} color={currentTool === 'crop' ? Colors.primary : Colors.textSecondary}/>
+                <Text style={[styles.toolTabText, currentTool === 'crop' && styles.toolTabTextActive]}>Kırp</Text>
+            </TouchableOpacity>
+        </View>
 
-        {currentTool === 'filters' && (
-          <ScrollView style={styles.filtersPanel} showsVerticalScrollIndicator={false}>
-            {/* Background Selection */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Arka Planlar</Text>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.backgroundsContainer}
-              >
-                {backgrounds.map((bg) => (
-                  <TouchableOpacity
-                    key={bg.id}
-                    onPress={() => updateSettings({ backgroundId: bg.id })}
-                    style={[
-                      styles.backgroundThumbnail,
-                      settings.backgroundId === bg.id && styles.backgroundThumbnailSelected
-                    ]}
-                  >
-                    <Image source={{ uri: bg.thumbnailUrl }} style={styles.backgroundImage} />
-                    {settings.backgroundId === bg.id && (
-                      <View style={styles.backgroundSelectedOverlay}>
-                        <Feather name="check" size={16} color="white" />
+        {/* 4. Araç İçerikleri */}
+        <View style={styles.toolContent}>
+          {currentTool === 'adjust' && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                  {adjustments.map((adj) => (
+                      <AppleSlider key={adj.key} label={adj.label} icon={adj.icon} value={settings[adj.key]} onValueChange={(v) => updateSettings({ [adj.key]: v })} onReset={() => updateSettings({ [adj.key]: 0 })} />
+                  ))}
+                  <TouchableOpacity onPress={resetToDefaults} style={styles.resetAllButton}>
+                      <Text style={styles.resetAllButtonText}>Tüm Ayarları Sıfırla</Text>
+                  </TouchableOpacity>
+              </ScrollView>
+          )}
+          {currentTool === 'filters' && (
+              <ScrollView>
+                      <View style={styles.section}>
+                          <Text style={styles.sectionTitle}>Arka Plan</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                              {backgrounds.map(bg => (
+                                  <TouchableOpacity key={bg.id} onPress={() => updateSettings({ backgroundId: bg.id })} style={[styles.backgroundThumbnail, settings.backgroundId === bg.id && styles.backgroundThumbnailSelected]}>
+                                      <Image source={{ uri: bg.thumbnailUrl }} style={styles.bgThumbnailImage} />
+                                  </TouchableOpacity>
+                              ))}
+                          </ScrollView>
                       </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
+                      <View style={styles.section}>
+                          <Text style={styles.sectionTitle}>Pozisyon</Text>
+                          <AppleSlider label="Ölçek" icon="maximize" value={Math.round((settings.photoScale - 1) * 100)} onValueChange={(v) => updateSettings({ photoScale: 1 + v / 100 })} onReset={() => updateSettings({ photoScale: 1 })} />
+                          <AppleSlider label="Döndürme" icon="rotate-cw" value={settings.photoRotation} min={-180} max={180} onValueChange={(v) => updateSettings({ photoRotation: v })} onReset={() => updateSettings({ photoRotation: 0 })} />
+                      </View>
               </ScrollView>
-            </View>
-
-            {/* Position Controls */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Konum ve Boyut</Text>
-              <View style={styles.positionControls}>
-                <AppleSlider
-                  label="Ölçek"
-                  value={Math.round((settings.photoScale - 0.5) * 100)}
-                  onValueChange={(value) => updateSettings({ photoScale: 0.5 + (value / 100) })}
-                  icon="maximize-2"
-                  min={-50}
-                  max={50}
-                  onReset={() => updateSettings({ photoScale: 1.0 })}
-                />
-                <AppleSlider
-                  label="Döndürme"
-                  value={settings.photoRotation}
-                  onValueChange={(value) => updateSettings({ photoRotation: value })}
-                  icon="rotate-cw"
-                  min={-180}
-                  max={180}
-                  onReset={() => updateSettings({ photoRotation: 0 })}
-                />
+          )}
+          {currentTool === 'crop' && (
+                <View style={styles.centeredMessage}>
+                  <Feather name="tool" size={48} color={Colors.textSecondary} />
+                  <Text style={styles.comingSoonText}>{t('common.comingSoon')}</Text>
               </View>
-            </View>
-
-            {/* Preset Filters */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Hazır Filtreler</Text>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filtersContainer}
-              >
-                {[
-                  { 
-                    name: 'Orijinal', 
-                    color: '#F0F0F0',
-                    settings: { exposure: 0, contrast: 0, saturation: 0, warmth: 0 }
-                  },
-                  { 
-                    name: 'Canlı', 
-                    color: '#FF6B6B',
-                    settings: { saturation: 30, vibrance: 20, warmth: 10 }
-                  },
-                  { 
-                    name: 'Drama', 
-                    color: '#4ECDC4',
-                    settings: { contrast: 40, highlights: -20, shadows: 20 }
-                  },
-                  { 
-                    name: 'Mono', 
-                    color: '#888',
-                    settings: { saturation: -100, contrast: 20 }
-                  },
-                  { 
-                    name: 'Vintage', 
-                    color: '#D2B48C',
-                    settings: { warmth: 40, contrast: -10, vignette: 30 }
-                  },
-                  { 
-                    name: 'Soğuk', 
-                    color: '#4A90E2',
-                    settings: { warmth: -30, tint: -20, saturation: 10 }
-                  },
-                ].map((filter) => (
-                  <TouchableOpacity 
-                    key={filter.name}
-                    style={styles.filterPreset}
-                    onPress={() => updateSettings(filter.settings)}
-                  >
-                    <View style={[styles.filterPreview, { backgroundColor: filter.color }]} />
-                    <Text style={styles.filterLabel}>{filter.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </ScrollView>
-        )}
-
-        {currentTool === 'crop' && (
-          <View style={styles.cropPanel}>
-            <Text style={styles.sectionTitle}>Kırp & Döndür</Text>
-            
-            {/* Aspect Ratio Buttons */}
-            <View style={styles.aspectRatioContainer}>
-              {[
-                { key: 'original', label: 'Orijinal' },
-                { key: '1:1', label: '1:1' },
-                { key: '4:3', label: '4:3' },
-                { key: '16:9', label: '16:9' },
-                { key: '3:4', label: '3:4' },
-                { key: '9:16', label: '9:16' },
-              ].map((ratio) => (
-                <TouchableOpacity
-                  key={ratio.key}
-                  style={[
-                    styles.aspectRatioButton,
-                    settings.cropAspectRatio === ratio.key && styles.aspectRatioButtonActive
-                  ]}
-                  onPress={() => updateSettings({ cropAspectRatio: ratio.key })}
-                >
-                  <Text style={[
-                    styles.aspectRatioButtonText,
-                    settings.cropAspectRatio === ratio.key && styles.aspectRatioButtonTextActive
-                  ]}>
-                    {ratio.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Crop Tools */}
-            <View style={styles.cropTools}>
-              <TouchableOpacity style={styles.cropTool}>
-                <Feather name="rotate-ccw" size={24} color={Colors.textPrimary} />
-                <Text style={styles.cropToolText}>Döndür</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.cropTool}>
-                <Feather name="flip-horizontal" size={24} color={Colors.textPrimary} />
-                <Text style={styles.cropToolText}>Aynala</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.cropTool}>
-                <Feather name="maximize" size={24} color={Colors.textPrimary} />
-                <Text style={styles.cropToolText}>Düzelt</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.comingSoonText}>
-              Gelişmiş kırpma araçları yakında aktif olacak
-            </Text>
-          </View>
-        )}
-      </View>
-    </SafeAreaView>
+          )}
+        </View>
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 
+
+// =================================================================
+// Stil Tanımları
+// =================================================================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // Navigation
-  navigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: Colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  navButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    minWidth: 70,
-  },
-  navTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  cancelText: {
-    fontSize: 16,
-    color: Colors.primary,
-  },
-  doneText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.primary,
-    textAlign: 'right',
-  },
-  doneTextDisabled: {
-    opacity: 0.5,
-  },
-
-  // Preview
-  previewContainer: {
-    flex: 1,
-    backgroundColor: Colors.gray50,
-    position: 'relative',
-  },
-  preview: {
-    flex: 1,
-    position: 'relative',
-  },
-  backgroundContainer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  backgroundImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  photoContainer: {
-    position: 'absolute',
-    width: '60%',
-    aspectRatio: 1,
-  },
-  photoImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-  },
-  photoPositioner: {
-    position: 'absolute',
-    borderWidth: 2,
-    borderColor: Colors.primary,
-    borderRadius: 8,
-  },
-  positionerImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-    borderRadius: 6,
-  },
-  originalOverlay: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  originalText: {
-    color: Colors.card,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-
-  // Tool Tabs
-  toolTabs: {
-    flexDirection: 'row',
-    backgroundColor: Colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  toolTab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-  },
-  toolTabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: Colors.primary,
-  },
-  toolTabText: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  toolTabTextActive: {
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-
-  // Tool Content
-  toolContent: {
-    height: 350,
-    backgroundColor: Colors.card,
-  },
-
-  // Adjust Panel
-  adjustPanel: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  targetSelector: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 12,
-  },
-  targetButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  targetButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: Colors.gray100,
-    borderRadius: 8,
-    gap: 6,
-  },
-  targetButtonActive: {
-    backgroundColor: Colors.primary,
-  },
-  targetButtonText: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-  targetButtonTextActive: {
-    color: Colors.card,
-  },
-  autoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: Colors.gray100,
-    borderRadius: 8,
-    marginBottom: 24,
-    gap: 8,
-  },
-  autoButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-
-  // Slider Components
-  sliderContainer: {
-    marginBottom: 20,
-  },
-  sliderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sliderLabelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  sliderLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: Colors.textPrimary,
-  },
-  sliderValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  sliderValue: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-    minWidth: 40,
-    textAlign: 'right',
-  },
-  sliderValueActive: {
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-  resetButton: {
-    padding: 4,
-  },
-  sliderTrackContainer: {
-    height: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
-  sliderTrack: {
-    height: 3,
-    backgroundColor: Colors.border,
-    borderRadius: 1.5,
-    position: 'absolute',
-    width: '100%',
-  },
-  centerMark: {
-    position: 'absolute',
-    width: 2,
-    height: 16,
-    backgroundColor: Colors.textSecondary,
-    borderRadius: 1,
-    top: 14,
-  },
-  activeTrack: {
-    height: 3,
-    borderRadius: 1.5,
-    position: 'absolute',
-    top: 20.5,
-  },
-  sliderThumb: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.card,
-    position: 'absolute',
-    marginLeft: -14,
-    top: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    shadowOpacity: 0.2,
-    elevation: 4,
-    borderWidth: 3,
-    borderColor: Colors.primary,
-  },
-  resetAllButton: {
-    marginTop: 20,
-    paddingVertical: 12,
-    alignItems: 'center',
-    backgroundColor: Colors.gray100,
-    borderRadius: 8,
-  },
-  resetAllButtonText: {
-    fontSize: 16,
-    color: Colors.error,
-    fontWeight: '600',
-  },
-
-  // Filters Panel
-  filtersPanel: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  backgroundsContainer: {
-    gap: 12,
-    paddingHorizontal: 4,
-  },
-  backgroundThumbnail: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  backgroundThumbnailSelected: {
-    borderWidth: 3,
-    borderColor: Colors.primary,
-  },
-  backgroundSelectedOverlay: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  positionControls: {
-    gap: 16,
-  },
-  filtersContainer: {
-    gap: 16,
-    paddingHorizontal: 4,
-  },
-  filterPreset: {
-    alignItems: 'center',
-    width: 80,
-  },
-  filterPreview: {
-    width: 70,
-    height: 70,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  filterLabel: {
-    fontSize: 12,
-    color: Colors.textPrimary,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-
-  // Crop Panel
-  cropPanel: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  aspectRatioContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 24,
-  },
-  aspectRatioButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: Colors.gray100,
-    borderRadius: 20,
-  },
-  aspectRatioButtonActive: {
-    backgroundColor: Colors.primary,
-  },
-  aspectRatioButtonText: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-  aspectRatioButtonTextActive: {
-    color: Colors.card,
-  },
-  cropTools: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 24,
-  },
-  cropTool: {
-    alignItems: 'center',
-    padding: 16,
-  },
-  cropToolText: {
-    fontSize: 12,
-    color: Colors.textPrimary,
-    marginTop: 8,
-    fontWeight: '500',
-  },
-  comingSoonText: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  navigation: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderBottomWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card },
+  navTitle: { ...Typography.h3, color: Colors.textPrimary },
+  navText: { ...Typography.body, color: Colors.primary },
+  navTextDone: { ...Typography.bodyMedium, color: Colors.primary, fontWeight: '600' },
+  previewContainer: { flex: 1, backgroundColor: Colors.gray800 },
+  preview: { flex: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  backgroundImage: { ...StyleSheet.absoluteFillObject, resizeMode: 'cover' },
+  photoImageAdjusted: { width: '100%', height: '100%', resizeMode: 'contain' },
+  originalOverlay: { position: 'absolute', bottom: 20, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 15 },
+  originalText: { color: 'white', fontWeight: 'bold' },
+  toolTabs: { flexDirection: 'row', backgroundColor: Colors.card, borderTopWidth: 1, borderTopColor: Colors.border },
+  toolTab: { flex: 1, alignItems: 'center', paddingVertical: Spacing.md },
+  toolTabText: { ...Typography.caption, color: Colors.textSecondary, marginTop: 4 },
+  toolTabTextActive: { color: Colors.primary, fontWeight: '600' },
+  toolContent: { height: Layout.isTablet ? 400 : 320, backgroundColor: Colors.card, padding: Spacing.lg, paddingTop: Spacing.md },
+  resetAllButton: { marginTop: Spacing.lg, padding: Spacing.md, alignItems: 'center', backgroundColor: Colors.gray100, borderRadius: BorderRadius.md },
+  resetAllButtonText: { color: Colors.error, fontWeight: '600' },
+  sliderContainer: { marginBottom: Spacing.sm },
+  sliderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sliderLabelContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sliderLabel: { fontSize: 14, fontWeight: '500', color: Colors.textPrimary },
+  sliderValueContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sliderValue: { fontSize: 14, color: Colors.textSecondary, fontWeight: '500', minWidth: 35, textAlign: 'right' },
+  resetButton: { padding: 4 },
+  sliderTrackContainer: { height: 20, justifyContent: 'center' },
+  sliderTrack: { height: 4, backgroundColor: Colors.gray200, borderRadius: 2, width: '100%' },
+  centerMark: { position: 'absolute', width: 2, height: 8, backgroundColor: Colors.textSecondary, borderRadius: 1 },
+  activeTrack: { height: 4, borderRadius: 2, position: 'absolute', backgroundColor: Colors.primary },
+  sliderThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.card, borderWidth: 3, borderColor: Colors.primary, position: 'absolute', marginLeft: -11, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 3 },
+  section: { marginBottom: Spacing.lg },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary, marginBottom: Spacing.md },
+  backgroundThumbnail: { width: 80, height: 80, borderRadius: 8, marginRight: Spacing.md, borderWidth: 3, borderColor: 'transparent', overflow: 'hidden' },
+  backgroundThumbnailSelected: { borderColor: Colors.primary },
+  bgThumbnailImage: { width: '100%', height: '100%' },
+  centeredMessage: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 20 },
+  comingSoonText: { ...Typography.body, color: Colors.textSecondary, marginTop: Spacing.md },
 });

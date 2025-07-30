@@ -1,6 +1,7 @@
 // stores/useEditorStore.ts - Enhanced Version
 import { create } from 'zustand';
 import { api, ProductPhoto, Background, EditorSettings } from '@/services/api';
+import { ToastService } from '@/components/Toast/ToastService';
 
 // Enhanced settings interface matching the editor
 interface EnhancedEditorSettings extends EditorSettings {
@@ -75,9 +76,9 @@ const defaultSettings: EnhancedEditorSettings = {
   photoScale: 1.0,
   photoRotation: 0,
   
-  // Legacy settings for API compatibility
-  shadow: 0.5,
-  lighting: 0.7,
+  // Legacy settings for API compatibility (these might be mapped from enhanced settings)
+  shadow: 0.5, 
+  lighting: 0.7, 
   
   // Enhanced adjustment settings (-100 to +100)
   exposure: 0,
@@ -150,21 +151,42 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   hasUnsavedChanges: false,
 
   setActivePhoto: (photo: ProductPhoto) => {
-    // Load existing settings if available, otherwise use defaults
     const existingSettings = photo.editorSettings || {};
     const loadedSettings: EnhancedEditorSettings = {
       ...defaultSettings,
       ...existingSettings,
-      // Ensure enhanced settings exist
       photoX: existingSettings.photoX ?? 0.5,
       photoY: existingSettings.photoY ?? 0.5,
       photoScale: existingSettings.photoScale ?? 1.0,
       photoRotation: existingSettings.photoRotation ?? 0,
+      exposure: existingSettings.exposure ?? 0,
+      highlights: existingSettings.highlights ?? 0,
+      shadows: existingSettings.shadows ?? 0,
+      brightness: existingSettings.brightness ?? 0,
+      contrast: existingSettings.contrast ?? 0,
+      saturation: existingSettings.saturation ?? 0,
+      vibrance: (existingSettings as any).vibrance ?? 0, 
+      warmth: existingSettings.warmth ?? 0,
+      tint: (existingSettings as any).tint ?? 0, 
+      clarity: (existingSettings as any).clarity ?? 0, 
+      noise: (existingSettings as any).noise ?? 0, 
+      vignette: existingSettings.vignette ?? 0,
+      cropAspectRatio: (existingSettings as any).cropAspectRatio ?? 'original',
+      cropX: (existingSettings as any).cropX ?? 0,
+      cropY: (existingSettings as any).cropY ?? 0,
+      cropWidth: (existingSettings as any).cropWidth ?? 1,
+      cropHeight: (existingSettings as any).cropHeight ?? 1,
       effectTarget: (existingSettings as any).effectTarget ?? 'photo',
+      backgroundId: existingSettings.backgroundId ?? 'bg1',
     };
 
     set({
-      activePhoto: { ...photo },
+      // DÜZELTME: activePhoto.originalImageUrl için processedImageUrl kullan
+      // rawImageUrl client'a gönderilmediği için, orijinal olarak processedImageUrl'i kabul ediyoruz.
+      activePhoto: { 
+        ...photo, 
+        originalImageUrl: photo.processedImageUrl, // processedImageUrl'i orijinal olarak kabul et
+      }, 
       settings: loadedSettings,
       originalPhotoPosition: {
         x: loadedSettings.photoX,
@@ -180,6 +202,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     set({ isLoading: true, error: null });
     try {
       const photo = await api.fetchPhotoById(photoId);
+      console.log("Fetched photo data:", photo); 
       get().setActivePhoto(photo);
       set({ isLoading: false });
     } catch (error: any) {
@@ -187,6 +210,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
         error: error.message || 'Fotoğraf yüklenemedi.',
         isLoading: false 
       });
+      ToastService.show({ type: 'error', text1: 'Hata', text2: error.message || 'Fotoğraf yüklenemedi.' });
       throw error;
     }
   },
@@ -204,32 +228,25 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
         error: error.message || 'Arka planlar yüklenemedi.',
         isLoading: false 
       });
+      ToastService.show({ type: 'error', text1: 'Hata', text2: error.message || 'Arka planlar yüklenemedi.' });
     }
   },
 
   updateSettings: (newSettings: Partial<EnhancedEditorSettings>) => {
-    // Validate and sanitize numeric values
     const safeSettings: Partial<EnhancedEditorSettings> = {};
     
     Object.entries(newSettings).forEach(([key, value]) => {
       if (typeof value === 'number') {
-        // Ensure value is finite and not NaN
         if (isFinite(value) && !isNaN(value)) {
-          // Apply appropriate ranges for different setting types
           if (['photoX', 'photoY', 'cropX', 'cropY', 'cropWidth', 'cropHeight'].includes(key)) {
-            // Position and crop values: 0-1
             safeSettings[key as keyof EnhancedEditorSettings] = Math.max(0, Math.min(1, value));
           } else if (key === 'photoScale') {
-            // Scale: 0.1-3.0
-            safeSettings[key as keyof EnhancedEditorSettings] = Math.max(0.1, Math.min(3.0, value));
+            safeSettings[key as keyof EnhancedEditorSettings] = Math.max(0.1, Math.min(5.0, value));
           } else if (key === 'photoRotation') {
-            // Rotation: -180 to 180
             safeSettings[key as keyof EnhancedEditorSettings] = Math.max(-180, Math.min(180, value));
           } else if (['exposure', 'highlights', 'shadows', 'brightness', 'contrast', 'saturation', 'vibrance', 'warmth', 'tint', 'clarity', 'noise', 'vignette'].includes(key)) {
-            // Adjustment values: -100 to 100
             safeSettings[key as keyof EnhancedEditorSettings] = Math.max(-100, Math.min(100, value));
           } else {
-            // Other numeric values
             safeSettings[key as keyof EnhancedEditorSettings] = value;
           }
         }
@@ -249,42 +266,49 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     if (!activePhoto) {
       const error = 'Kaydedilecek aktif fotoğraf bulunamadı.';
       set({ error });
+      ToastService.show({ type: 'error', text1: 'Hata', text2: error });
       throw new Error(error);
     }
 
     set({ isSaving: true, error: null });
     try {
-      // Convert enhanced settings to API format
       const apiSettings: EditorSettings = {
         backgroundId: settings.backgroundId,
-        shadow: settings.shadows / 100,
-        lighting: settings.brightness / 100,
-        brightness: 1 + (settings.exposure / 100),
-        contrast: 1 + (settings.contrast / 100),
-        saturation: 1 + (settings.saturation / 100),
-        hue: settings.warmth / 100,
-        sepia: Math.max(0, settings.warmth / 100),
-        // Include enhanced settings for future use
-        ...settings,
+        exposure: settings.exposure,
+        brightness: settings.brightness,
+        contrast: settings.contrast,
+        saturation: settings.saturation,
+        warmth: settings.warmth,
+        highlights: settings.highlights,
+        shadows: settings.shadows,
+        vignette: settings.vignette,
+        photoX: settings.photoX,
+        photoY: settings.photoY,
+        photoScale: settings.photoScale,
+        photoRotation: settings.photoRotation,
+        shadow: settings.shadows / 100, 
+        lighting: settings.brightness / 100, 
       };
       
-      const updatedPhoto = await api.applyFiltersToPhoto(activePhoto.id, apiSettings);
+      // Backend'deki update_photo_settings endpoint'ini çağırıyoruz
+      await api.updatePhotoSettings(activePhoto.id, apiSettings);
       
       set(state => ({
-        activePhoto: updatedPhoto,
         isSaving: false,
         hasUnsavedChanges: false,
       }));
+      ToastService.show({ type: 'success', text1: 'Başarılı', text2: 'Değişiklikler kaydedildi.' });
     } catch (error: any) {
       const errorMessage = error.message || 'Değişiklikler kaydedilemedi.';
       set({ error: errorMessage, isSaving: false });
+      ToastService.show({ type: 'error', text1: 'Hata', text2: errorMessage });
       throw new Error(errorMessage);
     }
   },
 
   resetSettings: () => {
     const { originalPhotoPosition } = get();
-    const resetSettings = {
+    const resetSettings: EnhancedEditorSettings = {
       ...defaultSettings,
       photoX: originalPhotoPosition.x,
       photoY: originalPhotoPosition.y,
@@ -338,6 +362,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       settings: { ...defaultSettings },
       hasUnsavedChanges: false,
       error: null,
+      backgrounds: [],
     });
   },
 }));
