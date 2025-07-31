@@ -1,9 +1,10 @@
-// app/(tabs)/editor/components/ExportComponents.tsx
+// kodlar/app/(tabs)/editor/components/ExportComponents.tsx
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
-import { ExportPreset } from '../config/exportTools';
+// Gerekli olan 'ShareOption' tipi import edildi.
+import { ExportPreset, ShareOption } from '../config/exportTools';
 
 interface ExportPresetCardProps {
   preset: ExportPreset;
@@ -61,7 +62,6 @@ export const ExportPresetCard: React.FC<ExportPresetCardProps> = ({
   );
 };
 
-// app/(tabs)/editor/components/ShareOptionButton.tsx
 interface ShareOptionButtonProps {
   option: ShareOption;
   onPress: () => void;
@@ -103,7 +103,6 @@ export const ShareOptionButton: React.FC<ShareOptionButtonProps> = ({
   );
 };
 
-// app/(tabs)/editor/components/ExportPreview.tsx
 interface ExportPreviewProps {
   preset: ExportPreset;
   imageUri: string;

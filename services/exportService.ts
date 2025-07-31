@@ -17,13 +17,13 @@ export interface ShareOptions extends ExportOptions {
 }
 
 export class ExportService {
-  
+
   /**
    * View'i yakalayıp belirtilen preset'e göre export eder
    */
   static async captureAndExport(options: ExportOptions): Promise<string> {
     const { preset, viewRef, filename } = options;
-    
+
     if (!viewRef) {
       throw new Error('View referansı bulunamadı');
     }
@@ -40,7 +40,7 @@ export class ExportService {
       // Dosya adını oluştur
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const finalFilename = filename || `export-${preset.id}-${timestamp}.${preset.format}`;
-      
+
       // Geçici dizine kaydet
       const fileUri = `${FileSystem.documentDirectory}${finalFilename}`;
       await FileSystem.moveAsync({
@@ -69,7 +69,7 @@ export class ExportService {
       // Galeriye kaydet
       const asset = await MediaLibrary.createAssetAsync(fileUri);
       await MediaLibrary.createAlbumAsync('Stüdyo Cepte', asset, false);
-      
+
     } catch (error) {
       console.error('Galeri kaydetme hatası:', error);
       throw new Error('Galeriye kaydedilemedi: ' + (error as Error).message);
@@ -169,12 +169,12 @@ export class ExportService {
     try {
       const isAvailable = await Sharing.isAvailableAsync();
       if (!isAvailable) {
-        throw new Error('Paylaşım özelliği kullanılamıyor');
+        throw new Error('Paylaşım özelliği bu cihazda kullanılamıyor.');
       }
 
       await Sharing.shareAsync(fileUri, {
         mimeType: preset.format === 'png' ? 'image/png' : 'image/jpeg',
-        dialogTitle: 'Paylaş',
+        dialogTitle: 'Paylaş', // Bu başlık bazı Android cihazlarda görünebilir
       });
     } catch (error) {
       console.error('Genel paylaşım hatası:', error);
@@ -189,41 +189,26 @@ export class ExportService {
     const { shareOption, preset, viewRef, filename } = options;
 
     try {
-      // Önce export et
       const fileUri = await this.captureAndExport({ preset, viewRef, filename });
 
-      // Paylaşım türüne göre işlem yap
+      // --- DÜZELTME ---
+      // Mantık, yeni ve sade SHARE_OPTIONS yapısına göre güncellendi.
       switch (shareOption.type) {
         case 'gallery':
           await this.saveToGallery(fileUri);
           break;
-        
-        case 'whatsapp':
-          await this.shareToWhatsApp(fileUri);
-          break;
-        
-        case 'instagram':
-          await this.shareToInstagram(fileUri);
-          break;
-        
-        case 'email':
-          await this.shareViaEmail(fileUri, preset);
-          break;
-        
-        case 'facebook':
+
         case 'generic':
         default:
           await this.shareGeneric(fileUri, preset);
           break;
       }
 
-      // Geçici dosyayı temizle (galeri hariç)
-      if (shareOption.type !== 'gallery') {
-        try {
-          await FileSystem.deleteAsync(fileUri, { idempotent: true });
-        } catch (cleanupError) {
-          console.warn('Geçici dosya temizlenemedi:', cleanupError);
-        }
+      // Geçici dosya, işlem ne olursa olsun her zaman silinir.
+      try {
+        await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      } catch (cleanupError) {
+        console.warn('Geçici dosya temizlenemedi:', cleanupError);
       }
 
     } catch (error) {
@@ -241,11 +226,11 @@ export class ExportService {
     onProgress?: (current: number, total: number) => void
   ): Promise<string[]> {
     const results: string[] = [];
-    
+
     for (let i = 0; i < presets.length; i++) {
       const preset = presets[i];
       onProgress?.(i + 1, presets.length);
-      
+
       try {
         const fileUri = await this.captureAndExport({
           preset,

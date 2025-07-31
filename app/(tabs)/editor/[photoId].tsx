@@ -1,4 +1,4 @@
-// app/(tabs)/editor/[photoId].tsx - Export Sekmesi Eklenmiş Versiyon
+// app/(tabs)/editor/[photoId].tsx - Export Sekmesi Eklenmiş ve Düzeltilmiş Versiyon
 
 import React, { useState } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView } from 'react-native';
@@ -16,7 +16,7 @@ import { CustomSlider } from './components/CustomSlider';
 import { MainToolbar } from './components/MainToolbar';
 import { FilterPreview } from './components/FilterPreview';
 import { BackgroundButton } from './components/BackgroundButton';
-import { ExportToolbar } from './components/ExportToolbar'; // YENİ IMPORT
+import { ExportToolbar } from './components/ExportToolbar';
 import { ADJUST_FEATURES, BACKGROUND_FEATURES } from './config/features';
 import { ALL_FILTERS } from './config/filters';
 import { ToastService } from '@/components/Toast/ToastService';
@@ -56,12 +56,18 @@ export default function ApplePhotosEditor() {
     saveChanges,
   } = useEditorState({ photoId: photoId || '' });
 
-  // Export manager hook'u
-  const { previewRef } = useExportManager();
+  // Export manager hook'u bileşenin en üst seviyesine taşındı
+  const {
+    previewRef,
+    selectedPreset,
+    isExporting,
+    setSelectedPreset,
+    shareWithOption,
+    batchExport,
+  } = useExportManager();
 
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
 
-  // Güncellenmiş scroll manager
   const { 
     backgroundScrollRef, 
     filterScrollRef,
@@ -102,56 +108,57 @@ export default function ApplePhotosEditor() {
     return [];
   };
 
-  // Target'a göre doğru scroll ref'ini seç
   const getAdjustScrollRef = () => {
     switch (activeTarget) {
-      case 'product':
-        return adjustProductScrollRef;
-      case 'background':
-        return adjustBackgroundScrollRef;
-      case 'all':
-        return adjustAllScrollRef;
-      default:
-        return adjustProductScrollRef;
+      case 'product': return adjustProductScrollRef;
+      case 'background': return adjustBackgroundScrollRef;
+      case 'all': return adjustAllScrollRef;
+      default: return adjustProductScrollRef;
     }
   };
 
   const selectedBackground = backgrounds.find(bg => bg.id === settings.backgroundId);
   const activeFeatures = getActiveFeatures();
   const currentFeature = activeFeatures.find(f => f.key === activeFeature);
-
-  // Mevcut feature için karışık durum bilgilerini al
   const currentFeatureStatus = activeFeature ? getFeatureButtonStatus(activeFeature) : null;
   const currentFeatureValues = activeFeature ? getFeatureValues(activeFeature) : null;
   const isCurrentFeatureMixed = activeFeature ? hasMultipleValues(activeFeature) : false;
+
+  // Dinamik olarak en-boy oranını hesapla
+  const previewAspectRatio = selectedPreset
+    ? selectedPreset.dimensions.width / selectedPreset.dimensions.height
+    : 1;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
         <EditorHeader onCancel={() => router.back()} onSave={handleSave} isSaving={isSaving} />
         
-        {/* Target selector'ı export dışındaki tüm araçlar için göster */}
         <TargetSelector 
           activeTarget={activeTarget} 
           onTargetChange={handleTargetChange} 
           activeTool={activeTool} 
         />
         
-        {/* Preview - Export için ref eklendi */}
-        <View ref={previewRef} collapsable={false}>
-          <EditorPreview
-            activePhoto={activePhoto}
-            selectedBackground={selectedBackground}
-            settings={settings}
-            showOriginal={showOriginal}
-            onShowOriginalChange={setShowOriginal}
-            onLayout={(e) => setPreviewSize(e.nativeEvent.layout)}
-            updateSettings={updateSettings}
-            previewSize={previewSize}
-          />
+        <View style={styles.previewWrapper}>
+          <View
+            ref={previewRef}
+            collapsable={false}
+            style={{ width: '100%', aspectRatio: previewAspectRatio }}
+          >
+            <EditorPreview
+              activePhoto={activePhoto}
+              selectedBackground={selectedBackground}
+              settings={settings}
+              showOriginal={showOriginal}
+              onShowOriginalChange={setShowOriginal}
+              onLayout={(e) => setPreviewSize(e.nativeEvent.layout)}
+              updateSettings={updateSettings}
+              previewSize={previewSize}
+            />
+          </View>
         </View>
 
-        {/* Custom Slider - export dışında göster */}
         {currentFeature && activeTool !== 'export' && (
           <CustomSlider
             feature={currentFeature}
@@ -166,78 +173,37 @@ export default function ApplePhotosEditor() {
           />
         )}
         
-        {/* Alt toolbar container - export ve diğer araçlar */}
         {!isSliderActive && (
           <View style={styles.subToolbarContainer}>
-            {/* Background Tool */}
             {activeTool === 'background' && (
-              <ScrollView 
-                ref={backgroundScrollRef} 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                contentContainerStyle={styles.scrollContent}
-              >
-                {backgrounds.map(bg => 
-                  <BackgroundButton 
-                    key={bg.id} 
-                    background={bg} 
-                    isSelected={settings.backgroundId === bg.id} 
-                    onPress={() => updateSettings({ backgroundId: bg.id })} 
-                  />
-                )}
+              <ScrollView ref={backgroundScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                {backgrounds.map(bg => <BackgroundButton key={bg.id} background={bg} isSelected={settings.backgroundId === bg.id} onPress={() => updateSettings({ backgroundId: bg.id })} />)}
               </ScrollView>
             )}
             
-            {/* Filter Tool */}
             {activeTool === 'filter' && (
-              <ScrollView 
-                ref={filterScrollRef} 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                contentContainerStyle={styles.scrollContent}
-              >
-                {ALL_FILTERS.map(filter => 
-                  <FilterPreview 
-                    key={filter.key} 
-                    filter={filter} 
-                    imageUri={activePhoto?.processedImageUrl || ''} 
-                    backgroundUri={selectedBackground?.fullUrl || ''} 
-                    isSelected={currentFilter === filter.key} 
-                    onPress={() => handleFilterPress(filter)} 
-                  />
-                )}
+              <ScrollView ref={filterScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                {ALL_FILTERS.map(filter => <FilterPreview key={filter.key} filter={filter} imageUri={activePhoto?.processedImageUrl || ''} backgroundUri={selectedBackground?.fullUrl || ''} isSelected={currentFilter === filter.key} onPress={() => handleFilterPress(filter)} />)}
               </ScrollView>
             )}
             
-            {/* Adjust Tool - Target bazlı ScrollView */}
             {activeTool === 'adjust' && (
-              <ScrollView 
-                ref={getAdjustScrollRef()} 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                contentContainerStyle={styles.scrollContent}
-              >
+              <ScrollView ref={getAdjustScrollRef()} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {activeFeatures.map(feature => {
                   const featureStatus = getFeatureButtonStatus(feature.key);
-                  return (
-                    <FeatureButton 
-                      key={feature.key} 
-                      icon={feature.icon} 
-                      label={feature.label} 
-                      value={getCurrentFeatureValue(feature.key)}
-                      isActive={activeFeature === feature.key} 
-                      onPress={() => handleFeaturePressLocal(feature.key)}
-                      hasMixedValues={featureStatus.hasMixedValues}
-                      productValue={featureStatus.productValue}
-                      backgroundValue={featureStatus.backgroundValue}
-                    />
-                  );
+                  return <FeatureButton key={feature.key} icon={feature.icon} label={feature.label} value={getCurrentFeatureValue(feature.key)} isActive={activeFeature === feature.key} onPress={() => handleFeaturePressLocal(feature.key)} hasMixedValues={featureStatus.hasMixedValues} productValue={featureStatus.productValue} backgroundValue={featureStatus.backgroundValue} />;
                 })}
               </ScrollView>
             )}
 
-            {/* YENİ: Export Tool */}
-            <ExportToolbar activeTool={activeTool} />
+            <ExportToolbar
+              activeTool={activeTool}
+              selectedPreset={selectedPreset}
+              isExporting={isExporting}
+              setSelectedPreset={setSelectedPreset}
+              shareWithOption={shareWithOption}
+              batchExport={batchExport}
+            />
           </View>
         )}
         
@@ -250,6 +216,12 @@ export default function ApplePhotosEditor() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  previewWrapper: { // Önizleme için esnek bir sarmalayıcı
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.sm,
+  },
   subToolbarContainer: { maxHeight: 400, backgroundColor: Colors.card, paddingVertical: Spacing.sm },
   scrollContent: { paddingHorizontal: Spacing.lg, gap: Spacing.lg },
 });
