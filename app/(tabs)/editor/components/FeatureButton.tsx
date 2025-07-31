@@ -1,4 +1,4 @@
-// app/(tabs)/editor/components/FeatureButton.tsx
+// app/(tabs)/editor/components/FeatureButton.tsx - Final Düzeltilmiş Versiyon
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -11,6 +11,10 @@ interface FeatureButtonProps {
   value: number;
   isActive: boolean;
   onPress: () => void;
+  // Karışık durum için props
+  hasMixedValues?: boolean;
+  productValue?: number;
+  backgroundValue?: number;
 }
 
 export const FeatureButton: React.FC<FeatureButtonProps> = ({
@@ -19,40 +23,88 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
   value,
   isActive,
   onPress,
+  hasMixedValues = false,
+  productValue = 0,
+  backgroundValue = 0,
 }) => {
-  const hasValue = value !== 0;
+  // Doğru hasValue hesaplaması - aktif target'a göre
+  const hasAnyValue = hasMixedValues 
+    ? (productValue !== 0 || backgroundValue !== 0)
+    : (value !== 0);
   
+  // Karışık durumda farklı görsel
+  const getContainerStyle = () => {
+    if (isActive) return styles.containerActive;
+    return styles.container;
+  };
+
+  const getIconContainerStyle = () => {
+    // 1. Önce aktif durumu kontrol et (en yüksek öncelik)
+    if (isActive) return styles.iconContainerActive;
+    
+    // 2. Sonra karışık durum (sadece değer varsa)
+    if (hasMixedValues && hasAnyValue) return styles.iconContainerMixed;
+    
+    // 3. Normal değer var durumu  
+    if (hasAnyValue) return styles.iconContainerWithValue;
+    
+    // 4. Değer yok durumu
+    return styles.iconContainer;
+  };
+
+  const getIconColor = () => {
+    if (isActive || hasAnyValue) return Colors.card;
+    return Colors.textPrimary;
+  };
+
+  const getLabelStyle = () => {
+    if (isActive) return [styles.label, styles.labelActive];
+    if (hasAnyValue) return [styles.label, styles.labelWithValue];
+    return styles.label;
+  };
+
+  // Karışık durumda gösterilecek değer
+  const getDisplayValue = () => {
+    if (hasMixedValues) {
+      // Karışık durumda sadece ± simgesi göster
+      return '±';
+    }
+    // Normal durumda değeri göster
+    return value > 0 ? `+${value}` : `${value}`;
+  };
+
   return (
     <TouchableOpacity 
-      style={[styles.container, isActive && styles.containerActive]} 
+      style={getContainerStyle()} 
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={[
-        styles.iconContainer, 
-        hasValue && styles.iconContainerWithValue,
-        isActive && styles.iconContainerActive
-      ]}>
-        {hasValue ? (
+      <View style={getIconContainerStyle()}>
+        {hasAnyValue ? (
           <Text style={[
-            styles.valueText,
-            isActive && styles.valueTextActive
+            styles.valueText, 
+            hasMixedValues && styles.valueTextMixed,
+            { color: getIconColor() }
           ]}>
-            {value > 0 ? `+${value}` : `${value}`}
+            {getDisplayValue()}
           </Text>
         ) : (
           <Feather 
             name={icon as any} 
             size={18} 
-            color={isActive ? Colors.card : Colors.textPrimary} 
+            color={getIconColor()} 
           />
         )}
+        
+        {/* Karışık durum göstergesi - sadece kırmızı nokta */}
+        {hasMixedValues && hasAnyValue && (
+          <View style={styles.mixedIndicator}>
+            <View style={styles.mixedDot} />
+          </View>
+        )}
       </View>
-      <Text style={[
-        styles.label, 
-        isActive && styles.labelActive,
-        hasValue && styles.labelWithValue
-      ]}>
+      
+      <Text style={getLabelStyle()}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -64,9 +116,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 60,
     paddingHorizontal: Spacing.xs,
+    position: 'relative',
   },
   containerActive: {
-    // Active container styling if needed
+    alignItems: 'center',
+    minWidth: 60,
+    paddingHorizontal: Spacing.xs,
+    position: 'relative',
   },
   iconContainer: {
     width: 50,
@@ -76,13 +132,51 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.sm,
+    position: 'relative',
   },
   iconContainerWithValue: {
+    width: 50, // Normal boyut
+    height: 50,
+    borderRadius: 25,
     backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+    position: 'relative',
   },
   iconContainerActive: {
+    width: 50, // Normal boyut
+    height: 50,
+    borderRadius: 25,
     backgroundColor: Colors.primary,
-    transform: [{ scale: 1.05 }],
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+    position: 'relative',
+    // Aktif durumda sadece hafif glow
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  iconContainerMixed: {
+    width: 50, // Normal boyut
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+    position: 'relative',
+    // Border yerine shadow ile kırmızı çerçeve
+    shadowColor: Colors.error,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 2,
+    elevation: 0,
+    // Android için border simulation
+    borderWidth: 0,
   },
   valueText: {
     ...Typography.captionMedium,
@@ -91,8 +185,8 @@ const styles = StyleSheet.create({
     color: Colors.card,
     textAlign: 'center',
   },
-  valueTextActive: {
-    color: Colors.card,
+  valueTextMixed: {
+    fontSize: 14,
   },
   label: {
     ...Typography.caption,
@@ -100,7 +194,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
     maxWidth: 60,
-    numberOfLines: 1,
   },
   labelActive: {
     color: Colors.primary,
@@ -109,5 +202,27 @@ const styles = StyleSheet.create({
   labelWithValue: {
     color: Colors.primary,
     fontWeight: '600',
+  },
+  
+  // Karışık durum stilleri
+  mixedIndicator: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    width: 16, // Daha büyük
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // Beyaz border ekle
+    borderWidth: 2,
+    borderColor: Colors.card,
+  },
+  mixedDot: {
+    width: 8, // Daha büyük
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.card,
   },
 });

@@ -1,9 +1,9 @@
-// app/(tabs)/editor/components/CustomSlider.tsx
+// app/(tabs)/editor/components/CustomSlider.tsx - Basitleştirilmiş Versiyon
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { Colors, Typography, Spacing } from '@/constants';
+import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { FeatureConfig } from '../config/features';
 
 interface CustomSliderProps {
@@ -13,6 +13,10 @@ interface CustomSliderProps {
   onSlidingStart: () => void;
   onSlidingComplete: () => void;
   isActive: boolean;
+  // Karışık durum artık sadece bilgi amaçlı
+  hasMixedValues?: boolean;
+  productValue?: number;
+  backgroundValue?: number;
 }
 
 export const CustomSlider: React.FC<CustomSliderProps> = ({
@@ -22,9 +26,13 @@ export const CustomSlider: React.FC<CustomSliderProps> = ({
   onSlidingStart,
   onSlidingComplete,
   isActive,
+  hasMixedValues = false,
+  productValue = 0,
+  backgroundValue = 0,
 }) => {
   if (!isActive) return null;
 
+  // Artık her zaman normal slider göster
   return (
     <View style={styles.container}>
       {/* Feature info */}
@@ -33,9 +41,16 @@ export const CustomSlider: React.FC<CustomSliderProps> = ({
         <Text style={styles.featureValue}>
           {value > 0 ? `+${value}` : `${value}`}
         </Text>
+        
+        {/* Karışık durumda bilgi yazısı */}
+        {hasMixedValues && (
+          <Text style={styles.mixedInfo}>
+            Ürün: {productValue > 0 ? '+' : ''}{productValue} • Arka Plan: {backgroundValue > 0 ? '+' : ''}{backgroundValue}
+          </Text>
+        )}
       </View>
 
-      {/* Slider */}
+      {/* Normal Slider */}
       <View style={styles.sliderContainer}>
         <Slider
           style={styles.slider}
@@ -83,6 +98,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textPrimary,
   },
+  mixedInfo: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
+    textAlign: 'center',
+  },
+  
+  // Normal slider stilleri
   sliderContainer: {
     position: 'relative',
   },
