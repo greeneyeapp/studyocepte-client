@@ -1,4 +1,4 @@
-// app/(tabs)/editor/components/FeatureButton.tsx - Final Düzeltilmiş Versiyon
+// app/(tabs)/editor/components/FeatureButton.tsx - Stil Sorunu Düzeltilmiş Versiyon
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -40,13 +40,20 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
 
   const getIconContainerStyle = () => {
     // 1. Önce aktif durumu kontrol et (en yüksek öncelik)
-    if (isActive) return styles.iconContainerActive;
+    if (isActive) {
+      // Aktifken normal aktif stili kullan, karışık durum göstergesi sadece kırmızı nokta ile
+      return styles.iconContainerActive;
+    }
     
-    // 2. Sonra karışık durum (sadece değer varsa)
-    if (hasMixedValues && hasAnyValue) return styles.iconContainerMixed;
+    // 2. Aktif değilken karışık durum (sadece değer varsa)
+    if (hasMixedValues && hasAnyValue) {
+      return styles.iconContainerMixed;
+    }
     
     // 3. Normal değer var durumu  
-    if (hasAnyValue) return styles.iconContainerWithValue;
+    if (hasAnyValue) {
+      return styles.iconContainerWithValue;
+    }
     
     // 4. Değer yok durumu
     return styles.iconContainer;
@@ -96,8 +103,8 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
           />
         )}
         
-        {/* Karışık durum göstergesi - sadece kırmızı nokta */}
-        {hasMixedValues && hasAnyValue && (
+        {/* Karışık durum göstergesi - sadece aktif olmayan butonlarda */}
+        {hasMixedValues && hasAnyValue && !isActive && (
           <View style={styles.mixedIndicator}>
             <View style={styles.mixedDot} />
           </View>
@@ -135,7 +142,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   iconContainerWithValue: {
-    width: 50, // Normal boyut
+    width: 50,
     height: 50,
     borderRadius: 25,
     backgroundColor: Colors.primary,
@@ -145,7 +152,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   iconContainerActive: {
-    width: 50, // Normal boyut
+    width: 50,
     height: 50,
     borderRadius: 25,
     backgroundColor: Colors.primary,
@@ -159,9 +166,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 3,
     elevation: 3,
+    // KARIŞIK DURUM STİLLERİNİ AÇKÇA OVERRIDE ET
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   iconContainerMixed: {
-    width: 50, // Normal boyut
+    width: 50,
     height: 50,
     borderRadius: 25,
     backgroundColor: Colors.primary,
@@ -169,14 +179,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.sm,
     position: 'relative',
-    // Border yerine shadow ile kırmızı çerçeve
-    shadowColor: Colors.error,
+    // Düz border kullan, shadow karışıklığı önlemek için
+    borderWidth: 2,
+    borderColor: Colors.error,
+    // Shadow'ları sıfırla
+    shadowColor: 'transparent',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 2,
+    shadowOpacity: 0,
+    shadowRadius: 0,
     elevation: 0,
-    // Android için border simulation
-    borderWidth: 0,
   },
   valueText: {
     ...Typography.captionMedium,
@@ -209,7 +220,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -3,
     right: -3,
-    width: 16, // Daha büyük
+    width: 16,
     height: 16,
     borderRadius: 8,
     backgroundColor: Colors.error,
@@ -220,7 +231,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.card,
   },
   mixedDot: {
-    width: 8, // Daha büyük
+    width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: Colors.card,
