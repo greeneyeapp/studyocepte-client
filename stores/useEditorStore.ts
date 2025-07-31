@@ -209,7 +209,6 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     set({ isLoading: true, error: null });
     try {
       const photo = await api.fetchPhotoById(photoId);
-      console.log("Fetched photo data:", photo); 
       get().setActivePhoto(photo);
       set({ isLoading: false });
     } catch (error: any) {

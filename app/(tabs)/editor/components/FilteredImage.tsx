@@ -18,37 +18,46 @@ export const FilteredImage: React.FC<FilteredImageProps> = ({
   resizeMode = 'contain',
 }) => {
   // Gelişmiş animasyonlu filtreler - SADECE OPACITY ve TINT
-  const animatedStyle = useAnimatedStyle(() => {
-    const brightness = settings.product_brightness || 0;
-    const exposure = settings.product_exposure || 0;
-    const warmth = settings.product_warmth || 0;
-    const saturation = settings.product_saturation || 0;
-    
-    console.log('🎨 Product Filters:', { brightness, exposure, warmth, saturation });
-    
-    // Brightness + Exposure: opacity ile
-    const brightnessOpacity = interpolate(
-      brightness + exposure,
-      [-200, 0, 200],
-      [0.3, 1, 1.8],
-      Extrapolate.CLAMP
-    );
-    
-    // Warmth: tintColor ile (PNG transparency korumalı)
-    let tintColor = 'transparent';
-    if (warmth !== 0) {
-      if (warmth > 0) {
-        tintColor = `rgba(255, 180, 80, ${Math.min(0.2, warmth / 500)})`; // Çok hafif
-      } else {
-        tintColor = `rgba(80, 140, 255, ${Math.min(0.2, Math.abs(warmth) / 500)})`; // Çok hafif
+    const animatedStyle = useAnimatedStyle(() => {
+    // 1. ÖNCE GÖRÜNÜR OLDUĞUNU VARSAYALIM
+    // Bu, kodun en kritik kısmıdır. Ayarlar gelene kadar fotoğrafın görünür olmasını garanti eder.
+    let calculatedOpacity = 1.0;
+    let calculatedTintColor = 'transparent';
+
+    // 2. AYARLARIN YÜKLENDİĞİNDEN EMİN OLALIM
+    // Bu kontrol, ayarların null, undefined veya boş bir obje olma ihtimaline karşı
+    // kodun hata vermesini veya yanlış hesaplama yapmasını engeller.
+    if (settings && typeof settings === 'object' && Object.keys(settings).length > 0) {
+      const brightness = settings.product_brightness ?? 0;
+      const exposure = settings.product_exposure ?? 0;
+      const warmth = settings.product_warmth ?? 0;
+      const saturation = settings.product_saturation ?? 0;
+
+      // Opaklık hesaplaması
+      const opacityValue = 1.0 + (brightness / 100) + (exposure / 100);
+      calculatedOpacity = Math.max(0.0, Math.min(2.0, opacityValue));
+
+      // Renk tonu (Tint) hesaplaması
+      if (warmth !== 0) {
+        const warmthOpacity = Math.min(0.25, Math.abs(warmth) / 400);
+        if (warmth > 0) {
+          calculatedTintColor = `rgba(255, 180, 80, ${warmthOpacity})`;
+        } else {
+          calculatedTintColor = `rgba(80, 140, 255, ${warmthOpacity})`;
+        }
+      } else if (saturation < 0) {
+        const desaturationOpacity = (Math.abs(saturation) / 100) * 0.5;
+        calculatedTintColor = `rgba(150, 150, 150, ${desaturationOpacity})`;
       }
     }
-    
+
+    // 3. Her durumda geçerli bir stil döndür
     return {
-      opacity: Math.max(0.2, Math.min(2, brightnessOpacity)),
-      tintColor: tintColor,
+      opacity: calculatedOpacity,
+      tintColor: calculatedTintColor,
     };
-  });
+    // Hook'un, ayarlar değiştiğinde yeniden çalışmasını garanti altına alıyoruz.
+  }, [settings]); 
 
   return (
     <View style={[styles.container, style]}>
@@ -57,7 +66,7 @@ export const FilteredImage: React.FC<FilteredImageProps> = ({
         style={[styles.image, animatedStyle]}
         resizeMode={resizeMode}
       />
-      
+
       {/* OVERLAY'LERİ KALDIR - PNG transparency'yi bozuyorlar */}
       {/* Sadece Animated.Image'daki tintColor ve opacity kullan */}
     </View>
@@ -67,15 +76,15 @@ export const FilteredImage: React.FC<FilteredImageProps> = ({
 // Warmth overlay - sadece görünür pixellerde
 const renderWarmthOverlay = (settings: any) => {
   const warmth = settings.product_warmth || 0;
-  
+
   if (warmth === 0) return null;
-  
-  const overlayColor = warmth > 0 
+
+  const overlayColor = warmth > 0
     ? `rgba(255, 180, 80, ${Math.min(0.3, Math.abs(warmth) / 300)})` // Sıcak
     : `rgba(80, 140, 255, ${Math.min(0.3, Math.abs(warmth) / 300)})`; // Soğuk
-  
+
   return (
-    <View 
+    <View
       style={[
         styles.overlay,
         { backgroundColor: overlayColor }
@@ -88,13 +97,13 @@ const renderWarmthOverlay = (settings: any) => {
 // Saturation overlay - mono effect
 const renderSaturationOverlay = (settings: any) => {
   const saturation = settings.product_saturation || 0;
-  
+
   if (saturation >= -50) return null; // Sadece çok düşük saturation'da
-  
+
   const monoOpacity = Math.abs(saturation + 50) / 100;
-  
+
   return (
-    <View 
+    <View
       style={[
         styles.overlay,
         { backgroundColor: `rgba(128, 128, 128, ${monoOpacity * 0.4})` }
