@@ -1,4 +1,4 @@
-// app/(tabs)/editor/[photoId].tsx - Güncellenmiş Ana Editör
+// app/(tabs)/editor/[photoId].tsx - Export Sekmesi Eklenmiş Versiyon
 
 import React, { useState } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView } from 'react-native';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useEditorState } from './hooks/useEditorState';
 import { useScrollManager } from './hooks/useScrollManager';
+import { useExportManager } from './hooks/useExportManager'; // YENİ IMPORT
 import { EditorHeader } from './components/EditorHeader';
 import { TargetSelector } from './components/TargetSelector';
 import { EditorPreview } from './components/EditorPreview';
@@ -15,6 +16,7 @@ import { CustomSlider } from './components/CustomSlider';
 import { MainToolbar } from './components/MainToolbar';
 import { FilterPreview } from './components/FilterPreview';
 import { BackgroundButton } from './components/BackgroundButton';
+import { ExportToolbar } from './components/ExportToolbar'; // YENİ IMPORT
 import { ADJUST_FEATURES, BACKGROUND_FEATURES } from './config/features';
 import { ALL_FILTERS } from './config/filters';
 import { ToastService } from '@/components/Toast/ToastService';
@@ -45,7 +47,7 @@ export default function ApplePhotosEditor() {
     handleToolChange,
     handleFeatureChange,
     handleFeaturePress,
-    handleFilterPress, // YENİ EKLENEN
+    handleFilterPress,
     getCurrentFeatureValue,
     hasMultipleValues,
     getFeatureValues,
@@ -53,6 +55,9 @@ export default function ApplePhotosEditor() {
     updateSettings,
     saveChanges,
   } = useEditorState({ photoId: photoId || '' });
+
+  // Export manager hook'u
+  const { previewRef } = useExportManager();
 
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
 
@@ -125,25 +130,29 @@ export default function ApplePhotosEditor() {
       <SafeAreaView style={styles.container}>
         <EditorHeader onCancel={() => router.back()} onSave={handleSave} isSaving={isSaving} />
         
-        {/* Target selector'ı filter için de göster */}
+        {/* Target selector'ı export dışındaki tüm araçlar için göster */}
         <TargetSelector 
           activeTarget={activeTarget} 
           onTargetChange={handleTargetChange} 
           activeTool={activeTool} 
         />
         
-        <EditorPreview
-          activePhoto={activePhoto}
-          selectedBackground={selectedBackground}
-          settings={settings}
-          showOriginal={showOriginal}
-          onShowOriginalChange={setShowOriginal}
-          onLayout={(e) => setPreviewSize(e.nativeEvent.layout)}
-          updateSettings={updateSettings}
-          previewSize={previewSize}
-        />
+        {/* Preview - Export için ref eklendi */}
+        <View ref={previewRef} collapsable={false}>
+          <EditorPreview
+            activePhoto={activePhoto}
+            selectedBackground={selectedBackground}
+            settings={settings}
+            showOriginal={showOriginal}
+            onShowOriginalChange={setShowOriginal}
+            onLayout={(e) => setPreviewSize(e.nativeEvent.layout)}
+            updateSettings={updateSettings}
+            previewSize={previewSize}
+          />
+        </View>
 
-        {currentFeature && (
+        {/* Custom Slider - export dışında göster */}
+        {currentFeature && activeTool !== 'export' && (
           <CustomSlider
             feature={currentFeature}
             value={getCurrentFeatureValue(activeFeature || '')}
@@ -157,6 +166,7 @@ export default function ApplePhotosEditor() {
           />
         )}
         
+        {/* Alt toolbar container - export ve diğer araçlar */}
         {!isSliderActive && (
           <View style={styles.subToolbarContainer}>
             {/* Background Tool */}
@@ -178,7 +188,7 @@ export default function ApplePhotosEditor() {
               </ScrollView>
             )}
             
-            {/* Filter Tool - YENİ GÜNCELLEME */}
+            {/* Filter Tool */}
             {activeTool === 'filter' && (
               <ScrollView 
                 ref={filterScrollRef} 
@@ -225,6 +235,9 @@ export default function ApplePhotosEditor() {
                 })}
               </ScrollView>
             )}
+
+            {/* YENİ: Export Tool */}
+            <ExportToolbar activeTool={activeTool} />
           </View>
         )}
         
@@ -237,6 +250,6 @@ export default function ApplePhotosEditor() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  subToolbarContainer: { maxHeight: 100, backgroundColor: Colors.card, paddingVertical: Spacing.sm },
+  subToolbarContainer: { maxHeight: 400, backgroundColor: Colors.card, paddingVertical: Spacing.sm },
   scrollContent: { paddingHorizontal: Spacing.lg, gap: Spacing.lg },
 });

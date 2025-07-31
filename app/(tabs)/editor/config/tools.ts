@@ -1,6 +1,6 @@
-// app/(tabs)/editor/config/tools.ts
+// app/(tabs)/editor/config/tools.ts - Updated with Export Tool
 
-export type ToolType = 'background' | 'adjust' | 'filter';
+export type ToolType = 'background' | 'adjust' | 'filter' | 'export'; // Export eklendi
 export type TargetType = 'product' | 'background' | 'all';
 
 export interface ToolConfig {
@@ -16,7 +16,7 @@ export interface TargetConfig {
   description?: string;
 }
 
-// Ana araçlar - kırpma kaldırıldı
+// Ana araçlar - Export eklendi
 export const MAIN_TOOLS: ToolConfig[] = [
   {
     key: 'background',
@@ -36,9 +36,15 @@ export const MAIN_TOOLS: ToolConfig[] = [
     label: 'Filtreler',
     description: 'Hazır filtre efektlerini uygula'
   },
+  {
+    key: 'export',
+    icon: 'download',
+    label: 'Export',
+    description: 'Kaydet ve paylaş'
+  },
 ];
 
-// Hedef seçici - filter için de gösterilecek
+// Hedef seçici - export için de gösterilecek (ama sadece preview etkilemek için)
 export const TARGET_SELECTOR: TargetConfig[] = [
   {
     key: 'product',
