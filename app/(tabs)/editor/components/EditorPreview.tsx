@@ -39,7 +39,7 @@ export const EditorPreview: React.FC<EditorPreviewProps> = ({
     combinedGesture
   } = useEditorGestures({ settings, previewSize, updateSettings });
 
-  // --- ÜRÜN FİLTRE MANTIĞI ---
+  // --- Ürün Filtre Mantığı ---
   const productAnimatedStyle = useAnimatedStyle(() => {
     let opacity = 1.0;
     let tintColor = 'transparent';
@@ -78,38 +78,53 @@ export const EditorPreview: React.FC<EditorPreviewProps> = ({
     };
   }, [settings, showOriginal, photoX, photoY, photoScale, photoRotation]);
 
-  // --- ARKA PLAN FİLTRE MANTIĞI (EKSİK KISIM TAMAMLANDI VE DÜZELTİLDİ) ---
+  // --- Arka Plan Filtre Mantığı ---
   const backgroundAnimatedStyle = useAnimatedStyle(() => {
-    // Başlangıçta görünürlüğü garanti altına al
-    let opacity = 1.0;
     let blurRadius = 0;
-    let tintColor = 'transparent';
+    if (settings && Object.keys(settings).length > 0) {
+        blurRadius = settings['background_blur'] ?? 0;
+    }
+    return {
+      blurRadius: blurRadius,
+    };
+  }, [settings]);
+
+  // Arka planın parlaklık ve renk ayarlarını yönetecek overlay stili
+  const backgroundOverlayStyle = useAnimatedStyle(() => {
+    let opacity = 0;
+    let backgroundColor = '#000000';
 
     if (settings && Object.keys(settings).length > 0) {
-        const prefix = 'background_';
-        const brightness = settings[prefix + 'brightness'] ?? 0;
-        const exposure = settings[prefix + 'exposure'] ?? 0;
-        const contrast = settings[prefix + 'contrast'] ?? 0;
-        const warmth = settings[prefix + 'warmth'] ?? 0;
-        const saturation = settings[prefix + 'saturation'] ?? 0;
-        blurRadius = settings[prefix + 'blur'] ?? 0;
+      const prefix = 'background_';
+      const brightness = settings[prefix + 'brightness'] ?? 0;
+      const contrast = settings[prefix + 'contrast'] ?? 0;
+      const warmth = settings[prefix + 'warmth'] ?? 0;
+      const saturation = settings[prefix + 'saturation'] ?? 0;
+      
+      let finalBrightness = (brightness / 100) + (contrast / 200);
 
-        opacity = 1.0 + (brightness / 100) + (exposure / 100);
-        opacity = opacity * (1 + contrast / 200);
+      if (finalBrightness > 0) {
+        backgroundColor = '#FFFFFF';
+        opacity = finalBrightness;
+      } else {
+        backgroundColor = '#000000';
+        opacity = Math.abs(finalBrightness);
+      }
 
-        if (warmth !== 0) {
-            const amount = Math.min(0.2, Math.abs(warmth) / 500);
-            tintColor = warmth > 0 ? `rgba(255, 165, 0, ${amount})` : `rgba(0, 100, 255, ${amount})`;
-        } else if (saturation < 0) {
-            const amount = (Math.abs(saturation) / 100) * 0.7;
-            tintColor = `rgba(128, 128, 128, ${amount})`;
-        }
+      if (warmth !== 0) {
+        const amount = Math.min(0.3, Math.abs(warmth) / 300);
+        backgroundColor = warmth > 0 ? `rgba(255, 165, 0, 1)` : `rgba(0, 100, 255, 1)`;
+        opacity = amount;
+      } else if (saturation < 0) {
+        const amount = Math.abs(saturation) / 100;
+        backgroundColor = `rgba(128, 128, 128, 1)`;
+        opacity = amount;
+      }
     }
-    
+
     return {
-      opacity: Math.max(0.1, Math.min(2, opacity)),
-      blurRadius: blurRadius,
-      tintColor: tintColor,
+      backgroundColor,
+      opacity: Math.max(0, Math.min(0.75, opacity)),
     };
   }, [settings]);
   
@@ -131,8 +146,21 @@ export const EditorPreview: React.FC<EditorPreviewProps> = ({
           {/* Arka Plan Katmanı */}
           {selectedBackground && (
             <View style={styles.backgroundLayer}>
+                {/* Ana Arka Plan Görüntüsü */}
                 <AnimatedImage source={{ uri: selectedBackground.fullUrl }} style={[styles.fullSize, backgroundAnimatedStyle]} resizeMode="cover" />
-                <AnimatedGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.1)', 'rgba(0,0,0,0.8)']} style={[styles.fullSize, vignetteStyle]} />
+                {/* Parlaklık ve Renk için Overlay */}
+                <Animated.View style={[styles.fullSize, styles.overlay, backgroundOverlayStyle]} />
+                {/* Vinyet için Gradient (DAHA BELİRGİN HALE GETİRİLDİ) */}
+                <AnimatedGradient
+                  colors={[
+                    'rgba(0,0,0,0.6)', // Köşeler daha karanlık
+                    'transparent',
+                    'transparent',
+                    'rgba(0,0,0,0.6)'  // Köşeler daha karanlık
+                  ]}
+                  locations={[0, 0.3, 0.7, 1]} // Geçişin konumları
+                  style={[styles.fullSize, styles.overlay, vignetteStyle]}
+                />
             </View>
           )}
 
@@ -147,7 +175,7 @@ export const EditorPreview: React.FC<EditorPreviewProps> = ({
         </View>
       </Pressable>
     </View>
-  ); 
+  );
 };
 
 const styles = StyleSheet.create({
@@ -156,10 +184,16 @@ const styles = StyleSheet.create({
   canvas: { flex: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   backgroundLayer: { ...StyleSheet.absoluteFillObject },
   fullSize: { width: '100%', height: '100%' },
+  overlay: { 
+    position: 'absolute',
+    // KATMANLARIN BİRBİRİNİ EZMEMESİ İÇİN zIndex EKLENDİ
+    zIndex: 2 
+  },
   productLayerWrapper: { 
     position: 'absolute',
     width: '80%',
     height: '80%',
+    zIndex: 5, // Ürünün her zaman en üstte olmasını garanti eder
   },
   productImage: {
     width: '100%',
