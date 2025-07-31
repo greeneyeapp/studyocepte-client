@@ -1,4 +1,4 @@
-// app/(tabs)/editor/[photoId].tsx - Ana Editor Ekranı Güncellemesi
+// app/(tabs)/editor/[photoId].tsx - Ana Editor Ekranı Düzeltilmiş
 
 import React, { useState } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView } from 'react-native';
@@ -44,7 +44,7 @@ export default function ApplePhotosEditor() {
     handleTargetChange,
     handleToolChange,
     handleFeatureChange,
-    handleFeaturePress, // Yeni eklenen
+    handleFeaturePress,
     getCurrentFeatureValue,
     hasMultipleValues,
     getFeatureValues,
@@ -55,7 +55,20 @@ export default function ApplePhotosEditor() {
 
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
 
-  const { scrollViewRef } = useScrollManager({ activeTool, activeFeature, isSliderActive });
+  // Güncellenmiş scroll manager - target bazlı
+  const { 
+    backgroundScrollRef, 
+    filterScrollRef, 
+    cropScrollRef,
+    adjustProductScrollRef,
+    adjustBackgroundScrollRef,
+    adjustAllScrollRef,
+  } = useScrollManager({ 
+    activeTool, 
+    activeTarget, // YENİ EKLENEN
+    activeFeature, 
+    isSliderActive 
+  });
 
   const handleSave = async () => {
     try {
@@ -74,8 +87,6 @@ export default function ApplePhotosEditor() {
   const handleSliderChange = (value: number) => {
     if (activeFeature) handleFeatureChange(activeFeature, value);
   };
-
-  // Karışık durum için eşitleme fonksiyonu - artık gerek yok
   
   const handleFilterPress = (filter: any) => {
     setCurrentFilter(filter.key);
@@ -94,6 +105,20 @@ export default function ApplePhotosEditor() {
   const getActiveFeatures = () => {
     if (activeTool === 'adjust') return activeTarget === 'background' ? BACKGROUND_FEATURES : ADJUST_FEATURES;
     return activeTool === 'crop' ? CROP_FEATURES : [];
+  };
+
+  // Target'a göre doğru scroll ref'ini seç
+  const getAdjustScrollRef = () => {
+    switch (activeTarget) {
+      case 'product':
+        return adjustProductScrollRef;
+      case 'background':
+        return adjustBackgroundScrollRef;
+      case 'all':
+        return adjustAllScrollRef;
+      default:
+        return adjustProductScrollRef;
+    }
   };
 
   const selectedBackground = backgrounds.find(bg => bg.id === settings.backgroundId);
@@ -130,7 +155,6 @@ export default function ApplePhotosEditor() {
             onSlidingStart={() => setIsSliderActive(true)}
             onSlidingComplete={() => setIsSliderActive(false)}
             isActive={!!activeFeature}
-            // Karışık durum props'ları - sadece bilgi için
             hasMixedValues={isCurrentFeatureMixed}
             productValue={currentFeatureValues?.productValue}
             backgroundValue={currentFeatureValues?.backgroundValue}
@@ -139,45 +163,99 @@ export default function ApplePhotosEditor() {
         
         {!isSliderActive && (
           <View style={styles.subToolbarContainer}>
-            <ScrollView ref={scrollViewRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-              {activeTool === 'background' && backgrounds.map(bg => 
-                <BackgroundButton 
-                  key={bg.id} 
-                  background={bg} 
-                  isSelected={settings.backgroundId === bg.id} 
-                  onPress={() => updateSettings({ backgroundId: bg.id })} 
-                />
-              )}
-              
-              {activeTool === 'filter' && ALL_FILTERS.map(filter => 
-                <FilterPreview 
-                  key={filter.key} 
-                  filter={filter} 
-                  imageUri={activePhoto?.processedImageUrl || ''} 
-                  backgroundUri={selectedBackground?.fullUrl || ''} 
-                  isSelected={currentFilter === filter.key} 
-                  onPress={() => handleFilterPress(filter)} 
-                />
-              )}
-              
-              {(activeTool === 'adjust' || activeTool === 'crop') && activeFeatures.map(feature => {
-                const featureStatus = getFeatureButtonStatus(feature.key);
-                return (
-                  <FeatureButton 
-                    key={feature.key} 
-                    icon={feature.icon} 
-                    label={feature.label} 
-                    value={getCurrentFeatureValue(feature.key)}
-                    isActive={activeFeature === feature.key} 
-                    onPress={() => handleFeaturePressLocal(feature.key)}
-                    // Karışık durum props'ları
-                    hasMixedValues={featureStatus.hasMixedValues}
-                    productValue={featureStatus.productValue}
-                    backgroundValue={featureStatus.backgroundValue}
+            {/* Background Tool */}
+            {activeTool === 'background' && (
+              <ScrollView 
+                ref={backgroundScrollRef} 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={styles.scrollContent}
+              >
+                {backgrounds.map(bg => 
+                  <BackgroundButton 
+                    key={bg.id} 
+                    background={bg} 
+                    isSelected={settings.backgroundId === bg.id} 
+                    onPress={() => updateSettings({ backgroundId: bg.id })} 
                   />
-                );
-              })}
-            </ScrollView>
+                )}
+              </ScrollView>
+            )}
+            
+            {/* Filter Tool */}
+            {activeTool === 'filter' && (
+              <ScrollView 
+                ref={filterScrollRef} 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={styles.scrollContent}
+              >
+                {ALL_FILTERS.map(filter => 
+                  <FilterPreview 
+                    key={filter.key} 
+                    filter={filter} 
+                    imageUri={activePhoto?.processedImageUrl || ''} 
+                    backgroundUri={selectedBackground?.fullUrl || ''} 
+                    isSelected={currentFilter === filter.key} 
+                    onPress={() => handleFilterPress(filter)} 
+                  />
+                )}
+              </ScrollView>
+            )}
+            
+            {/* Adjust Tool - Target bazlı ScrollView */}
+            {activeTool === 'adjust' && (
+              <ScrollView 
+                ref={getAdjustScrollRef()} 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={styles.scrollContent}
+              >
+                {activeFeatures.map(feature => {
+                  const featureStatus = getFeatureButtonStatus(feature.key);
+                  return (
+                    <FeatureButton 
+                      key={feature.key} 
+                      icon={feature.icon} 
+                      label={feature.label} 
+                      value={getCurrentFeatureValue(feature.key)}
+                      isActive={activeFeature === feature.key} 
+                      onPress={() => handleFeaturePressLocal(feature.key)}
+                      hasMixedValues={featureStatus.hasMixedValues}
+                      productValue={featureStatus.productValue}
+                      backgroundValue={featureStatus.backgroundValue}
+                    />
+                  );
+                })}
+              </ScrollView>
+            )}
+            
+            {/* Crop Tool */}
+            {activeTool === 'crop' && (
+              <ScrollView 
+                ref={cropScrollRef} 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={styles.scrollContent}
+              >
+                {activeFeatures.map(feature => {
+                  const featureStatus = getFeatureButtonStatus(feature.key);
+                  return (
+                    <FeatureButton 
+                      key={feature.key} 
+                      icon={feature.icon} 
+                      label={feature.label} 
+                      value={getCurrentFeatureValue(feature.key)}
+                      isActive={activeFeature === feature.key} 
+                      onPress={() => handleFeaturePressLocal(feature.key)}
+                      hasMixedValues={featureStatus.hasMixedValues}
+                      productValue={featureStatus.productValue}
+                      backgroundValue={featureStatus.backgroundValue}
+                    />
+                  );
+                })}
+              </ScrollView>
+            )}
           </View>
         )}
         
@@ -192,4 +270,4 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   subToolbarContainer: { maxHeight: 100, backgroundColor: Colors.card, paddingVertical: Spacing.sm },
   scrollContent: { paddingHorizontal: Spacing.lg, gap: Spacing.lg },
-});
+}); muhammedbozkurrt@outlook.com
