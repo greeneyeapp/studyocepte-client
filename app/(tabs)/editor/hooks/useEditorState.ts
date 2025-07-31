@@ -1,8 +1,9 @@
-// app/(tabs)/editor/hooks/useEditorState.ts - Karışık Durum Mantığı
+// app/(tabs)/editor/hooks/useEditorState.ts - Hedef Tabanlı Filtre Mantığı
 
 import { useState, useEffect } from 'react';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { ToolType, TargetType } from '../config/tools';
+import { ALL_FILTERS } from '../config/filters';
 
 interface EditorStateConfig {
   photoId: string;
@@ -46,14 +47,13 @@ export const useEditorState = ({ photoId }: EditorStateConfig) => {
     setActiveTool(tool);
     setActiveFeature(null);
     if (tool === 'background') setActiveTarget('background');
-    else if (tool === 'crop') setActiveTarget('all');
   };
 
   const handleFeatureChange = (featureKey: string, value: number) => {
     const targetedSettings: Record<string, any> = {};
     
     if (activeTarget === 'all') {
-      // "Tümü" seçiliyken her iki katmana da uygula (karışık durumu çözer)
+      // "Tümü" seçiliyken her iki katmana da uygula
       targetedSettings[`product_${featureKey}`] = value;
       targetedSettings[`background_${featureKey}`] = value;
     } else {
@@ -82,6 +82,49 @@ export const useEditorState = ({ photoId }: EditorStateConfig) => {
           [`background_${featureKey}`]: averageValue,
         });
       }
+    }
+  };
+
+  // YENİ FONKSİYON: Hedef tabanlı filtre uygulama
+  const handleFilterPress = (filter: any) => {
+    setCurrentFilter(filter.key);
+    
+    if (filter.key === 'original') {
+      // Orijinal filtreyi uygula - tüm ayarları sıfırla
+      const resetSettings: Record<string, number> = {};
+      
+      if (activeTarget === 'all') {
+        // Her iki katmana da sıfırlama uygula
+        ['exposure', 'brightness', 'highlights', 'shadows', 'contrast', 'saturation', 'vibrance', 'warmth', 'clarity', 'vignette'].forEach(key => {
+          resetSettings[`product_${key}`] = 0;
+          resetSettings[`background_${key}`] = 0;
+        });
+      } else {
+        // Sadece seçili hedefe sıfırlama uygula
+        ['exposure', 'brightness', 'highlights', 'shadows', 'contrast', 'saturation', 'vibrance', 'warmth', 'clarity', 'vignette'].forEach(key => {
+          resetSettings[`${activeTarget}_${key}`] = 0;
+        });
+      }
+      
+      updateSettings(resetSettings);
+    } else {
+      // Diğer filtreleri uygula
+      const newSettings: Record<string, number> = {};
+      
+      if (activeTarget === 'all') {
+        // Her iki katmana da filtre uygula
+        Object.entries(filter.settings).forEach(([key, value]) => {
+          newSettings[`product_${key}`] = value as number;
+          newSettings[`background_${key}`] = value as number;
+        });
+      } else {
+        // Sadece seçili hedefe filtre uygula
+        Object.entries(filter.settings).forEach(([key, value]) => {
+          newSettings[`${activeTarget}_${key}`] = value as number;
+        });
+      }
+      
+      updateSettings(newSettings);
     }
   };
 
@@ -115,8 +158,7 @@ export const useEditorState = ({ photoId }: EditorStateConfig) => {
         return productValue;
       }
       
-      // Değerler farklıysa ortalama döndür (button görselliği için)
-      // Slider'da kullanılmayacak ama button'ların rengini doğru göstermek için
+      // Değerler farklıysa ortalama döndür
       return Math.round((productValue + backgroundValue) / 2);
     } else {
       // Tek hedef seçiliyken o hedefin değerini göster
@@ -148,13 +190,38 @@ export const useEditorState = ({ photoId }: EditorStateConfig) => {
     }
   };
 
+  // YENİ: Mevcut filtreyi kontrol et
+  const getCurrentFilter = () => {
+    // Mevcut ayarları filtrelerle karşılaştır
+    for (const filter of ALL_FILTERS) {
+      if (filter.key === 'original') continue;
+      
+      let isMatch = true;
+      const targetPrefix = activeTarget === 'all' ? 'product' : activeTarget;
+      
+      for (const [key, expectedValue] of Object.entries(filter.settings)) {
+        const actualValue = settings[`${targetPrefix}_${key}` as keyof typeof settings] ?? 0;
+        if (Math.abs(actualValue - (expectedValue as number)) > 5) { // 5 birim tolerans
+          isMatch = false;
+          break;
+        }
+      }
+      
+      if (isMatch) {
+        return filter.key;
+      }
+    }
+    
+    return 'original';
+  };
+
   return {
     activeTarget,
     activeTool,
     activeFeature,
     isSliderActive,
     showOriginal,
-    currentFilter,
+    currentFilter: getCurrentFilter(), // Dinamik olarak hesapla
     activePhoto,
     backgrounds,
     isLoading,
@@ -167,7 +234,8 @@ export const useEditorState = ({ photoId }: EditorStateConfig) => {
     handleTargetChange,
     handleToolChange,
     handleFeatureChange,
-    handleFeaturePress, // Yeni eklenen
+    handleFeaturePress,
+    handleFilterPress, // YENİ EKLENEN
     getCurrentFeatureValue,
     hasMultipleValues,
     getFeatureValues,

@@ -1,4 +1,4 @@
-// app/(tabs)/editor/[photoId].tsx - Ana Editor Ekranı Düzeltilmiş
+// app/(tabs)/editor/[photoId].tsx - Güncellenmiş Ana Editör
 
 import React, { useState } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView } from 'react-native';
@@ -15,7 +15,7 @@ import { CustomSlider } from './components/CustomSlider';
 import { MainToolbar } from './components/MainToolbar';
 import { FilterPreview } from './components/FilterPreview';
 import { BackgroundButton } from './components/BackgroundButton';
-import { ADJUST_FEATURES, BACKGROUND_FEATURES, CROP_FEATURES } from './config/features';
+import { ADJUST_FEATURES, BACKGROUND_FEATURES } from './config/features';
 import { ALL_FILTERS } from './config/filters';
 import { ToastService } from '@/components/Toast/ToastService';
 import { Colors, Spacing } from '@/constants';
@@ -45,6 +45,7 @@ export default function ApplePhotosEditor() {
     handleToolChange,
     handleFeatureChange,
     handleFeaturePress,
+    handleFilterPress, // YENİ EKLENEN
     getCurrentFeatureValue,
     hasMultipleValues,
     getFeatureValues,
@@ -55,17 +56,16 @@ export default function ApplePhotosEditor() {
 
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
 
-  // Güncellenmiş scroll manager - target bazlı
+  // Güncellenmiş scroll manager
   const { 
     backgroundScrollRef, 
-    filterScrollRef, 
-    cropScrollRef,
+    filterScrollRef,
     adjustProductScrollRef,
     adjustBackgroundScrollRef,
     adjustAllScrollRef,
   } = useScrollManager({ 
     activeTool, 
-    activeTarget, // YENİ EKLENEN
+    activeTarget,
     activeFeature, 
     isSliderActive 
   });
@@ -87,16 +87,6 @@ export default function ApplePhotosEditor() {
   const handleSliderChange = (value: number) => {
     if (activeFeature) handleFeatureChange(activeFeature, value);
   };
-  
-  const handleFilterPress = (filter: any) => {
-    setCurrentFilter(filter.key);
-    const newSettings: Record<string, number> = {};
-    ADJUST_FEATURES.forEach(f => { newSettings[`product_${f.key}`] = 0; });
-    if (filter.key !== 'original') {
-      Object.entries(filter.settings).forEach(([key, value]) => { newSettings[`product_${key}`] = value as number; });
-    }
-    updateSettings(newSettings);
-  };
 
   if (isLoading || !activePhoto) {
     return <SafeAreaView style={styles.loadingContainer}><ActivityIndicator size="large" color={Colors.primary} /></SafeAreaView>;
@@ -104,7 +94,7 @@ export default function ApplePhotosEditor() {
 
   const getActiveFeatures = () => {
     if (activeTool === 'adjust') return activeTarget === 'background' ? BACKGROUND_FEATURES : ADJUST_FEATURES;
-    return activeTool === 'crop' ? CROP_FEATURES : [];
+    return [];
   };
 
   // Target'a göre doğru scroll ref'ini seç
@@ -134,7 +124,13 @@ export default function ApplePhotosEditor() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
         <EditorHeader onCancel={() => router.back()} onSave={handleSave} isSaving={isSaving} />
-        <TargetSelector activeTarget={activeTarget} onTargetChange={handleTargetChange} activeTool={activeTool} />
+        
+        {/* Target selector'ı filter için de göster */}
+        <TargetSelector 
+          activeTarget={activeTarget} 
+          onTargetChange={handleTargetChange} 
+          activeTool={activeTool} 
+        />
         
         <EditorPreview
           activePhoto={activePhoto}
@@ -182,7 +178,7 @@ export default function ApplePhotosEditor() {
               </ScrollView>
             )}
             
-            {/* Filter Tool */}
+            {/* Filter Tool - YENİ GÜNCELLEME */}
             {activeTool === 'filter' && (
               <ScrollView 
                 ref={filterScrollRef} 
@@ -229,33 +225,6 @@ export default function ApplePhotosEditor() {
                 })}
               </ScrollView>
             )}
-            
-            {/* Crop Tool */}
-            {activeTool === 'crop' && (
-              <ScrollView 
-                ref={cropScrollRef} 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                contentContainerStyle={styles.scrollContent}
-              >
-                {activeFeatures.map(feature => {
-                  const featureStatus = getFeatureButtonStatus(feature.key);
-                  return (
-                    <FeatureButton 
-                      key={feature.key} 
-                      icon={feature.icon} 
-                      label={feature.label} 
-                      value={getCurrentFeatureValue(feature.key)}
-                      isActive={activeFeature === feature.key} 
-                      onPress={() => handleFeaturePressLocal(feature.key)}
-                      hasMixedValues={featureStatus.hasMixedValues}
-                      productValue={featureStatus.productValue}
-                      backgroundValue={featureStatus.backgroundValue}
-                    />
-                  );
-                })}
-              </ScrollView>
-            )}
           </View>
         )}
         
@@ -270,4 +239,4 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   subToolbarContainer: { maxHeight: 100, backgroundColor: Colors.card, paddingVertical: Spacing.sm },
   scrollContent: { paddingHorizontal: Spacing.lg, gap: Spacing.lg },
-}); muhammedbozkurrt@outlook.com
+});

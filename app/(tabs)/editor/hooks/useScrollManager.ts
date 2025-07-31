@@ -5,7 +5,7 @@ import { ScrollView } from 'react-native';
 
 interface ScrollManagerConfig {
   activeTool: string;
-  activeTarget?: string; // YENİ EKLENEN
+  activeTarget?: string;
   activeFeature: string | null;
   isSliderActive: boolean;
 }
@@ -14,7 +14,6 @@ export const useScrollManager = ({ activeTool, activeTarget, activeFeature, isSl
   // Her tool ve target kombinasyonu için ayrı ref'ler
   const backgroundScrollRef = useRef<ScrollView>(null);
   const filterScrollRef = useRef<ScrollView>(null);
-  const cropScrollRef = useRef<ScrollView>(null);
   
   // Adjust tool için target bazlı ref'ler
   const adjustProductScrollRef = useRef<ScrollView>(null);
@@ -28,8 +27,6 @@ export const useScrollManager = ({ activeTool, activeTarget, activeFeature, isSl
         return backgroundScrollRef;
       case 'filter':
         return filterScrollRef;
-      case 'crop':
-        return cropScrollRef;
       case 'adjust':
         // Adjust tool'unda target'a göre farklı ref'ler
         switch (activeTarget) {
@@ -55,9 +52,9 @@ export const useScrollManager = ({ activeTool, activeTarget, activeFeature, isSl
     }
   }, [activeTool]);
 
-  // Target değiştiğinde scroll'u sıfırla (sadece adjust tool'unda)
+  // Target değiştiğinde scroll'u sıfırla
   useEffect(() => {
-    if (activeTool === 'adjust') {
+    if (activeTool === 'adjust' || activeTool === 'filter') {
       const currentRef = getCurrentScrollRef();
       if (currentRef.current && !isSliderActive) {
         currentRef.current.scrollTo({ x: 0, animated: true });
@@ -77,7 +74,6 @@ export const useScrollManager = ({ activeTool, activeTarget, activeFeature, isSl
     // Her duruma özel ref'leri döndür
     backgroundScrollRef,
     filterScrollRef,
-    cropScrollRef,
     adjustProductScrollRef,
     adjustBackgroundScrollRef,
     adjustAllScrollRef,

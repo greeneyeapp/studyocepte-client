@@ -16,8 +16,8 @@ export const TargetSelector: React.FC<TargetSelectorProps> = ({
   onTargetChange,
   activeTool,
 }) => {
-  // Kırpma aracında hedef seçiciyi gizle (teknik spesifikasyon)
-  if (activeTool === 'crop') {
+  // Sadece background aracında gösterme - artık filter'da da göster
+  if (activeTool === 'background') {
     return null;
   }
 
