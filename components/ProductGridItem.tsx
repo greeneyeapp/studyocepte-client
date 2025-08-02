@@ -1,4 +1,11 @@
-// components/ProductGridItem.tsx - Optimized Product Item
+// components/ProductGridItem.tsx - Tam versiyon
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
+import { LazyImage } from '@/components/LazyImage';
+import { Card } from '@/components/Card';
+import { Product } from '@/services/api';
+
 interface ProductGridItemProps {
   product: Product;
   onPress: () => void;
@@ -6,7 +13,7 @@ interface ProductGridItemProps {
   priority?: 'low' | 'normal' | 'high';
 }
 
-const ProductGridItem: React.FC<ProductGridItemProps> = ({
+export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   product,
   onPress,
   style,
@@ -51,11 +58,9 @@ const ProductGridItem: React.FC<ProductGridItemProps> = ({
 };
 
 const styles = StyleSheet.create({
-
-  // ProductGridItem styles
   itemContainer: {
     flex: 1,
-    margin: GRID_SPACING / 2,
+    margin: Spacing.sm / 2,
   },
   imageContainer: {
     position: 'relative',
@@ -91,90 +96,5 @@ const styles = StyleSheet.create({
   photoCount: {
     ...Typography.caption,
     color: Colors.textSecondary,
-  },
-
-
-  // Modal styles
-  modalContainer: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: Spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  modalTitle: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-  },
-  modalCancel: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-  },
-  modalClear: {
-    ...Typography.body,
-    color: Colors.primary,
-  },
-  modalContent: {
-    flex: 1,
-    padding: Spacing.lg,
-  },
-  filterSection: {
-    marginBottom: Spacing.xl,
-  },
-  sectionTitle: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.md,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: Spacing.md,
-  },
-  filterLabel: {
-    ...Typography.body,
-    color: Colors.textPrimary,
-  },
-  sortButtons: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  sortButton: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.gray100,
-  },
-  sortButtonActive: {
-    backgroundColor: Colors.primary,
-  },
-  sortButtonText: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-  },
-  sortButtonTextActive: {
-    color: Colors.card,
-  },
-  modalFooter: {
-    padding: Spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  applyButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-  },
-  applyButtonText: {
-    ...Typography.bodyMedium,
-    color: Colors.card,
-    fontWeight: '600',
   },
 });

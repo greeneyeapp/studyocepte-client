@@ -1,13 +1,13 @@
-
-// components/EnhancedSearchBar.tsx - Advanced Search with Filters
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
+  Text,
   TextInput,
   TouchableOpacity,
   Modal,
   ScrollView,
   Switch,
+  StyleSheet,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '@/constants';

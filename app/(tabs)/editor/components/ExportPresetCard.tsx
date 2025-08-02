@@ -1,9 +1,9 @@
-// app/(tabs)/editor/components/ExportPresetCard.tsx
+// app/(tabs)/editor/components/ExportPresetCard.tsx - Düzeltilmiş
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
-import { ExportPreset } from '../config/exportTools';
+import { ExportPreset, ShareOption } from '../config/exportTools';
 
 interface ExportPresetCardProps {
   preset: ExportPreset;
@@ -22,6 +22,7 @@ export const ExportPresetCard: React.FC<ExportPresetCardProps> = ({
       case 'marketplace': return '#4ECDC4';
       case 'print': return '#45B7D1';
       case 'custom': return '#96CEB4';
+      case 'web': return '#FFA726';
       default: return Colors.primary;
     }
   };
@@ -61,7 +62,6 @@ export const ExportPresetCard: React.FC<ExportPresetCardProps> = ({
   );
 };
 
-// app/(tabs)/editor/components/ShareOptionButton.tsx
 interface ShareOptionButtonProps {
   option: ShareOption;
   onPress: () => void;
@@ -75,11 +75,8 @@ export const ShareOptionButton: React.FC<ShareOptionButtonProps> = ({
 }) => {
   const getOptionColor = (type: string) => {
     switch (type) {
-      case 'whatsapp': return '#25D366';
-      case 'instagram': return '#E4405F';
-      case 'facebook': return '#1877F2';
       case 'gallery': return '#34C759';
-      case 'email': return '#FF9500';
+      case 'generic': return Colors.primary;
       default: return Colors.primary;
     }
   };
@@ -103,7 +100,6 @@ export const ShareOptionButton: React.FC<ShareOptionButtonProps> = ({
   );
 };
 
-// app/(tabs)/editor/components/ExportPreview.tsx
 interface ExportPreviewProps {
   preset: ExportPreset;
   imageUri: string;

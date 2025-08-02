@@ -1,4 +1,4 @@
-// stores/useEditorStore.ts - Enhanced Version with Apple Photos Features
+// stores/useEditorStore.ts - Düzeltilmiş versiyon
 import { create } from 'zustand';
 import { api, ProductPhoto, Background, EditorSettings } from '@/services/api';
 import { ToastService } from '@/components/Toast/ToastService';
@@ -27,12 +27,15 @@ interface EnhancedEditorSettings extends EditorSettings {
   background_vignette: number;
   background_highlights: number;
   background_shadows: number;
+  background_blur: number;
   
-  // Mevcut ayarlar...
+  // Pozisyon ayarları
   photoX: number;
   photoY: number;
   photoScale: number;
   photoRotation: number;
+  
+  // Diğer ayarlar
   backgroundId: string;
 }
 
@@ -62,7 +65,7 @@ interface EditorActions {
   centerPhoto: () => void;
   resetPhotoPosition: () => void;
   
-  // Preset filters - YENİ EKLENEN FONKSİYON
+  // Preset filters
   applyPresetFilter: (presetName: string) => void;
 }
 
@@ -99,6 +102,7 @@ const defaultSettings: EnhancedEditorSettings = {
   background_vignette: 0,
   background_highlights: 0,
   background_shadows: 0,
+  background_blur: 0,
   
   // Legacy ayarlar
   shadow: 0.5,
@@ -107,47 +111,51 @@ const defaultSettings: EnhancedEditorSettings = {
 
 // Preset filter configurations - Apple Photos tarzı
 const presetFilters = {
-  original: {
-    exposure: 0, highlights: 0, shadows: 0, brightness: 0, contrast: 0, 
-    saturation: 0, vibrance: 0, warmth: 0, tint: 0, clarity: 0, noise: 0, vignette: 0
-  },
+  original: {},
   vivid: {
-    saturation: 30, vibrance: 20, warmth: 10, contrast: 15, clarity: 10,
-    exposure: 5, highlights: -5, shadows: 5
+    product_saturation: 30, product_vibrance: 20, product_warmth: 10, 
+    product_contrast: 15, product_clarity: 10, product_exposure: 5, 
+    product_highlights: -5, product_shadows: 5
   },
   dramatic: {
-    contrast: 40, highlights: -20, shadows: 20, clarity: 25, vignette: 15,
-    saturation: 10, exposure: -5, warmth: 5
+    product_contrast: 40, product_highlights: -20, product_shadows: 20, 
+    product_clarity: 25, product_vignette: 15, product_saturation: 10, 
+    product_exposure: -5, product_warmth: 5
   },
   mono: {
-    saturation: -100, contrast: 20, clarity: 15, vignette: 10,
-    highlights: -10, shadows: 10, exposure: 5
+    product_saturation: -100, product_contrast: 20, product_clarity: 15, 
+    product_vignette: 10, product_highlights: -10, product_shadows: 10, 
+    product_exposure: 5
   },
   vintage: {
-    warmth: 40, contrast: -10, vignette: 30, saturation: -20, shadows: 15,
-    exposure: -10, highlights: -15, clarity: -5, tint: 10
+    product_warmth: 40, product_contrast: -10, product_vignette: 30, 
+    product_saturation: -20, product_shadows: 15, product_exposure: -10, 
+    product_highlights: -15, product_clarity: -5
   },
   cool: {
-    warmth: -30, tint: -20, saturation: 10, highlights: 10,
-    contrast: 5, clarity: 5, vibrance: 15
+    product_warmth: -30, product_saturation: 10, product_highlights: 10,
+    product_contrast: 5, product_clarity: 5, product_vibrance: 15
   },
   warm: {
-    warmth: 25, tint: 10, exposure: 5, shadows: -10,
-    saturation: 15, vibrance: 10, contrast: 5
+    product_warmth: 25, product_exposure: 5, product_shadows: -10,
+    product_saturation: 15, product_vibrance: 10, product_contrast: 5
   },
   fade: {
-    highlights: -30, shadows: 20, contrast: -20, saturation: -15,
-    exposure: 10, warmth: 5, clarity: -10, vignette: 5
+    product_highlights: -30, product_shadows: 20, product_contrast: -20, 
+    product_saturation: -15, product_exposure: 10, product_warmth: 5, 
+    product_clarity: -10, product_vignette: 5
   },
   cinema: {
-    contrast: 30, shadows: 25, highlights: -15, warmth: 5, vignette: 20,
-    saturation: -5, clarity: 15, exposure: -5
+    product_contrast: 30, product_shadows: 25, product_highlights: -15, 
+    product_warmth: 5, product_vignette: 20, product_saturation: -5, 
+    product_clarity: 15, product_exposure: -5
   },
   bright: {
-    exposure: 20, highlights: 15, shadows: -10, vibrance: 15,
-    contrast: 10, clarity: 10, saturation: 5, warmth: 5
+    product_exposure: 20, product_highlights: 15, product_shadows: -10, 
+    product_vibrance: 15, product_contrast: 10, product_clarity: 10, 
+    product_saturation: 5, product_warmth: 5
   },
-};
+} as const;
 
 export const useEditorStore = create<EditorState & EditorActions>((set, get) => ({
   activePhoto: null,
@@ -168,31 +176,12 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       photoY: existingSettings.photoY ?? 0.5,
       photoScale: existingSettings.photoScale ?? 1.0,
       photoRotation: existingSettings.photoRotation ?? 0,
-      exposure: existingSettings.exposure ?? 0,
-      highlights: existingSettings.highlights ?? 0,
-      shadows: existingSettings.shadows ?? 0,
-      brightness: existingSettings.brightness ?? 0,
-      contrast: existingSettings.contrast ?? 0,
-      saturation: existingSettings.saturation ?? 0,
-      vibrance: (existingSettings as any).vibrance ?? 0, 
-      warmth: existingSettings.warmth ?? 0,
-      tint: (existingSettings as any).tint ?? 0, 
-      clarity: (existingSettings as any).clarity ?? 0, 
-      noise: (existingSettings as any).noise ?? 0, 
-      vignette: existingSettings.vignette ?? 0,
-      cropAspectRatio: (existingSettings as any).cropAspectRatio ?? 'original',
-      cropX: (existingSettings as any).cropX ?? 0,
-      cropY: (existingSettings as any).cropY ?? 0,
-      cropWidth: (existingSettings as any).cropWidth ?? 1,
-      cropHeight: (existingSettings as any).cropHeight ?? 1,
-      effectTarget: (existingSettings as any).effectTarget ?? 'photo',
-      backgroundId: existingSettings.backgroundId ?? 'bg1',
     };
 
     set({
       activePhoto: { 
         ...photo, 
-        originalImageUrl: photo.processedImageUrl,
+        originalImageUrl: photo.processedImageUrl || photo.originalImageUrl,
       }, 
       settings: loadedSettings,
       originalPhotoPosition: {
@@ -244,13 +233,16 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     Object.entries(newSettings).forEach(([key, value]) => {
       if (typeof value === 'number') {
         if (isFinite(value) && !isNaN(value)) {
-          if (['photoX', 'photoY', 'cropX', 'cropY', 'cropWidth', 'cropHeight'].includes(key)) {
+          if (['photoX', 'photoY'].includes(key)) {
             safeSettings[key as keyof EnhancedEditorSettings] = Math.max(0, Math.min(1, value));
           } else if (key === 'photoScale') {
             safeSettings[key as keyof EnhancedEditorSettings] = Math.max(0.1, Math.min(5.0, value));
           } else if (key === 'photoRotation') {
             safeSettings[key as keyof EnhancedEditorSettings] = Math.max(-180, Math.min(180, value));
-          } else if (['exposure', 'highlights', 'shadows', 'brightness', 'contrast', 'saturation', 'vibrance', 'warmth', 'tint', 'clarity', 'noise', 'vignette'].includes(key)) {
+          } else if (key.includes('_exposure') || key.includes('_brightness') || key.includes('_contrast') || 
+                     key.includes('_saturation') || key.includes('_warmth') || key.includes('_highlights') || 
+                     key.includes('_shadows') || key.includes('_clarity') || key.includes('_vibrance') || 
+                     key.includes('_vignette') || key.includes('_blur')) {
             safeSettings[key as keyof EnhancedEditorSettings] = Math.max(-100, Math.min(100, value));
           } else {
             safeSettings[key as keyof EnhancedEditorSettings] = value;
@@ -267,46 +259,55 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     }));
   },
 
-saveChanges: async () => {
-  const { activePhoto, settings } = get();
-  if (!activePhoto) throw new Error('Aktif fotoğraf bulunamadı.');
+  saveChanges: async () => {
+    const { activePhoto, settings } = get();
+    if (!activePhoto) throw new Error('Aktif fotoğraf bulunamadı.');
 
-  set({ isSaving: true, error: null });
-  try {
-    const apiSettings: EditorSettings = {
-      backgroundId: settings.backgroundId,
-      photoX: settings.photoX,
-      photoY: settings.photoY,
-      photoScale: settings.photoScale,
-      photoRotation: settings.photoRotation,
+    set({ isSaving: true, error: null });
+    try {
+      const apiSettings: EditorSettings = {
+        backgroundId: settings.backgroundId,
+        photoX: settings.photoX,
+        photoY: settings.photoY,
+        photoScale: settings.photoScale,
+        photoRotation: settings.photoRotation,
+        
+        // Katmanlı ayarları API formatına çevir
+        product_exposure: settings.product_exposure,
+        product_brightness: settings.product_brightness,
+        product_contrast: settings.product_contrast,
+        product_saturation: settings.product_saturation,
+        product_warmth: settings.product_warmth,
+        product_vignette: settings.product_vignette,
+        product_highlights: settings.product_highlights,
+        product_shadows: settings.product_shadows,
+        product_clarity: settings.product_clarity,
+        product_vibrance: settings.product_vibrance,
+        
+        background_exposure: settings.background_exposure,
+        background_brightness: settings.background_brightness,
+        background_contrast: settings.background_contrast,
+        background_saturation: settings.background_saturation,
+        background_warmth: settings.background_warmth,
+        background_vignette: settings.background_vignette,
+        background_highlights: settings.background_highlights,
+        background_shadows: settings.background_shadows,
+        background_clarity: settings.background_clarity,
+        background_vibrance: settings.background_vibrance,
+        background_blur: settings.background_blur,
+        
+        // Legacy
+        shadow: settings.shadow,
+        lighting: settings.lighting,
+      };
       
-      // Katmanlı ayarları API formatına çevir
-      product_exposure: settings.product_exposure,
-      product_brightness: settings.product_brightness,
-      product_contrast: settings.product_contrast,
-      product_saturation: settings.product_saturation,
-      product_warmth: settings.product_warmth,
-      product_vignette: settings.product_vignette,
-      
-      background_exposure: settings.background_exposure,
-      background_brightness: settings.background_brightness,
-      background_contrast: settings.background_contrast,
-      background_saturation: settings.background_saturation,
-      background_warmth: settings.background_warmth,
-      background_vignette: settings.background_vignette,
-      
-      // Legacy
-      shadow: settings.product_shadows / 100,
-      lighting: settings.product_brightness / 100,
-    };
-    
-    await api.savePhotoSettings(activePhoto.id, apiSettings);
-    set({ isSaving: false, hasUnsavedChanges: false });
-  } catch (error: any) {
-    set({ error: error.message, isSaving: false });
-    throw error;
-  }
-},
+      await api.savePhotoSettings(activePhoto.id, apiSettings);
+      set({ isSaving: false, hasUnsavedChanges: false });
+    } catch (error: any) {
+      set({ error: error.message, isSaving: false });
+      throw error;
+    }
+  },
 
   resetSettings: () => {
     const { originalPhotoPosition } = get();
@@ -359,12 +360,10 @@ saveChanges: async () => {
     });
   },
 
-  // YENİ EKLENEN FONKSİYON: Apple Photos tarzı preset filtreler - Toast'sız
   applyPresetFilter: (presetName: string) => {
     const preset = presetFilters[presetName as keyof typeof presetFilters];
     if (preset) {
-      get().updateSettings({ ...preset });
-      // Toast mesajını kaldırdık - sadece sessizce uygula
+      get().updateSettings(preset);
     } else {
       console.warn(`Bilinmeyen preset filtre: ${presetName}`);
     }
