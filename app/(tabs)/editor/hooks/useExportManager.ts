@@ -1,4 +1,3 @@
-// kodlar/app/(tabs)/editor/hooks/useExportManager.ts
 import { useState, useRef } from 'react';
 import { ExportService } from '@/services/exportService';
 import { ExportPreset, ShareOption } from '../config/exportTools';
