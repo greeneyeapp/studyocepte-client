@@ -1,6 +1,7 @@
-// hooks/useBatchOperations.ts - Batch operations management
-import { useState, useCallback, useRef } from 'react';
+// hooks/useBatchOperations.ts - Düzeltilmiş
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { api, BatchOperation } from '@/services/api';
+import { ToastService } from '@/components/Toast/ToastService'; // HATA DÜZELTİLDİ: Eksik import eklendi
 
 export const useBatchOperations = () => {
   const [operations, setOperations] = useState<Map<string, BatchOperation>>(new Map());
@@ -29,6 +30,9 @@ export const useBatchOperations = () => {
           }
         } catch (error) {
           console.warn('Failed to fetch batch status:', error);
+          // Hata durumunda da polling'i durdurabiliriz
+          clearInterval(intervalId);
+          pollIntervals.current.delete(result.batch_id);
         }
       }, 2000); // Poll every 2 seconds
       
@@ -92,7 +96,6 @@ export const useBatchOperations = () => {
       for (const [batchId, operation] of newMap.entries()) {
         if (['completed', 'failed', 'cancelled'].includes(operation.status)) {
           newMap.delete(batchId);
-          // Clear any remaining intervals
           const intervalId = pollIntervals.current.get(batchId);
           if (intervalId) {
             clearInterval(intervalId);
@@ -107,7 +110,6 @@ export const useBatchOperations = () => {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Clear all polling intervals
       for (const intervalId of pollIntervals.current.values()) {
         clearInterval(intervalId);
       }

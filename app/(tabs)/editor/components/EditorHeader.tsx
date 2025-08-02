@@ -1,20 +1,29 @@
-// app/(tabs)/editor/components/EditorHeader.tsx
-
+// app/(tabs)/editor/components/EditorHeader.tsx - FAZ 2 GÜNCELLEMESİ (Undo/Redo Butonları)
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing } from '@/constants';
 
 interface EditorHeaderProps {
   onCancel: () => void;
   onSave: () => void;
   isSaving: boolean;
+  // Undo/Redo için yeni proplar
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
 }
 
 export const EditorHeader: React.FC<EditorHeaderProps> = ({
   onCancel,
   onSave,
   isSaving,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }) => {
   const { t } = useTranslation();
 
@@ -23,6 +32,16 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
       <TouchableOpacity onPress={onCancel} style={styles.button}>
         <Text style={styles.cancelText}>{t('common.cancel')}</Text>
       </TouchableOpacity>
+      
+      {/* --- YENİ EKLENEN UNDO/REDO BUTONLARI --- */}
+      <View style={styles.historyButtons}>
+        <TouchableOpacity onPress={onUndo} disabled={!canUndo} style={styles.historyButton}>
+          <Feather name="rotate-ccw" size={20} color={canUndo ? Colors.textPrimary : Colors.border} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onRedo} disabled={!canRedo} style={styles.historyButton}>
+          <Feather name="rotate-cw" size={20} color={canRedo ? Colors.textPrimary : Colors.border} />
+        </TouchableOpacity>
+      </View>
       
       <TouchableOpacity onPress={onSave} disabled={isSaving} style={styles.button}>
         <Text style={[styles.doneText, isSaving && styles.disabledText]}>
@@ -46,7 +65,6 @@ const styles = StyleSheet.create({
   },
   button: {
     paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
     minWidth: 60,
   },
   cancelText: {
@@ -61,5 +79,12 @@ const styles = StyleSheet.create({
   },
   disabledText: {
     opacity: 0.5,
+  },
+  historyButtons: {
+    flexDirection: 'row',
+    gap: Spacing.xl,
+  },
+  historyButton: {
+    padding: Spacing.xs,
   },
 });

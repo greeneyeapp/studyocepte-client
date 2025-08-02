@@ -1,6 +1,6 @@
-// app/(tabs)/editor/config/tools.ts - Updated with Export Tool
+// app/(tabs)/editor/config/tools.ts - FAZ 3 GÜNCELLEMESİ (Crop Aracı Eklendi)
 
-export type ToolType = 'background' | 'adjust' | 'filter' | 'export'; // Export eklendi
+export type ToolType = 'background' | 'adjust' | 'filter' | 'crop' | 'export'; // Crop eklendi
 export type TargetType = 'product' | 'background' | 'all';
 
 export interface ToolConfig {
@@ -16,49 +16,36 @@ export interface TargetConfig {
   description?: string;
 }
 
-// Ana araçlar - Export eklendi
 export const MAIN_TOOLS: ToolConfig[] = [
   {
     key: 'background',
     icon: 'image',
     label: 'Arka Plan',
-    description: 'Arka plan görsellerini değiştir'
   },
   {
     key: 'adjust',
     icon: 'sliders',
     label: 'Ayarla',
-    description: 'Pozlama, kontrast ve diğer ayarlar'
   },
   {
     key: 'filter',
     icon: 'filter',
     label: 'Filtreler',
-    description: 'Hazır filtre efektlerini uygula'
+  },
+  {
+    key: 'crop', // YENİ
+    icon: 'crop',
+    label: 'Kırp',
   },
   {
     key: 'export',
     icon: 'download',
     label: 'Export',
-    description: 'Kaydet ve paylaş'
   },
 ];
 
-// Hedef seçici - export için de gösterilecek (ama sadece preview etkilemek için)
 export const TARGET_SELECTOR: TargetConfig[] = [
-  {
-    key: 'product',
-    label: 'Ürün',
-    description: 'Sadece ürün fotoğrafına uygula'
-  },
-  {
-    key: 'background',
-    label: 'Arka Plan',
-    description: 'Sadece arka plana uygula'
-  },
-  {
-    key: 'all',
-    label: 'Tümü',
-    description: 'Hem ürün hem arka plana uygula'
-  },
+  { key: 'product', label: 'Ürün' },
+  { key: 'background', label: 'Arka Plan' },
+  { key: 'all', label: 'Tümü' },
 ];

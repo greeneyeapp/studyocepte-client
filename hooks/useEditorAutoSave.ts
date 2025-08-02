@@ -1,30 +1,38 @@
-// hooks/useEditorAutoSave.ts - Auto-save Hook
+// hooks/useEditorAutoSave.ts - Düzeltilmiş ve Çalışır Hali
 import { useEffect, useRef } from 'react';
 import { useEnhancedEditorStore } from '@/stores/useEnhancedEditorStore';
 
 export const useEditorAutoSave = (intervalMs: number = 30000) => {
   const { autoSaveEnabled, performAutoSave, hasUnsavedChanges } = useEnhancedEditorStore();
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    const clearExistingInterval = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+
     if (autoSaveEnabled && hasUnsavedChanges) {
+      clearExistingInterval();
+      
       intervalRef.current = setInterval(() => {
         performAutoSave();
       }, intervalMs);
-
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-        }
-      };
     }
-  }, [autoSaveEnabled, hasUnsavedChanges, intervalMs]);
 
-  // Component unmount olduğunda son bir kez kaydet
+    return () => {
+      clearExistingInterval();
+    };
+    
+  }, [autoSaveEnabled, hasUnsavedChanges, intervalMs, performAutoSave]);
+
   useEffect(() => {
     return () => {
-      if (hasUnsavedChanges && autoSaveEnabled) {
-        performAutoSave();
+      const state = useEnhancedEditorStore.getState();
+      if (state.autoSaveEnabled && state.hasUnsavedChanges) {
+        state.performAutoSave();
       }
     };
   }, []);

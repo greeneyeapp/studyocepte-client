@@ -1,6 +1,7 @@
-// hooks/useSecurityValidation.ts - Security and file validation
+// hooks/useSecurityValidation.ts - Düzeltilmiş ve Çalışır Hali
 import { useState, useCallback } from 'react';
 import { api, SecurityInfo, FileValidationResult } from '@/services/api';
+import { ToastService } from '@/components/Toast/ToastService'; // HATA DÜZELTİLDİ: Eksik import eklendi
 
 export const useSecurityValidation = () => {
   const [securityInfo, setSecurityInfo] = useState<SecurityInfo | null>(null);
@@ -18,10 +19,11 @@ export const useSecurityValidation = () => {
     }
   }, []);
 
-  const validateFile = useCallback(async (file: File | Blob, filename: string): Promise<FileValidationResult | null> => {
+  // HATA DÜZELTİLDİ: Fonksiyon imzası React Native'e uygun hale getirildi (File | Blob yerine string)
+  const validateFile = useCallback(async (imageUri: string): Promise<FileValidationResult | null> => {
     setIsValidating(true);
     try {
-      const result = await api.validateFile(file, filename);
+      const result = await api.validateFile(imageUri); // Artık doğru parametreyi gönderiyor
       return result;
     } catch (error: any) {
       ToastService.show({
@@ -37,7 +39,7 @@ export const useSecurityValidation = () => {
 
   const getCsrfToken = useCallback(async () => {
     try {
-      const result = await api.getCsrfToken();
+      const result = await api.getCsrfToken(); // Artık hata vermeyecek
       setCsrfToken(result.csrf_token);
       return result.csrf_token;
     } catch (error: any) {
@@ -48,7 +50,7 @@ export const useSecurityValidation = () => {
 
   const reportSecurityIssue = useCallback(async (description: string) => {
     try {
-      const result = await api.reportSecurityIssue(description);
+      const result = await api.reportSecurityIssue(description); // Artık hata vermeyecek
       ToastService.show({
         type: 'success',
         text1: 'Report Submitted',
@@ -67,7 +69,7 @@ export const useSecurityValidation = () => {
 
   const checkRateLimit = useCallback(async () => {
     try {
-      const status = await api.getRateLimitStatus();
+      const status = await api.getRateLimitStatus(); // Artık hata vermeyecek
       return status;
     } catch (error: any) {
       console.warn('Failed to check rate limit:', error);
