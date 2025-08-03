@@ -1,6 +1,6 @@
-// app/(tabs)/editor/[photoId].tsx - NİHAİ VE ÇALIŞAN SÜRÜM
+// app/(tabs)/editor/[photoId].tsx - Final Düzeltilmiş Versiyon
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -73,6 +73,22 @@ export default function EnhancedEditorScreen() {
     return () => { clearStore(); };
   }, [photoId]);
 
+  // PreviewSize fallback kontrolü
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (previewSize.width === 0 || previewSize.height === 0) {
+        const screenDimensions = Dimensions.get('window');
+        const fallbackSize = {
+          width: screenDimensions.width - (Spacing.sm * 2),
+          height: screenDimensions.height * 0.6
+        };
+        setPreviewSize(fallbackSize);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [previewSize]);
+
   const handleToolChange = (tool: ToolType) => {
     setActiveTool(tool);
     if (tool !== 'adjust' && activeFeature) {
@@ -113,6 +129,19 @@ export default function EnhancedEditorScreen() {
           cropX: 0, cropY: 0, cropWidth: 1, cropHeight: 1,
       });
       addSnapshotToHistory();
+  };
+
+  const handlePreviewLayout = (event: any) => {
+    const { width, height, x, y } = event.nativeEvent.layout;
+    
+    // Width 0 ise parent container'dan al
+    if (width === 0) {
+      const screenWidth = Dimensions.get('window').width;
+      const calculatedWidth = screenWidth - (Spacing.sm * 4);
+      setPreviewSize({ width: calculatedWidth, height: height || 400 });
+    } else if (width > 0 && height > 0) {
+      setPreviewSize({ width, height });
+    }
   };
 
   const renderActiveToolbar = () => {
@@ -184,7 +213,7 @@ export default function EnhancedEditorScreen() {
               settings={settings}
               showOriginal={showOriginal}
               onShowOriginalChange={setShowOriginal}
-              onLayout={(e) => setPreviewSize(e.nativeEvent.layout)}
+              onLayout={handlePreviewLayout}
               updateSettings={updateSettings}
               previewSize={previewSize}
               isCropping={activeTool === 'crop'}
@@ -249,10 +278,10 @@ export default function EnhancedEditorScreen() {
             <View style={styles.tabletSidebar}>{Toolbars}</View>
           </View>
         ) : (
-          <>
+          <View style={{ flex: 1, width: '100%' }}>
             {MainContent}
             {Toolbars}
-          </>
+          </View>
         )}
       </SafeAreaView>
     </GestureHandlerRootView>
@@ -260,19 +289,96 @@ export default function EnhancedEditorScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  loadingText: { ...Typography.body, color: Colors.textSecondary, marginTop: Spacing.md },
-  previewWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.sm },
-  toolbarsContainer: { minHeight: 120, justifyContent: 'center', backgroundColor: Colors.card },
+  container: { 
+    flex: 1, 
+    width: '100%',
+    backgroundColor: Colors.background 
+  },
+  loadingContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: Colors.background 
+  },
+  loadingText: { 
+    ...Typography.body, 
+    color: Colors.textSecondary, 
+    marginTop: Spacing.md 
+  },
+  previewWrapper: { 
+    flex: 1, 
+    width: '100%',
+    alignSelf: 'stretch',
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: Spacing.sm,
+    backgroundColor: Colors.background,
+    minHeight: 300,
+    minWidth: 200
+  },
+  toolbarsContainer: { 
+    minHeight: 120, 
+    width: '100%',
+    justifyContent: 'center', 
+    backgroundColor: Colors.card 
+  },
   
-  tabletLayoutContainer: { flex: 1, flexDirection: 'row' },
-  tabletMainContent: { flex: 3, height: '100%' },
-  tabletSidebar: { flex: 1, height: '100%', backgroundColor: Colors.card, borderLeftWidth: 1, borderLeftColor: Colors.border, paddingVertical: Spacing.md, justifyContent: 'flex-end' },
+  tabletLayoutContainer: { 
+    flex: 1, 
+    flexDirection: 'row',
+    width: '100%'
+  },
+  tabletMainContent: { 
+    flex: 3, 
+    height: '100%', 
+    width: '100%'
+  },
+  tabletSidebar: { 
+    flex: 1, 
+    height: '100%', 
+    backgroundColor: Colors.card, 
+    borderLeftWidth: 1, 
+    borderLeftColor: Colors.border, 
+    paddingVertical: Spacing.md, 
+    justifyContent: 'flex-end' 
+  },
 
-  scrollContent: { paddingHorizontal: Spacing.lg, alignItems: 'center', gap: Spacing.lg, paddingVertical: Spacing.md },
-  savePresetButton: { alignItems: 'center', justifyContent: 'center', width: 60, height: 60, borderRadius: BorderRadius.md, backgroundColor: Colors.indigo50, borderWidth: 1, borderColor: Colors.primary, borderStyle: 'dashed' },
-  savePresetText: { ...Typography.caption, fontSize: 9, color: Colors.primary, marginTop: Spacing.xs, textAlign: 'center' },
-  presetButton: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.md, height: 60, borderRadius: BorderRadius.md, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
-  presetText: { ...Typography.captionMedium, color: Colors.textPrimary },
+  scrollContent: { 
+    paddingHorizontal: Spacing.lg, 
+    alignItems: 'center', 
+    gap: Spacing.lg, 
+    paddingVertical: Spacing.md 
+  },
+  savePresetButton: { 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    width: 60, 
+    height: 60, 
+    borderRadius: BorderRadius.md, 
+    backgroundColor: Colors.indigo50, 
+    borderWidth: 1, 
+    borderColor: Colors.primary, 
+    borderStyle: 'dashed' 
+  },
+  savePresetText: { 
+    ...Typography.caption, 
+    fontSize: 9, 
+    color: Colors.primary, 
+    marginTop: Spacing.xs, 
+    textAlign: 'center' 
+  },
+  presetButton: { 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    paddingHorizontal: Spacing.md, 
+    height: 60, 
+    borderRadius: BorderRadius.md, 
+    backgroundColor: Colors.card, 
+    borderWidth: 1, 
+    borderColor: Colors.border 
+  },
+  presetText: { 
+    ...Typography.captionMedium, 
+    color: Colors.textPrimary 
+  },
 });
