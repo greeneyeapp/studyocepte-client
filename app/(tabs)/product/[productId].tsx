@@ -1,311 +1,247 @@
-// services/api.ts - FAZ 1 GÜNCELLEMESİ (Doğrulanmış ve Temizlenmiş)
-import axios from 'axios';
-import { config } from '@/config/config';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// client/app/(tabs)/product/[productId].tsx - Düzeltilmiş
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  LayoutAnimation,
+  UIManager,
+  Platform,
+} from 'react-native';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import { Feather } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { useProductStore } from '@/stores/useProductStore';
+import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
+import { Card } from '@/components/Card';
+import { Button } from '@/components/Button';
+import { ProductPhoto, api } from '@/services/api';
+import { ToastService } from '@/components/Toast/ToastService';
+import { LoadingService } from '@/components/Loading/LoadingService';
+import { Layout } from '@/constants/Layout';
+import { useBatchOperations } from '@/hooks/useBatchOperations';
+import { DialogService } from '@/components/Dialog/DialogService'; // Dialog servisini import et
 
-// --- TİP TANIMLARI - API ile %100 Uyumlu ---
-
-// Editor'de kullanılan ve API'ye gönderilen tam ayar seti.
-// Bu yapı, useEditorStore'daki EnhancedEditorSettings ile paraleldir.
-export interface EditorSettings {
-  backgroundId: string;
-  photoX?: number;
-  photoY?: number;
-  photoScale?: number;
-  photoRotation?: number;
-  
-  // Ürün Katmanı Ayarları
-  product_exposure?: number;
-  product_brightness?: number;
-  product_contrast?: number;
-  product_saturation?: number;
-  product_vibrance?: number;
-  product_warmth?: number;
-  product_clarity?: number;
-  product_vignette?: number;
-  product_highlights?: number;
-  product_shadows?: number;
-  
-  // Arka Plan Katmanı Ayarları
-  background_exposure?: number;
-  background_brightness?: number;
-  background_contrast?: number;
-  background_saturation?: number;
-  background_vibrance?: number;
-  background_warmth?: number;
-  background_clarity?: number;
-  background_vignette?: number;
-  background_highlights?: number;
-  background_shadows?: number;
-  background_blur?: number;
-
-  // Eski (legacy) ayarlar - Geriye dönük uyumluluk için
-  shadow?: number;
-  lighting?: number;
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-export interface ProductPhoto {
-  id: string;
-  productId: string;
-  originalImageUrl: string; // Client'da bu isim kullanılıyor (API'den gelen rawImageUrl'den dönüştürülür)
-  processedImageUrl?: string;
-  thumbnailUrl?: string;
-  status: 'processing' | 'completed' | 'failed';
-  editorSettings?: EditorSettings;
-  createdAt: string;
-  updatedAt: string;
-}
+const numColumns = Layout.isTablet ? 4 : 3;
 
-export interface Product {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  photoCount: number;
-  coverThumbnailUrl?: string;
-}
+export default function ProductDetailScreen() {
+  const { t } = useTranslation();
+  const { productId } = useLocalSearchParams<{ productId: string }>();
+  const router = useRouter();
+  // HATA DÜZELTİLDİ: 'uploadAnotherPhoto' yerine 'uploadMultiplePhotos' çağrıldı.
+  const { activeProduct, isLoading, fetchProductById, uploadMultiplePhotos } = useProductStore();
+  const { startOperation, isStarting: isBatchStarting } = useBatchOperations();
 
-export interface ProductDetail extends Product {
-  photos: ProductPhoto[];
-}
+  const [isSelectionMode, setSelectionMode] = useState(false);
+  const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  subscriptionPlan: 'free' | 'pro';
-}
-
-export interface Background {
-  id: string;
-  name: string;
-  thumbnailUrl: string;
-  fullUrl: string;
-}
-
-export interface TokenResponse {
-  user: User;
-  access_token: string;
-  token_type: string;
-}
-
-// --- Yeni Eklenen Arayüzler (Batch, Security) ---
-export interface BatchOperation {
-  id: string;
-  type: 'remove_background' | 'apply_filter' | 'resize' | 'export';
-  photo_ids: string[];
-  status: 'started' | 'processing' | 'completed' | 'failed' | 'cancelled';
-  progress: number;
-  total: number;
-  completed: number;
-  failed: number;
-  started_at: string;
-  estimated_completion?: string;
-}
-
-export interface SecurityInfo {
-  client_ip: string;
-  rate_limits: Record<string, number>;
-  max_file_size_mb: number;
-  allowed_file_types: string[];
-  security_features: string[];
-}
-
-export interface FileValidationResult {
-  valid: boolean;
-  message: string;
-  file_info?: {
-    filename: string;
-    size: number;
-    content_type: string;
-  };
-}
-
-// --- API İSTEMCİSİ (Değişiklik yok) ---
-const apiClient = axios.create({
-  baseURL: config.api.baseUrl,
-  timeout: 35000,
-});
-
-apiClient.interceptors.request.use(
-  async (config) => {
-    const userJson = await AsyncStorage.getItem('user');
-    if (userJson) {
-      const storedData = JSON.parse(userJson);
-      if (storedData.access_token) {
-        config.headers.Authorization = `Bearer ${storedData.access_token}`;
-      }
+  useEffect(() => {
+    if (productId) {
+      fetchProductById(productId);
     }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+  }, [productId]);
 
-// API'den gelen veriyi client-side modele dönüştüren interceptor
-apiClient.interceptors.response.use(
-  (response) => {
-    const transformData = (data: any) => {
-        if (Array.isArray(data)) {
-            return data.map(transformPhotoUrlsInObject);
-        } else {
-            return transformPhotoUrlsInObject(data);
+  useEffect(() => {
+    if (activeProduct?.photos.some(photo => photo.status === 'processing')) {
+      const interval = setInterval(() => {
+        if (productId && !isSelectionMode) {
+          fetchProductById(productId);
         }
-    };
-    if (response.data) {
-        response.data = transformData(response.data);
+      }, 5000);
+      return () => clearInterval(interval);
     }
-    return response;
-  },
-  async (error) => {
-    if (axios.isAxiosError(error) && error.response) {
-      if (error.response.status === 401) {
-        console.warn('API hatası: Yetkilendirme başarısız (401). Oturum sonlandırılıyor.');
-        // Burada store'dan logout fonksiyonunu çağırmak daha doğru olur.
-        // useAuthStore.getState().handleUnauthorized();
-        await AsyncStorage.removeItem('user');
+  }, [activeProduct?.photos, productId, isSelectionMode]);
+
+  const handleAddPhoto = async () => {
+    if (!productId) return;
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      ToastService.show({ type: 'error', text1: t('common.permissions.galleryTitle'), text2: t('common.permissions.galleryMessage') });
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: false,
+      quality: 1,
+      allowsMultipleSelection: true,
+    });
+
+    if (!result.canceled && result.assets) {
+      LoadingService.show();
+      try {
+        const imageUris = result.assets.map(asset => asset.uri);
+        await uploadMultiplePhotos(productId, imageUris); // Bu satır artık doğru çalışacak
+        ToastService.show({ type: 'success', text1: t('common.success'), text2: `${imageUris.length} fotoğraf yüklendi ve işleniyor!` });
+      } catch (error: any) {
+        ToastService.show({ type: 'error', text1: t('common.error'), text2: error.message });
+      } finally {
+        LoadingService.hide();
       }
-      const errorMessage = error.response.data.detail || error.response.data.message || 'Bir sunucu hatası oluştu.';
-      throw new Error(errorMessage);
     }
-    throw new Error('Bir ağ hatası oluştu veya sunucuya ulaşılamıyor.');
-  }
-);
+  };
 
-// Objenin içindeki 'photos' dizisini veya objenin kendisini dönüştüren yardımcı fonksiyon
-function transformPhotoUrlsInObject(obj: any) {
-  if (!obj) return obj;
-  if (obj.photos && Array.isArray(obj.photos)) {
-    obj.photos = obj.photos.map(transformSinglePhoto);
+  const toggleSelectionMode = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setSelectionMode(!isSelectionMode);
+    setSelectedPhotos(new Set());
+  };
+
+  const handlePhotoPress = (photo: ProductPhoto) => {
+    if (isSelectionMode) {
+      const newSelection = new Set(selectedPhotos);
+      if (newSelection.has(photo.id)) {
+        newSelection.delete(photo.id);
+      } else {
+        newSelection.add(photo.id);
+      }
+      setSelectedPhotos(newSelection);
+    } else {
+      if (photo.status !== 'completed') {
+        ToastService.show({
+          type: photo.status === 'failed' ? 'error' : 'info',
+          text1: photo.status === 'failed' ? 'İşleme Başarısız' : 'İşleniyor',
+          text2: photo.status === 'failed' ? 'Bu fotoğraf işlenemedi.' : 'Fotoğraf hala işleniyor.',
+        });
+        return;
+      }
+      router.push({
+        pathname: '/(tabs)/editor/[photoId]',
+        params: { photoId: photo.id },
+      });
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedPhotos.size === 0) return;
+
+    DialogService.show({
+      title: 'Fotoğrafları Sil',
+      message: `${selectedPhotos.size} adet fotoğrafı kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`,
+      buttons: [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            LoadingService.show();
+            try {
+              await api.deleteMultiplePhotos(Array.from(selectedPhotos));
+              await fetchProductById(productId!); // Sayfayı yenile
+              ToastService.show({ type: 'success', text1: 'Başarılı', text2: `${selectedPhotos.size} fotoğraf silindi.` });
+              toggleSelectionMode(); // Seçim modundan çık
+            } catch (error: any) {
+              ToastService.show({ type: 'error', text1: 'Hata', text2: error.message });
+            } finally {
+              LoadingService.hide();
+            }
+          },
+        },
+      ],
+    });
+  };
+
+  const renderPhoto = ({ item: photo }: { item: ProductPhoto }) => {
+    const isSelected = selectedPhotos.has(photo.id);
+    return (
+      <View style={styles.photoWrapper}>
+        <TouchableOpacity onPress={() => handlePhotoPress(photo)} activeOpacity={0.8}>
+          <Card padding="none" style={isSelected ? styles.selectedCard : undefined}>
+            <Image
+              source={{ uri: photo.thumbnailUrl || 'https://via.placeholder.com/150' }}
+              style={styles.photoImage}
+            />
+            {isSelectionMode && (
+              <View style={[styles.selectionOverlay, isSelected && styles.selectionOverlayActive]}>
+                <Feather name={isSelected ? "check-circle" : "circle"} size={24} color={Colors.card} />
+              </View>
+            )}
+            {photo.status !== 'completed' && !isSelectionMode && (
+              <View style={styles.statusOverlay}>
+                {photo.status === 'processing' && <ActivityIndicator color={Colors.card} />}
+                {photo.status === 'failed' && <Feather name="alert-triangle" size={24} color={Colors.card} />}
+              </View>
+            )}
+          </Card>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  if (isLoading && !activeProduct) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen options={{ title: t('common.loading') }} />
+        <ActivityIndicator size="large" style={styles.centered} />
+      </SafeAreaView>
+    );
   }
-  return transformSinglePhoto(obj);
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{ title: activeProduct?.name || 'Ürün Detayı' }} />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.productName} numberOfLines={1}>{activeProduct?.name}</Text>
+          <Text style={styles.photoCount}>{activeProduct?.photos.length || 0} {t('products.photos')}</Text>
+        </View>
+        <Button title="Fotoğraf Ekle" onPress={handleAddPhoto} size="small" variant="outline" icon={<Feather name="plus" size={14} color={Colors.primary} />} />
+        <Button title={isSelectionMode ? t('common.cancel') : "Seç"} onPress={toggleSelectionMode} size="small" variant="ghost" />
+      </View>
+
+      <FlatList
+        data={activeProduct?.photos || []}
+        keyExtractor={(item) => item.id}
+        numColumns={numColumns}
+        renderItem={renderPhoto}
+        contentContainerStyle={styles.listContainer}
+      />
+
+      {isSelectionMode && selectedPhotos.size > 0 && (
+        <View style={styles.batchActionsContainer}>
+          <Text style={styles.selectionCountText}>{selectedPhotos.size} fotoğraf seçildi</Text>
+          {/* Butonu "Sil" olarak değiştiriyoruz */}
+          <Button
+            title="Seçilenleri Sil"
+            onPress={handleBatchDelete} // Yeni fonksiyonu bağlıyoruz
+            icon={<Feather name="trash" size={16} color={Colors.error} />}
+            variant="outline"
+            textStyle={{ color: Colors.error }}
+            style={{ borderColor: Colors.error }}
+          />
+        </View>
+      )}
+    </SafeAreaView>
+  );
 }
 
-// Tek bir fotoğraf objesindeki 'rawImageUrl' alanını 'originalImageUrl'e çevirir
-function transformSinglePhoto(photo: any) {
-  if (photo && photo.rawImageUrl) {
-    photo.originalImageUrl = photo.rawImageUrl;
-    delete photo.rawImageUrl;
-  }
-  return photo;
-}
-
-// --- API FONKSİYONLARI ---
-export const api = {
-  // Auth endpoints (Mevcut kod aynı)
-  login: async (email: string, password: string): Promise<TokenResponse> => {
-    const response = await apiClient.post<TokenResponse>('/auth/login', { email, password });
-    return response.data;
-  },
-  register: async (name: string, email: string, password: string): Promise<TokenResponse> => {
-    const response = await apiClient.post<TokenResponse>('/auth/register', { name, email, password });
-    return response.data;
-  },
-  logout: async (): Promise<void> => {
-    console.log("Client tarafında çıkış işlemi başlatıldı.");
-  },
-  updateProfile: async (userData: Partial<User>): Promise<User> => {
-    const response = await apiClient.put<User>('/auth/profile', userData);
-    return response.data;
-  },
-
-  // Optimized Product endpoints
-  fetchProductsOptimized: async (params?: {
-    limit?: number;
-    offset?: number;
-    include_photos?: boolean;
-    sort_by?: string;
-    sort_order?: 'asc' | 'desc';
-  }): Promise<Product[]> => {
-    const response = await apiClient.get<Product[]>('/api/v2/products', { params });
-    return response.data;
-  },
-
-  fetchProductById: async (productId: string): Promise<ProductDetail> => {
-    const response = await apiClient.get<ProductDetail>(`/products/${productId}`);
-    return response.data;
-  },
-
-  createProduct: async (name: string): Promise<Product> => {
-    const response = await apiClient.post<Product>('/products', { name });
-    return response.data;
-  },
-  
-  // Photo endpoints
-  uploadPhoto: async (productId: string, imageUri: string): Promise<ProductPhoto> => {
-    const formData = new FormData();
-    const uriParts = imageUri.split('/');
-    const fileName = uriParts.pop() || 'photo.jpg';
-    const fileType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
-    
-    formData.append('file', { uri: imageUri, name: fileName, type: fileType } as any);
-    
-    const response = await apiClient.post<ProductPhoto>(`/products/${productId}/photos`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
-  },
-
-  fetchPhotoById: async (photoId: string): Promise<ProductPhoto> => {
-    const response = await apiClient.get<ProductPhoto>(`/photos/${photoId}`);
-    return response.data;
-  },
-
-  savePhotoSettings: async (photoId: string, settings: EditorSettings): Promise<void> => {
-    await apiClient.put(`/photos/${photoId}/settings`, settings);
-  },
-
-  // Backgrounds endpoint
-  fetchBackgrounds: async (): Promise<Background[]> => {
-    const response = await apiClient.get<Background[]>('/backgrounds');
-    return response.data;
-  },
-  
-  // --- YENİ EKLENEN ENDPOINT'LER ---
-  // Batch operations
-  startBatchOperation: async (params: {
-    operation_type: 'remove_background' | 'apply_filter' | 'resize' | 'export';
-    photo_ids: string[];
-    params?: Record<string, any>;
-  }): Promise<{ batch_id: string; status: string; message: string }> => {
-    const response = await apiClient.post('/batch/start', params);
-    return response.data;
-  },
-  getBatchStatus: async (batchId: string): Promise<BatchOperation> => {
-    const response = await apiClient.get<BatchOperation>(`/batch/${batchId}/status`);
-    return response.data;
-  },
-  cancelBatchOperation: async (batchId: string): Promise<{ success: boolean; message: string }> => {
-    const response = await apiClient.delete(`/batch/${batchId}`);
-    return response.data;
-  },
-
-  // Security
-  getSecurityInfo: async (): Promise<SecurityInfo> => {
-    const response = await apiClient.get<SecurityInfo>('/security/security-info');
-    return response.data;
-  },
-  validateFile: async (file: File | Blob, filename: string): Promise<FileValidationResult> => {
-    const formData = new FormData();
-    formData.append('file', file, filename);
-    const response = await apiClient.post<FileValidationResult>('/security/validate-file', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
-  },
-  
-  // Image processing
-  removeBackground: async (imageUri: string): Promise<Blob> => {
-    const formData = new FormData();
-    const uriParts = imageUri.split('/');
-    const fileName = uriParts.pop() || 'photo.jpg';
-    const fileType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
-    formData.append('file', { uri: imageUri, name: fileName, type: fileType } as any);
-    
-    const response = await apiClient.post('/image/remove-background', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      responseType: 'blob'
-    });
-    return response.data;
-  },
-};
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.card, gap: Spacing.sm },
+  backButton: { padding: Spacing.xs },
+  headerContent: { flex: 1 },
+  productName: { ...Typography.h3, color: Colors.textPrimary },
+  photoCount: { ...Typography.caption, color: Colors.textSecondary, marginTop: Spacing.xs },
+  listContainer: { padding: Spacing.sm, paddingBottom: 100 },
+  photoWrapper: { width: `${100 / numColumns}%`, padding: Spacing.sm },
+  photoImage: { width: '100%', aspectRatio: 1, borderRadius: BorderRadius.lg, backgroundColor: Colors.gray100 },
+  statusOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', borderRadius: BorderRadius.lg },
+  selectedCard: { borderColor: Colors.primary, borderWidth: 3 },
+  selectionOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center', borderRadius: BorderRadius.lg, },
+  selectionOverlayActive: { backgroundColor: `rgba(79, 70, 229, 0.5)` },
+  batchActionsContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing.md, paddingBottom: Spacing.xl, backgroundColor: Colors.card, borderTopWidth: 1, borderTopColor: Colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 8 },
+  selectionCountText: { ...Typography.bodyMedium, color: Colors.textPrimary },
+});

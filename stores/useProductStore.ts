@@ -1,22 +1,40 @@
-// kodlar/stores/useProductStore.ts - FAZ 3 GÜNCELLEMESİ (Akıllı Senkronizasyon)
+// stores/useProductStore.ts - YENİ YAPI GÜNCELLEMESİ
 import { create } from 'zustand';
-import { api, Product, ProductDetail } from '@/services/api';
+import { api, Product, ProductDetail, ProductPhoto  } from '@/services/api';
+import { LoadingService } from '@/components/Loading/LoadingService';
+
+const poll = (fn: () => Promise<boolean>, ms: number) => {
+  return new Promise<void>((resolve, reject) => {
+    const interval = setInterval(async () => {
+      try {
+        const done = await fn();
+        if (done) {
+          clearInterval(interval);
+          resolve();
+        }
+      } catch (error) {
+        clearInterval(interval);
+        reject(error);
+      }
+    }, ms);
+  });
+};
 
 interface ProductState {
   products: Product[];
   activeProduct: ProductDetail | null;
   isLoading: boolean;
   error: string | null;
-  lastFetched: number | null; // YENİ: Son veri çekme zamanını tutar (timestamp)
+  lastFetched: number | null;
 }
 
 interface ProductActions {
-  fetchProducts: (force?: boolean) => Promise<void>; // YENİ: Zorla yenileme parametresi
+  fetchProducts: (force?: boolean) => Promise<void>;
   fetchProductById: (productId: string) => Promise<void>;
-  createProductAndUpload: (name: string, imageUri: string) => Promise<Product | undefined>;
-  uploadAnotherPhoto: (productId: string, imageUri: string) => Promise<void>;
+  createProduct: (name: string) => Promise<Product | undefined>; // Değiştirildi
+  uploadMultiplePhotos: (productId: string, imageUris: string[]) => Promise<void>; // Yeni
   clearActiveProduct: () => void;
-  refreshProductsIfNeeded: () => Promise<void>; // YENİ: Akıllı yenileme fonksiyonu
+  refreshProductsIfNeeded: () => Promise<void>;
   getProductById: (productId: string) => Product | undefined;
   clearError: () => void;
 }
@@ -31,14 +49,11 @@ export const useProductStore = create<ProductState & ProductActions>((set, get) 
   lastFetched: null,
 
   fetchProducts: async (force = false) => {
-    // Eğer zorla yenileme istenmiyorsa ve zaten yükleniyorsa, işlemi tekrar başlatma
     if (!force && get().isLoading) return;
-
     set({ isLoading: true, error: null });
     try {
-      // API'dan optimize edilmiş endpoint'i kullanıyoruz
       const products = await api.fetchProductsOptimized({ include_photos: true });
-      set({ products, isLoading: false, lastFetched: Date.now() }); // Başarılı olunca zamanı kaydet
+      set({ products, isLoading: false, lastFetched: Date.now() });
     } catch (error: any) {
       set({ error: error.message || 'Ürünler yüklenemedi.', isLoading: false });
     }
@@ -46,29 +61,27 @@ export const useProductStore = create<ProductState & ProductActions>((set, get) 
 
   refreshProductsIfNeeded: async () => {
     const { lastFetched, isLoading } = get();
-    // Veri hiç çekilmediyse veya 15 dakikadan eskiyse ve şu an bir yükleme işlemi yoksa yenile
     if (!isLoading && (!lastFetched || Date.now() - lastFetched > REFRESH_THRESHOLD)) {
-      console.log('Veri eski, arka planda yenileniyor...');
-      await get().fetchProducts(true); // fetchProducts'u zorla yenileme modunda çağır
+      await get().fetchProducts(true);
     }
   },
 
   fetchProductById: async (productId: string) => {
     set({ isLoading: true, error: null, activeProduct: null });
     try {
-        const product = await api.fetchProductById(productId);
-        set({ activeProduct: product, isLoading: false });
+      const product = await api.fetchProductById(productId);
+      set({ activeProduct: product, isLoading: false });
     } catch (error: any) {
-        set({ error: error.message || 'Ürün detayı alınamadı.', isLoading: false });
+      set({ error: error.message || 'Ürün detayı alınamadı.', isLoading: false });
     }
   },
-  
-  createProductAndUpload: async (name: string, imageUri: string) => {
+
+  // Sadece ürün oluşturan yeni fonksiyon
+  createProduct: async (name: string) => {
     set({ isLoading: true });
     try {
       const newProduct = await api.createProduct(name);
-      await api.uploadPhoto(newProduct.id, imageUri);
-      await get().fetchProducts(true); // Yeni ürün eklenince listeyi zorla yenile
+      await get().fetchProducts(true); // Listeyi yenile
       set({ isLoading: false });
       return newProduct;
     } catch (error: any) {
@@ -78,18 +91,47 @@ export const useProductStore = create<ProductState & ProductActions>((set, get) 
     }
   },
 
-  uploadAnotherPhoto: async (productId: string, imageUri: string) => {
-      set({ isLoading: true });
-      try {
-          await api.uploadPhoto(productId, imageUri);
-          await get().fetchProductById(productId); // Detay sayfasını yenile
-          await get().fetchProducts(true); // Ana listeyi de zorla yenile
-          set({ isLoading: false });
-      } catch(error: any) {
-          const errorMessage = error.message || 'Yeni fotoğraf yüklenemedi.';
-          set({ error: errorMessage, isLoading: false });
-          throw new Error(errorMessage);
+  uploadMultiplePhotos: async (productId: string, imageUris: string[]) => {
+    // Yükleme başladığında Loading'i metinsiz göster
+    LoadingService.show();
+    let uploadedPhotos: ProductPhoto[] = [];
+
+    try {
+      for (const uri of imageUris) {
+        if (uri && typeof uri === 'string') {
+          const newPhoto = await api.uploadPhoto(productId, uri);
+          uploadedPhotos.push(newPhoto);
+        }
       }
+
+      // Yükleme bitti, şimdi arka plan temizlemeyi takip et
+      const total = uploadedPhotos.length;
+      if (total > 0) {
+        let completed = 0;
+        LoadingService.show(`0 / ${total} fotoğraf işlendi...`);
+
+        // Her fotoğrafın durumunu periyodik olarak kontrol et
+        await Promise.all(uploadedPhotos.map(async (photo) => {
+          await poll(async () => {
+            const statusRes = await api.getPhotoStatus(photo.id); // API'ye yeni endpoint'i çağır
+            if (statusRes.status === 'completed' || statusRes.status === 'failed') {
+              completed++;
+              LoadingService.show(`${completed} / ${total} fotoğraf işlendi...`);
+              return true; // Polling'i durdur
+            }
+            return false; // Devam et
+          }, 2000); // Her 2 saniyede bir kontrol et
+        }));
+      }
+
+      await get().fetchProductById(productId);
+      await get().fetchProducts(true);
+
+    } catch (error: any) {
+      throw new Error(error.message || 'Fotoğraflar yüklenemedi.');
+    } finally {
+      LoadingService.hide();
+    }
   },
 
   getProductById: (productId: string) => {

@@ -1,4 +1,4 @@
-// services/api.ts - Final Sürüm
+// services/api.ts - NIHAI TEMIZ SURUM
 import axios from 'axios';
 import { config } from '@/config/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -42,7 +42,7 @@ export interface EditorSettings {
 export interface ProductPhoto {
   id: string;
   productId: string;
-  originalImageUrl: string;
+  // originalImageUrl alanı tamamen kaldırıldı.
   processedImageUrl?: string;
   thumbnailUrl?: string;
   status: 'processing' | 'completed' | 'failed';
@@ -108,7 +108,6 @@ export interface FileValidationResult {
   };
 }
 
-// --- API İSTEMCİSİ ---
 const apiClient = axios.create({
   baseURL: config.api.baseUrl,
   timeout: 35000,
@@ -129,23 +128,11 @@ apiClient.interceptors.request.use(
 );
 
 apiClient.interceptors.response.use(
-  (response) => {
-    const transformData = (data: any) => {
-        if (Array.isArray(data)) {
-            return data.map(transformPhotoUrlsInObject);
-        } else {
-            return transformPhotoUrlsInObject(data);
-        }
-    };
-    if (response.data) {
-        response.data = transformData(response.data);
-    }
-    return response;
-  },
+  (response) => response,
   async (error) => {
     if (axios.isAxiosError(error) && error.response) {
       if (error.response.status === 401) {
-        console.warn('API hatası: Yetkilendirme başarısız (401). Oturum sonlandırılıyor.');
+        console.warn('API hatası: Yetkilendirme başarısız (401).');
         await AsyncStorage.removeItem('user');
       }
       const errorMessage = error.response.data.detail || error.response.data.message || 'Bir sunucu hatası oluştu.';
@@ -155,25 +142,7 @@ apiClient.interceptors.response.use(
   }
 );
 
-function transformPhotoUrlsInObject(obj: any) {
-  if (!obj) return obj;
-  if (obj.photos && Array.isArray(obj.photos)) {
-    obj.photos = obj.photos.map(transformSinglePhoto);
-  }
-  return transformSinglePhoto(obj);
-}
-
-function transformSinglePhoto(photo: any) {
-  if (photo && photo.rawImageUrl) {
-    photo.originalImageUrl = photo.rawImageUrl;
-    delete photo.rawImageUrl;
-  }
-  return photo;
-}
-
-// --- API FONKSİYONLARI ---
 export const api = {
-  // Auth
   login: async (email: string, password: string): Promise<TokenResponse> => {
     const response = await apiClient.post<TokenResponse>('/auth/login', { email, password });
     return response.data;
@@ -189,8 +158,6 @@ export const api = {
     const response = await apiClient.put<User>('/auth/profile', userData);
     return response.data;
   },
-
-  // Products
   fetchProductsOptimized: async (params?: any): Promise<Product[]> => {
     const response = await apiClient.get<Product[]>('/api/v2/products', { params });
     return response.data;
@@ -203,8 +170,6 @@ export const api = {
     const response = await apiClient.post<Product>('/products', { name });
     return response.data;
   },
-  
-  // Photos
   uploadPhoto: async (productId: string, imageUri: string): Promise<ProductPhoto> => {
     const formData = new FormData();
     const uriParts = imageUri.split('/');
@@ -223,73 +188,17 @@ export const api = {
   savePhotoSettings: async (photoId: string, settings: EditorSettings): Promise<void> => {
     await apiClient.put(`/photos/${photoId}/settings`, settings);
   },
-
-  // Backgrounds
+  getPhotoStatus: async (photoId: string): Promise<{ status: string }> => {
+    const response = await apiClient.get(`/photos/${photoId}/status`);
+    return response.data;
+  },
+  deleteMultiplePhotos: async (photoIds: string[]): Promise<void> => {
+    await apiClient.delete('/photos/batch', {
+      data: { photo_ids: photoIds },
+    });
+  },
   fetchBackgrounds: async (): Promise<Background[]> => {
     const response = await apiClient.get<Background[]>('/backgrounds');
-    return response.data;
-  },
-  
-  // Batch operations
-  startBatchOperation: async (params: any): Promise<{ batch_id: string; status: string; message: string }> => {
-    const response = await apiClient.post('/batch/start', params);
-    return response.data;
-  },
-  getBatchStatus: async (batchId: string): Promise<BatchOperation> => {
-    const response = await apiClient.get<BatchOperation>(`/batch/${batchId}/status`);
-    return response.data;
-  },
-  cancelBatchOperation: async (batchId: string): Promise<{ success: boolean; message: string }> => {
-    const response = await apiClient.delete(`/batch/${batchId}`);
-    return response.data;
-  },
-
-  // Security
-  getSecurityInfo: async (): Promise<SecurityInfo> => {
-    const response = await apiClient.get<SecurityInfo>('/security/security-info');
-    return response.data;
-  },
-  validateFile: async (imageUri: string): Promise<FileValidationResult> => {
-    const formData = new FormData();
-    const uriParts = imageUri.split('/');
-    const fileName = uriParts.pop() || 'photo.jpg';
-    const fileType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
-    formData.append('file', { uri: imageUri, name: fileName, type: fileType } as any);
-    const response = await apiClient.post<FileValidationResult>('/security/validate-file', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
-  },
-  getCsrfToken: async (): Promise<{ csrf_token: string }> => {
-    const response = await apiClient.post('/security/csrf-token');
-    return response.data;
-  },
-  reportSecurityIssue: async (description: string): Promise<{ message: string; reference_id: string }> => {
-    const response = await apiClient.post('/security/report-security-issue', { issue_description: description });
-    return response.data;
-  },
-  getRateLimitStatus: async (): Promise<any> => {
-    const response = await apiClient.get('/security/rate-limit-status');
-    return response.data;
-  },
-  
-  // Image processing
-  removeBackground: async (imageUri: string): Promise<Blob> => {
-    const formData = new FormData();
-    const uriParts = imageUri.split('/');
-    const fileName = uriParts.pop() || 'photo.jpg';
-    const fileType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
-    formData.append('file', { uri: imageUri, name: fileName, type: fileType } as any);
-    const response = await apiClient.post('/image/remove-background', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      responseType: 'blob'
-    });
-    return response.data;
-  },
-  
-  // Cache management
-  getCacheStats: async (): Promise<any> => {
-    const response = await apiClient.get('/security/cache-stats');
     return response.data;
   },
 };

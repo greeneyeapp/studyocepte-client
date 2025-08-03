@@ -1,32 +1,26 @@
-// kodlar/app/(tabs)/home.tsx - FAZ 3 GÜNCELLEMESİ (Akıllı Senkronizasyon Entegrasyonu - Tam Kod)
-import React, { useEffect, useState } from 'react';
+// client/app/(tabs)/home.tsx - YENİ YAPI GÜNCELLEMESİ
+import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet,
-  SafeAreaView,
-  TouchableOpacity,
-  ActivityIndicator,
-  View,
-  AppState,
+  StyleSheet, SafeAreaView, TouchableOpacity,
+  ActivityIndicator, View, AppState,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import * as ImagePicker from 'expo-image-picker';
 import { useProductStore } from '@/stores/useProductStore';
 import { Colors, Spacing } from '@/constants';
 import { Product } from '@/services/api';
 import { ToastService } from '@/components/Toast/ToastService';
-import { LoadingService } from '@/components/Loading/LoadingService';
-import { BottomSheetService } from '@/components/BottomSheet/BottomSheetService';
 import { InputDialogService } from '@/components/Dialog/InputDialogService';
 import { EnhancedSearchBar } from '@/components/EnhancedSearchBar';
 import { OptimizedProductGrid } from '@/components/OptimizedProductGrid';
+import { LoadingService } from '@/components/Loading/LoadingService';
 
 export default function HomeScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { createProductAndUpload, refreshProductsIfNeeded } = useProductStore();
-  const [isCreating, setIsCreating] = useState(false);
+  const { createProduct, refreshProductsIfNeeded, isLoading } = useProductStore();
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'createdAt' | 'photoCount'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -46,61 +40,29 @@ export default function HomeScreen() {
   const handleCreateNewProduct = () => {
     const d = new Date();
     const defaultName = `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
+    
     InputDialogService.show({
       title: t('products.nameYourProduct'),
       placeholder: t('products.productNamePlaceholder'),
-      onConfirm: (name) => {
-        askForImageSource(name.trim() || defaultName);
+      onConfirm: async (name) => {
+        LoadingService.show();
+        try {
+          const newProduct = await createProduct(name.trim() || defaultName);
+          if (newProduct) {
+            ToastService.show({ type: 'success', text1: t('products.productCreated') });
+            // Kullanıcıyı yeni oluşturulan ürünün detay sayfasına yönlendir
+            router.push({
+              pathname: '/(tabs)/product/[productId]',
+              params: { productId: newProduct.id },
+            });
+          }
+        } catch (e: any) {
+          ToastService.show({ type: 'error', text1: t('common.error'), text2: e.message || t('common.errors.createProduct') });
+        } finally {
+          LoadingService.hide();
+        }
       },
     });
-  };
-
-  const askForImageSource = (productName: string) => {
-    BottomSheetService.show({
-      title: t('products.createProductTitle'),
-      actions: [
-        { id: 'gallery', text: t('projects.selectFromGallery'), icon: 'image', onPress: () => pickImageFromGallery(productName) },
-        { id: 'camera', text: t('projects.takePhoto'), icon: 'camera', onPress: () => takePhoto(productName) },
-      ],
-    });
-  };
-
-  const pickImageFromGallery = async (productName: string) => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { 
-      ToastService.show({ type: 'error', text1: t('common.permissions.galleryTitle'), text2: t('common.permissions.galleryMessage') }); 
-      return; 
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: false, quality: 1 });
-    if (!result.canceled && result.assets) {
-      await createProductWithImage(result.assets[0].uri, productName);
-    }
-  };
-
-  const takePhoto = async (productName: string) => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') { 
-      ToastService.show({ type: 'error', text1: t('common.permissions.cameraTitle'), text2: t('common.permissions.cameraMessage') }); 
-      return; 
-    }
-    const result = await ImagePicker.launchCameraAsync({ allowsEditing: false, quality: 1 });
-    if (!result.canceled && result.assets) {
-      await createProductWithImage(result.assets[0].uri, productName);
-    }
-  };
-
-  const createProductWithImage = async (imageUri: string, productName: string) => {
-    setIsCreating(true);
-    LoadingService.show();
-    try {
-      await createProductAndUpload(productName, imageUri);
-      ToastService.show({ type: 'success', text1: t('common.success'), text2: t('products.productCreated') });
-    } catch (e: any) {
-      ToastService.show({ type: 'error', text1: t('common.error'), text2: e.message || t('common.errors.createProduct') });
-    } finally {
-      setIsCreating(false);
-      LoadingService.hide();
-    }
   };
 
   const handleProductPress = (product: Product) => {
@@ -133,12 +95,12 @@ export default function HomeScreen() {
       </View>
       
       <TouchableOpacity
-        style={[styles.fab, isCreating && styles.fabDisabled]}
+        style={[styles.fab, isLoading && styles.fabDisabled]}
         onPress={handleCreateNewProduct}
         activeOpacity={0.8}
-        disabled={isCreating}
+        disabled={isLoading}
       >
-        {isCreating ? <ActivityIndicator size="small" color={Colors.card} /> : <Feather name="plus" size={28} color={Colors.card} />}
+        {isLoading ? <ActivityIndicator size="small" color={Colors.card} /> : <Feather name="plus" size={28} color={Colors.card} />}
       </TouchableOpacity>
     </SafeAreaView>
   );

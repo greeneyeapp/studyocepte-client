@@ -4,7 +4,7 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { captureRef } from 'react-native-view-shot';
 import { Linking, Platform, Alert } from 'react-native';
-import { ExportPreset, ShareOption } from '@/app/(tabs)/editor/config/exportTools';
+import { ExportPreset, ShareOption } from '@/features/editor/config/exportTools';
 
 export interface ExportOptions {
   preset: ExportPreset;

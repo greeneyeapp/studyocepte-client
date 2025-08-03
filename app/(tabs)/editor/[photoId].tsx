@@ -1,4 +1,4 @@
-// app/(tabs)/editor/[photoId].tsx - FAZ 3 FİNAL SÜRÜMÜ (Tablet Optimizasyonu Dahil Tam Kod)
+// app/(tabs)/editor/[photoId].tsx - NİHAİ VE ÇALIŞAN SÜRÜM
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -7,35 +7,31 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 
 import { useEnhancedEditorStore, EditorSettings } from '@/stores/useEnhancedEditorStore';
-import { useExportManager } from './hooks/useExportManager';
-import { useScrollManager } from './hooks/useScrollManager';
-
-import { EditorHeader } from './components/EditorHeader';
-import { TargetSelector } from './components/TargetSelector';
-import { EditorPreview } from './components/EditorPreview';
-import { FeatureButton } from './components/FeatureButton';
-import { CustomSlider } from './components/CustomSlider';
-import { MainToolbar } from './components/MainToolbar';
-import { FilterPreview } from './components/FilterPreview';
-import { BackgroundButton } from './components/BackgroundButton';
-import { ExportToolbar } from './components/ExportToolbar';
-import { CropToolbar } from './components/CropToolbar';
-
-import { ToolType } from './config/tools';
-import { ADJUST_FEATURES, BACKGROUND_FEATURES } from './config/features';
-import { ALL_FILTERS } from './config/filters';
-import { ExportPreset } from './config/exportTools';
+import { useExportManager } from '@/features/editor/hooks/useExportManager';
+import { useScrollManager } from '@/features/editor/hooks/useScrollManager';
+import { EditorHeader } from '@/features/editor/components/EditorHeader';
+import { TargetSelector } from '@/features/editor/components/TargetSelector';
+import { EditorPreview } from '@/features/editor/components/EditorPreview';
+import { FeatureButton } from '@/features/editor/components/FeatureButton';
+import { CustomSlider } from '@/features/editor/components/CustomSlider';
+import { MainToolbar } from '@/features/editor/components/MainToolbar';
+import { FilterPreview } from '@/features/editor/components/FilterPreview';
+import { BackgroundButton } from '@/features/editor/components/BackgroundButton';
+import { ExportToolbar } from '@/features/editor/components/ExportToolbar';
+import { CropToolbar } from '@/features/editor/components/CropToolbar';
+import { ToolType, TargetType } from '@/features/editor/config/tools';
+import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/features';
+import { ALL_FILTERS } from '@/features/editor/config/filters';
+import { ExportPreset, ShareOption } from '@/features/editor/config/exportTools';
 
 import { ToastService } from '@/components/Toast/ToastService';
 import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
 import { Layout } from '@/constants/Layout';
-import { api } from '@/services/api';
+import { api, Background, ProductPhoto } from '@/services/api';
 
-const staticBackgrounds = [
+const staticBackgrounds: Background[] = [
     {id: "bg1", name: "Studio White", thumbnailUrl: "https://images.pexels.com/photos/1762851/pexels-photo-1762851.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/1762851/pexels-photo-1762851.jpeg?auto=compress&cs=tinysrgb&w=800"},
     {id: "bg2", name: "Concrete", thumbnailUrl: "https://images.pexels.com/photos/1191710/pexels-photo-1191710.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/1191710/pexels-photo-1191710.jpeg?auto=compress&cs=tinysrgb&w=800"},
-    {id: "bg3", name: "Wood", thumbnailUrl: "https://images.pexels.com/photos/129731/pexels-photo-129731.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/129731/pexels-photo-129731.jpeg?auto=compress&cs=tinysrgb&w=800"},
-    {id: "bg4", name: "Marble", thumbnailUrl: "https://images.pexels.com/photos/1139541/pexels-photo-1139541.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/1139541/pexels-photo-1139541.jpeg?auto=compress&cs=tinysrgb&w=800"},
 ];
 
 export default function EnhancedEditorScreen() {
@@ -45,18 +41,19 @@ export default function EnhancedEditorScreen() {
 
   const store = useEnhancedEditorStore();
   const {
-    activePhoto, settings, isSaving, userPresets,
+    activePhoto, settings, isSaving, userPresets, activeFilterKey,
+    applyFilter, undo, redo, canUndo, canRedo, addSnapshotToHistory, updateSettings, clearStore, setActivePhoto
   } = store;
 
   const [activeTool, setActiveTool] = useState<ToolType>('adjust');
-  const [activeTarget, setActiveTarget] = useState('product');
+  const [activeTarget, setActiveTarget] = useState<TargetType>('product');
   const [activeFeature, setActiveFeature] = useState<string | null>(null);
   const [isSliderActive, setIsSliderActive] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   const [selectedPreset, setSelectedPreset] = useState<ExportPreset | null>(null);
   
-  const { previewRef, isExporting, shareWithOption } = useExportManager();
+  const { isExporting, shareWithOption } = useExportManager();
   const { currentScrollRef } = useScrollManager({ activeTool, activeTarget, activeFeature, isSliderActive });
 
   useEffect(() => {
@@ -64,24 +61,22 @@ export default function EnhancedEditorScreen() {
         if (photoId) {
             try {
                 const photo = await api.fetchPhotoById(photoId);
-                store.setActivePhoto(photo);
+                setActivePhoto(photo);
             } catch (error) {
+                console.error('[EditorScreen] Fotoğraf yükleme hatası:', error);
                 ToastService.show({type: 'error', text1: 'Hata', text2: 'Fotoğraf yüklenemedi.'});
                 router.back();
             }
         }
     }
     loadPhoto();
-    return () => { store.clearStore(); };
+    return () => { clearStore(); };
   }, [photoId]);
 
   const handleToolChange = (tool: ToolType) => {
     setActiveTool(tool);
-    if (tool !== 'crop' && tool !== 'adjust') {
-        store.addSnapshotToHistory();
-    }
-    if (tool === 'crop') {
-        store.addSnapshotToHistory();
+    if (tool !== 'adjust' && activeFeature) {
+        addSnapshotToHistory();
     }
     setActiveFeature(null);
   };
@@ -96,22 +91,34 @@ export default function EnhancedEditorScreen() {
       }
   };
   
-  const handleFeaturePress = (featureKey: string) => setActiveFeature(prev => (prev === featureKey ? null : featureKey));
-  const handleBackgroundSelect = (bgId: string) => { store.updateSettings({ backgroundId: bgId }); store.addSnapshotToHistory(); };
+  const handleFeaturePress = (featureKey: string) => {
+      if (activeFeature && activeFeature !== featureKey) {
+          addSnapshotToHistory();
+      }
+      setActiveFeature(prev => (prev === featureKey ? null : featureKey));
+  };
+
+  const handleBackgroundSelect = (bgId: string) => {
+      updateSettings({ backgroundId: bgId });
+      addSnapshotToHistory();
+  };
   
-  const handleCropDone = () => { store.addSnapshotToHistory(); setActiveTool('adjust'); };
-  const handleCropCancel = () => { store.undo(); setActiveTool('adjust'); };
-  const handleRotation = () => store.updateSettings({ photoRotation: ((settings.photoRotation || 0) + 90) % 360 });
-  const handleAspectRatio = (ratio: string) => store.updateSettings({ cropAspectRatio: ratio });
+  const handleCropDone = () => { addSnapshotToHistory(); setActiveTool('adjust'); };
+  const handleCropCancel = () => { undo(); setActiveTool('adjust'); };
+  const handleRotation = () => updateSettings({ photoRotation: ((settings.photoRotation || 0) + 90) % 360 });
+  const handleAspectRatio = (ratio: string) => updateSettings({ cropAspectRatio: ratio });
   const handleResetCrop = () => {
-      store.updateSettings({
+      updateSettings({
           photoRotation: 0, cropAspectRatio: 'original',
           cropX: 0, cropY: 0, cropWidth: 1, cropHeight: 1,
       });
-      store.addSnapshotToHistory();
+      addSnapshotToHistory();
   };
 
   const renderActiveToolbar = () => {
+    if (!activePhoto) return null;
+    const imageUri = activePhoto.processedImageUrl;
+
     switch (activeTool) {
       case 'background':
         return (
@@ -122,18 +129,16 @@ export default function EnhancedEditorScreen() {
       case 'filter':
         return (
           <ScrollView ref={currentScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            <TouchableOpacity style={styles.savePresetButton} onPress={store.saveCurrentUserPreset}>
-              <Feather name="plus-circle" size={24} color={Colors.primary} />
-              <Text style={styles.savePresetText}>Preset Kaydet</Text>
-            </TouchableOpacity>
-
-            {userPresets.map(preset => (
-              <TouchableOpacity key={preset.id} style={styles.presetButton} onPress={() => store.applyUserPreset(preset.id)}>
-                <Text style={styles.presetText}>{preset.name}</Text>
-              </TouchableOpacity>
-            ))}
-            
-            {ALL_FILTERS.map(filter => <FilterPreview key={filter.key} filter={filter} imageUri={activePhoto?.processedImageUrl || ''} backgroundUri={staticBackgrounds.find(bg => bg.id === settings.backgroundId)?.fullUrl || ''} isSelected={false} onPress={() => {}} />)}
+            {ALL_FILTERS.map(filter => 
+              <FilterPreview 
+                key={filter.key} 
+                filter={filter} 
+                imageUri={imageUri || ''}
+                backgroundUri={staticBackgrounds.find(bg => bg.id === settings.backgroundId)?.fullUrl || ''} 
+                isSelected={activeFilterKey === filter.key}
+                onPress={() => applyFilter(filter.key)}
+              />
+            )}
           </ScrollView>
         );
       case 'adjust':
@@ -157,7 +162,12 @@ export default function EnhancedEditorScreen() {
   };
 
   if (!activePhoto) {
-    return <SafeAreaView style={styles.loadingContainer}><ActivityIndicator size="large" color={Colors.primary} /></SafeAreaView>;
+    return (
+        <SafeAreaView style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>Editör Yükleniyor...</Text>
+        </SafeAreaView>
+    );
   }
 
   const currentFeatureConfig = (activeTool === 'adjust' ? (activeTarget === 'background' ? BACKGROUND_FEATURES : ADJUST_FEATURES) : []).find(f => f.key === activeFeature);
@@ -171,9 +181,12 @@ export default function EnhancedEditorScreen() {
             <EditorPreview
               activePhoto={activePhoto}
               selectedBackground={staticBackgrounds.find(bg => bg.id === settings.backgroundId)}
-              settings={settings} showOriginal={showOriginal}
-              onShowOriginalChange={setShowOriginal} onLayout={(e) => setPreviewSize(e.nativeEvent.layout)}
-              updateSettings={store.updateSettings} previewSize={previewSize}
+              settings={settings}
+              showOriginal={showOriginal}
+              onShowOriginalChange={setShowOriginal}
+              onLayout={(e) => setPreviewSize(e.nativeEvent.layout)}
+              updateSettings={updateSettings}
+              previewSize={previewSize}
               isCropping={activeTool === 'crop'}
             />
           </View>
@@ -182,7 +195,7 @@ export default function EnhancedEditorScreen() {
         <ExportToolbar 
           activeTool={activeTool} selectedPreset={selectedPreset}
           isExporting={isExporting} setSelectedPreset={setSelectedPreset}
-          shareWithOption={(option) => { if(selectedPreset) shareWithOption(option, selectedPreset)}}
+          shareWithOption={async (option: ShareOption) => { if(selectedPreset) await shareWithOption(option, selectedPreset)}}
         />
       )}
     </>
@@ -202,9 +215,9 @@ export default function EnhancedEditorScreen() {
             <CustomSlider
               feature={currentFeatureConfig}
               value={(settings as any)[`${activeTarget}_${activeFeature}`] ?? 0}
-              onValueChange={(value) => store.updateSettings({ [`${activeTarget}_${activeFeature}`]: value })}
+              onValueChange={(value) => updateSettings({ [`${activeTarget}_${activeFeature}`]: value })}
               onSlidingStart={() => setIsSliderActive(true)}
-              onSlidingComplete={store.addSnapshotToHistory}
+              onSlidingComplete={addSnapshotToHistory}
               isActive={!!activeFeature}
             />
           )}
@@ -221,8 +234,13 @@ export default function EnhancedEditorScreen() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
         <EditorHeader
-          onCancel={() => router.back()} onSave={handleSave} isSaving={isSaving}
-          canUndo={store.canUndo()} canRedo={store.canRedo()} onUndo={store.undo} onRedo={store.redo}
+          onCancel={() => router.back()}
+          onSave={handleSave}
+          isSaving={isSaving}
+          canUndo={canUndo()}
+          canRedo={canRedo()}
+          onUndo={undo}
+          onRedo={redo}
         />
         
         {Layout.isTablet ? (
@@ -244,26 +262,13 @@ export default function EnhancedEditorScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+  loadingText: { ...Typography.body, color: Colors.textSecondary, marginTop: Spacing.md },
   previewWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.sm },
   toolbarsContainer: { minHeight: 120, justifyContent: 'center', backgroundColor: Colors.card },
   
-  tabletLayoutContainer: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  tabletMainContent: {
-    flex: 3,
-    height: '100%',
-  },
-  tabletSidebar: {
-    flex: 1,
-    height: '100%',
-    backgroundColor: Colors.card,
-    borderLeftWidth: 1,
-    borderLeftColor: Colors.border,
-    paddingVertical: Spacing.md,
-    justifyContent: 'flex-end'
-  },
+  tabletLayoutContainer: { flex: 1, flexDirection: 'row' },
+  tabletMainContent: { flex: 3, height: '100%' },
+  tabletSidebar: { flex: 1, height: '100%', backgroundColor: Colors.card, borderLeftWidth: 1, borderLeftColor: Colors.border, paddingVertical: Spacing.md, justifyContent: 'flex-end' },
 
   scrollContent: { paddingHorizontal: Spacing.lg, alignItems: 'center', gap: Spacing.lg, paddingVertical: Spacing.md },
   savePresetButton: { alignItems: 'center', justifyContent: 'center', width: 60, height: 60, borderRadius: BorderRadius.md, backgroundColor: Colors.indigo50, borderWidth: 1, borderColor: Colors.primary, borderStyle: 'dashed' },

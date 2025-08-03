@@ -1,4 +1,4 @@
-// components/OptimizedProductGrid.tsx - FAZ 3 GÜNCELLEMESİ (Animasyonlar)
+// components/OptimizedProductGrid.tsx - Düzeltilmiş Grid Düzeni
 import React, { useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
@@ -8,7 +8,7 @@ import {
   RefreshControl,
   Text,
   TouchableOpacity,
-  Animated, // YENİ: Animasyon için import
+  Animated,
 } from 'react-native';
 import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
 import { Card } from '@/components/Card';
@@ -32,19 +32,17 @@ const ProductGridItem: React.FC<{
     product: Product; 
     onPress: () => void; 
     priority?: 'low' | 'normal' | 'high';
-    index: number; // YENİ: Animasyon sıralaması için index
+    index: number;
 }> = React.memo(({ product, onPress, priority, index }) => {
     
-    // YENİ: Animasyon için state'ler
     const opacity = useRef(new Animated.Value(0)).current;
     const translateY = useRef(new Animated.Value(20)).current;
 
     useEffect(() => {
-        // Her bir kartın index'ine göre küçük bir gecikmeyle animasyonu başlat
         Animated.timing(opacity, {
             toValue: 1,
             duration: 500,
-            delay: index * 50, // Sıralı gelme efekti için gecikme
+            delay: index * 50,
             useNativeDriver: true,
         }).start();
 
@@ -56,29 +54,34 @@ const ProductGridItem: React.FC<{
         }).start();
     }, [opacity, translateY, index]);
     
+    // HATA DÜZELTİLDİ: Animated.View artık ana konteyner ve düzen stillerini içeriyor.
+    // İçerideki gereksiz View kaldırıldı.
     return (
-        <Animated.View style={{ opacity, transform: [{ translateY }] }}>
-            <View style={itemStyles.itemContainer}>
-              <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+        <Animated.View 
+            style={[
+                itemStyles.itemContainer, 
+                { opacity, transform: [{ translateY }] }
+            ]}
+        >
+            <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
                 <Card padding="none">
-                  <View style={itemStyles.imageContainer}>
+                    <View style={itemStyles.imageContainer}>
                     <LazyImage
-                      uri={product.coverThumbnailUrl || ''}
-                      style={itemStyles.productImage}
-                      priority={priority}
+                        uri={product.coverThumbnailUrl || ''}
+                        style={itemStyles.productImage}
+                        priority={priority}
                     />
-                  </View>
-                  <View style={itemStyles.productInfo}>
+                    </View>
+                    <View style={itemStyles.productInfo}>
                     <Text style={itemStyles.productName} numberOfLines={1}>
-                      {product.name}
+                        {product.name}
                     </Text>
                     <Text style={itemStyles.photoCount}>
-                      {product.photoCount} fotoğraf
+                        {product.photoCount} fotoğraf
                     </Text>
-                  </View>
+                    </View>
                 </Card>
-              </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
         </Animated.View>
       );
 });
@@ -90,7 +93,6 @@ export const OptimizedProductGrid: React.FC<OptimizedProductGridProps> = ({
   sortBy = 'createdAt',
   sortOrder = 'desc'
 }) => {
-  // Store ve state yönetimi aynı kalır
   const { products, isLoading, error, fetchProducts, clearError } = useProductStore();
 
   useEffect(() => {
@@ -121,7 +123,6 @@ export const OptimizedProductGrid: React.FC<OptimizedProductGridProps> = ({
   }, [products, searchQuery, sortBy, sortOrder]);
 
 
-  // Hata, Yüklenme ve Boş Durum mantığı aynı kalır
   if (isLoading && products.length === 0) {
     return (
       <View style={styles.centeredContainer}>
@@ -137,7 +138,6 @@ export const OptimizedProductGrid: React.FC<OptimizedProductGridProps> = ({
       return <ErrorMessage message={searchQuery ? `"${searchQuery}" için sonuç bulunamadı.` : "Henüz hiç ürün oluşturmadınız."} onRetry={onRefresh} retryText="Yenile" />;
   }
 
-  // FlatList
   return (
     <FlatList
       data={filteredProducts}
@@ -146,7 +146,7 @@ export const OptimizedProductGrid: React.FC<OptimizedProductGridProps> = ({
           product={item}
           onPress={() => onProductPress(item)}
           priority={index < 6 ? 'high' : 'normal'}
-          index={index} // YENİ: index'i prop olarak iletiyoruz
+          index={index}
         />
       )}
       keyExtractor={(item) => item.id}
@@ -166,13 +166,16 @@ const numColumns = Layout.isTablet ? 4 : 3;
 
 // Styles
 const styles = StyleSheet.create({
-  container: { padding: GRID_SPACING, flexGrow: 1, },
+  container: { padding: GRID_SPACING, },
   centeredContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background, padding: Spacing.xl },
   infoText: { ...Typography.body, color: Colors.textSecondary, marginTop: Spacing.md, },
 });
 
 const itemStyles = StyleSheet.create({
-    itemContainer: { width: `${100 / numColumns}%`, padding: GRID_SPACING },
+    itemContainer: { 
+      width: `${100 / numColumns}%`, 
+      padding: GRID_SPACING 
+    },
     imageContainer: { aspectRatio: 1, borderTopLeftRadius: BorderRadius.lg, borderTopRightRadius: BorderRadius.lg, overflow: 'hidden', backgroundColor: Colors.gray100 },
     productImage: { width: '100%', height: '100%' },
     productInfo: { padding: Spacing.md },

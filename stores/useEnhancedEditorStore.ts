@@ -1,12 +1,12 @@
-// stores/useEnhancedEditorStore.ts - Final Sürüm
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, ProductPhoto, EditorSettings as ApiEditorSettings } from '@/services/api';
 import { ToastService } from '@/components/Toast/ToastService';
 import { InputDialogService } from '@/components/Dialog/InputDialogService';
+import { ALL_FILTERS } from '@/features/editor/config/filters';
+import { ADJUST_FEATURES } from '@/features/editor/config/features';
 
-// API'den gelen tipe projemizdeki ek ayarları (crop vs.) ekliyoruz
 export interface EditorSettings extends ApiEditorSettings {
   cropAspectRatio?: string;
   cropX?: number;
@@ -30,6 +30,7 @@ interface EditorState {
   settings: EditorSettings;
   history: EditorHistoryEntry[];
   currentHistoryIndex: number;
+  activeFilterKey: string;
   hasUnsavedChanges: boolean;
   isSaving: boolean;
   userPresets: UserPreset[];
@@ -46,6 +47,7 @@ interface EditorActions {
   addSnapshotToHistory: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
+  applyFilter: (filterKey: string) => void;
   saveCurrentUserPreset: () => void;
   applyUserPreset: (presetId: string) => void;
   deleteUserPreset: (presetId: string) => void;
@@ -72,29 +74,30 @@ const defaultSettings: EditorSettings = {
 export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
   persist(
     (set, get) => ({
-      // State
       activePhoto: null,
       settings: { ...defaultSettings },
       history: [],
       currentHistoryIndex: -1,
+      activeFilterKey: 'original',
       hasUnsavedChanges: false,
       isSaving: false,
       userPresets: [],
       autoSaveEnabled: true,
       lastAutoSave: 0,
 
-      // Actions
       setActivePhoto: (photo: ProductPhoto) => {
         const loadedSettings: EditorSettings = {
           ...defaultSettings,
           ...(photo.editorSettings || {}),
         };
+
         set({
           activePhoto: photo,
           settings: loadedSettings,
           hasUnsavedChanges: false,
           history: [{ settings: loadedSettings, timestamp: Date.now() }],
           currentHistoryIndex: 0,
+          activeFilterKey: 'original',
         });
       },
 
@@ -102,9 +105,26 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         set(state => ({
           settings: { ...state.settings, ...newSettings },
           hasUnsavedChanges: true,
+          activeFilterKey: 'custom'
         }));
       },
+      
+      applyFilter: (filterKey: string) => {
+        const filter = ALL_FILTERS.find(f => f.key === filterKey);
+        if (!filter) return;
 
+        const resetSettings: { [key: string]: number } = {};
+        ADJUST_FEATURES.forEach(feature => {
+            resetSettings[`product_${feature.key}`] = 0;
+        });
+
+        const settingsToApply = { ...get().settings, ...resetSettings, ...filter.settings };
+
+        get().updateSettings(settingsToApply);
+        get().addSnapshotToHistory();
+        set({ activeFilterKey: filterKey });
+      },
+      
       saveChanges: async () => {
         const { activePhoto, settings } = get();
         if (!activePhoto) throw new Error('Aktif fotoğraf bulunamadı.');
@@ -201,7 +221,8 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       clearStore: () => {
         set({
             activePhoto: null, settings: {...defaultSettings}, history: [],
-            currentHistoryIndex: -1, hasUnsavedChanges: false, isSaving: false
+            currentHistoryIndex: -1, hasUnsavedChanges: false, isSaving: false,
+            activeFilterKey: 'original'
         });
       },
 

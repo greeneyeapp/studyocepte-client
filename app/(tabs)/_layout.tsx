@@ -1,4 +1,5 @@
-// kodlar/app/(tabs)/_layout.tsx
+// client/app/(tabs)/_layout.tsx - GÜNCELLENMİŞ HALİ
+import React from 'react';
 import { Tabs } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -25,36 +26,30 @@ export default function TabLayout() {
           ...Typography.caption,
           fontFamily: 'Inter-Medium',
         },
-        tabBarIconStyle: {
-          marginBottom: -3,
-        }
       }}
     >
       <Tabs.Screen
         name="home"
         options={{
           title: t('home.title'),
-          tabBarIcon: ({ size, color }) => (
-            <Feather name="grid" size={Layout.isTablet ? size * 1.4 : size} color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="grid" size={size} color={color} />
           ),
         }}
       />
       
-      {/* Product detail sayfası - Tab bar'da görünmez */}
+      {/* Bu ekranlar birer Stack yerleşimi içerir ve tab bar'da görünmezler */}
       <Tabs.Screen
         name="product"
         options={{
-          href: null, // Tab bar'da görünmez
-          title: t('products.title'),
+          href: null,
         }}
       />
 
-      {/* Editor sayfası - Tab bar'da görünmez */}
       <Tabs.Screen
         name="editor"
         options={{
-          href: null, // Tab bar'da görünmez
-          title: t('editor.title'),
+          href: null,
         }}
       />
 
@@ -62,8 +57,8 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: t('settings.title'),
-          tabBarIcon: ({ size, color }) => (
-            <Feather name="settings" size={Layout.isTablet ? size * 1.4 : size} color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="settings" size={size} color={color} />
           ),
         }}
       />
