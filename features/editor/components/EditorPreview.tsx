@@ -1,8 +1,8 @@
 // client/features/editor/components/EditorPreview.tsx (TAM, HATASIZ VE KESİN ÇÖZÜM)
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useEffect } from 'react';
 import { View, Pressable, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
-import { useDerivedValue } from 'react-native-reanimated';
+import { useDerivedValue, useSharedValue } from 'react-native-reanimated';
 import { Canvas, Image, useImage, Group, type SkiaView } from "@shopify/react-native-skia";
 import { ProductPhoto, Background, EditorSettings } from '@/services/api';
 import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
@@ -28,31 +28,35 @@ export const EditorPreview = forwardRef<SkiaView, EditorPreviewProps>(({
 }, ref) => {
   const { photoX, photoY, photoScale, combinedGesture } = useEditorGestures({ settings, previewSize, updateSettings });
 
+  // ÇÖZÜM: Zustand'daki 'settings' objesini Reanimated'in anlayacağı bir 'shared value'ya kopyalıyoruz.
+  const sharedSettings = useSharedValue(settings);
+  
+  // ÇÖZÜM: Zustand'daki 'settings' her değiştiğinde, bu 'useEffect' çalışır ve
+  // Reanimated'in 'shared value'sunu güncelleyerek anında senkronizasyon sağlar.
+  useEffect(() => {
+    sharedSettings.value = settings;
+  }, [settings]);
+
   const imageUriToShow = activePhoto?.processedImageUrl || activePhoto?.thumbnailUrl;
   const backgroundUri = selectedBackground?.fullUrl;
 
   const skiaProductImage = useImage(imageUriToShow);
   const skiaBackgroundImage = useImage(backgroundUri);
   
-  // ÇÖZÜM: useDerivedValue'nun bağımlılık dizisini kullanarak 'Reading from value' uyarısını gideriyoruz.
   const canvasTransform = useDerivedValue(() => {
-    return [{ rotate: (settings.photoRotation || 0) * (Math.PI / 180) }];
-  }, [settings.photoRotation]); // Sadece ilgili değere bağımlı hale getirildi.
-
+    return [{ rotate: (sharedSettings.value.photoRotation || 0) * (Math.PI / 180) }];
+  });
   const origin = useDerivedValue(() => ({ x: previewSize.width / 2, y: previewSize.height / 2 }), [previewSize]);
-  
-  const productTransform = useDerivedValue(() => {
-    return [{ translateX: photoX.value }, { translateY: photoY.value }, { scale: photoScale.value }];
-  }, [photoX, photoY, photoScale]); // Hook'un kendisini değil, shared value'ları bağımlılık yap.
+  const productTransform = useDerivedValue(() => ([{ translateX: photoX.value }, { translateY: photoY.value }, { scale: photoScale.value }]));
 
   const filterProps = useDerivedValue(() => {
-    'worklet'; // Bu callback de UI thread'inde çalışır
-    const displayedSettings = showOriginal ? {} : settings;
+    'worklet';
+    const displayedSettings = showOriginal ? {} : sharedSettings.value;
     return {
       product: getSkiaFilters(displayedSettings, 'product'),
       background: getSkiaFilters(displayedSettings, 'background'),
     };
-  }, [settings, showOriginal]);
+  }, [showOriginal]); // `sharedSettings`'i dependency yapmaya gerek yok, `useDerivedValue` onu otomatik izler.
 
   return (
     <View style={styles.container} onLayout={onLayout}>
@@ -63,28 +67,15 @@ export const EditorPreview = forwardRef<SkiaView, EditorPreviewProps>(({
               <Canvas style={styles.fullSize} ref={ref}>
                 <Group transform={canvasTransform} origin={origin}>
                   {skiaBackgroundImage && (
-                    <Image 
-                      image={skiaBackgroundImage} 
-                      fit="cover" x={0} y={0} 
-                      width={previewSize.width} 
-                      height={previewSize.height} 
-                      imageFilter={filterProps.value.background.imageFilter}
-                    />
+                    <Image image={skiaBackgroundImage} fit="cover" x={0} y={0} width={previewSize.width} height={previewSize.height} imageFilter={filterProps.value.background.imageFilter} />
                   )}
                   <Group transform={productTransform}>
-                    <Image 
-                      image={skiaProductImage} 
-                      fit="contain" x={0} y={0} 
-                      width={previewSize.width} 
-                      height={previewSize.height} 
-                      imageFilter={filterProps.value.product.imageFilter}
-                    />
+                    <Image image={skiaProductImage} fit="contain" x={0} y={0} width={previewSize.width} height={previewSize.height} imageFilter={filterProps.value.product.imageFilter} />
                   </Group>
                 </Group>
               </Canvas>
             </GestureDetector>
           ) : <ActivityIndicator style={StyleSheet.absoluteFill} color={Colors.primary} />}
-          
           {isCropping && <CropOverlay previewSize={previewSize} aspectRatioString={settings.cropAspectRatio || 'original'} />}
           {showOriginal && <View style={styles.originalOverlay}><Text style={styles.originalText}>Orijinal</Text></View>}
         </View>

@@ -3,8 +3,7 @@ import {
     Skia, 
     TileMode,
     type SkImageFilter, 
-    type SkColorFilter,
-    type SkiaProps
+    type SkColorFilter
 } from "@shopify/react-native-skia";
 import { EditorSettings } from '@/stores/useEnhancedEditorStore';
 
@@ -15,7 +14,6 @@ export interface SkiaAdjustmentProps {
 type EditorSettingKey = keyof EditorSettings;
 
 // --- WORKLET'LER ---
-// UI thread'inde çağrılacakları için bu yardımcı fonksiyonların da worklet olması gerekir.
 const saturationMatrix = (s: number) => {
   'worklet';
   return [
@@ -55,7 +53,6 @@ export const getSkiaFilters = (
     return typeof value === 'number' ? value : 0;
   };
 
-  // --- IŞIK & RENK AYARLARI ---
   const totalBrightness = (getSetting('exposure') / 100) + (getSetting('brightness') / 255);
   if (totalBrightness !== 0) {
     colorFilters.push(Skia.ColorFilter.MakeMatrix([1, 0, 0, 0, totalBrightness, 0, 1, 0, 0, totalBrightness, 0, 0, 1, 0, totalBrightness, 0, 0, 0, 1, 0]));
@@ -70,7 +67,6 @@ export const getSkiaFilters = (
   const warmthValue = getSetting('warmth') / 255;
   if (warmthValue !== 0) colorFilters.push(Skia.ColorFilter.MakeMatrix(warmthMatrix(warmthValue)));
 
-  // --- EFEKT AYARLARI ---
   if (prefix === 'background') {
     const blur = settings.background_blur || 0;
     if (blur > 0) {
@@ -78,13 +74,11 @@ export const getSkiaFilters = (
     }
   }
 
-  // Tüm renk filtrelerini tek bir `colorFilter` prop'u olarak birleştir
   if (colorFilters.length > 0) {
       const composedColorFilter = colorFilters.length === 1 ? colorFilters[0] : colorFilters.reduce((outer, inner) => Skia.ColorFilter.MakeCompose(inner, outer));
       imageFilters.push(Skia.ImageFilter.MakeColorFilter(composedColorFilter, null));
   }
 
-  // Tüm filtreleri tek bir `imageFilter` prop'u olarak birleştir
   if (imageFilters.length > 0) {
     const composedImageFilter = imageFilters.length === 1 ? imageFilters[0] : imageFilters.reduce((outer, inner) => Skia.ImageFilter.MakeCompose(inner, outer));
     return { imageFilter: composedImageFilter };
