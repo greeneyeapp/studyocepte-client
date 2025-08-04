@@ -1,4 +1,4 @@
-// features/editor/hooks/useExportManager.ts - NO SKIA VERSION
+// features/editor/hooks/useExportManager.ts - DÜZELTILMIŞ EXPORT SISTEMI
 import { useState, createRef } from 'react';
 import { View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
@@ -24,9 +24,15 @@ export const useExportManager = () => {
     }
 
     setIsExporting(true);
-    LoadingService.show("Görüntü İşleniyor..."); 
+    LoadingService.show(`${preset.name} formatında işleniyor...`); 
 
     try {
+      console.log('🖼️ Capturing view with settings:', {
+        format: preset.format,
+        quality: preset.quality,
+        dimensions: preset.dimensions,
+      });
+
       // React Native View Shot kullanarak capture et
       const uri = await captureRef(viewRef, {
         format: preset.format === 'png' ? 'png' : 'jpg', 
@@ -39,6 +45,8 @@ export const useExportManager = () => {
       if (!uri) {
         throw new Error("Görüntü oluşturulamadı.");
       }
+
+      console.log('✅ View captured successfully, base64 length:', uri.length);
       
       await ExportService.shareWithOption({
         shareOption,
@@ -47,11 +55,23 @@ export const useExportManager = () => {
         filename: `studyo-cepte-${preset.id}-${Date.now()}.${preset.format}`,
       });
       
-      const successMessage = shareOption.type === 'gallery' ? 'Galeriye kaydedildi' : 'Paylaşım başarılı';
-      ToastService.show({ type: 'success', text1: 'Başarılı', text2: successMessage });
+      const successMessage = shareOption.type === 'gallery' 
+        ? `${preset.name} formatında galeriye kaydedildi` 
+        : `${preset.name} formatında paylaşım başarılı`;
+        
+      ToastService.show({ 
+        type: 'success', 
+        text1: 'Başarılı', 
+        text2: successMessage 
+      });
 
     } catch (error: any) {
-      ToastService.show({ type: 'error', text1: 'İşlem Başarısız', text2: error.message || 'Bilinmeyen bir hata oluştu' });
+      console.error('❌ Export failed:', error);
+      ToastService.show({ 
+        type: 'error', 
+        text1: 'Export Başarısız', 
+        text2: error.message || 'Bilinmeyen bir hata oluştu' 
+      });
     } finally {
       setIsExporting(false);
       LoadingService.hide();
