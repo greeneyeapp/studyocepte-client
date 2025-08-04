@@ -263,14 +263,14 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
               onError={(error) => console.error('❌ Processed image error:', error)}
             />
             
-            {/* KATMAN 2: Original image overlay - Slider ile kaybolacak */}
+            {/* KATMAN 2: Original image - Tam boyutta, slider ile cliplenecek */}
             <Animated.View 
               style={[
                 styles.originalImageOverlay,
                 {
-                  width: slideAnim.interpolate({
+                  right: slideAnim.interpolate({
                     inputRange: [0, 100],
-                    outputRange: ['100%', '0%'],
+                    outputRange: ['0%', '100%'],
                     extrapolate: 'clamp',
                   }),
                 }
@@ -413,12 +413,12 @@ const styles = StyleSheet.create({
     zIndex: 1, // En altta - temizlenmiş görsel
   },
   
-  // Original image overlay - Sağdan sola küçülecek
+  // Original image overlay - Sağdan sola hareket edecek (pozisyon değişimi)
   originalImageOverlay: {
     position: 'absolute',
     top: 0,
-    right: 0, // Sağdan başla
     bottom: 0,
+    width: '100%', // Tam genişlik - küçülmeyecek
     overflow: 'hidden',
     zIndex: 2, // Ortada - orijinal görsel overlay
   },
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   originalImageInOverlay: {
     position: 'absolute',
     top: 0,
-    right: 0, // Overlay içinde sağa hizala
+    left: 0, // Sol baştan başla
     bottom: 0,
     width: '100%', // Tam genişlik
     height: '100%',
