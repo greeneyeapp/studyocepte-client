@@ -58,7 +58,6 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   { id: 'custom_portrait', name: 'Dikey Portre (2:3)', description: '720x1080 - Dikey fotoğraf oranı', dimensions: { width: 720, height: 1080 }, format: 'png', quality: 0.95, category: 'custom', icon: 'user' },
   { id: 'custom_cinematic', name: 'Sinematik (21:9)', description: '2560x1080 - Ultra geniş ekran', dimensions: { width: 2560, height: 1080 }, format: 'png', quality: 0.95, category: 'custom', icon: 'film' },
   { id: 'custom_A4_yatay', name: 'A4 Yatay', description: '3508x2480px - Yatay belge/sunum', dimensions: { width: 3508, height: 2480 }, format: 'png', quality: 0.95, category: 'custom', icon: 'file-text' },
-  { id: 'custom_size_input', name: 'Kendi Boyutunu Gir', description: 'Genişlik ve yükseklik değerlerini belirle', dimensions: { width: 1024, height: 1024 }, format: 'png', quality: 0.95, category: 'custom', icon: 'edit' },
 ];
 
 export const SHARE_OPTIONS: ShareOption[] = [

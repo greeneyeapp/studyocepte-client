@@ -1,4 +1,4 @@
-// app/(tabs)/editor/[photoId].tsx - CROP ÇIKIŞ ÖZELLİĞİ EKLENMİŞ
+// app/(tabs)/editor/[photoId].tsx - EXPORT ÖNİZLEME GİZLEME
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, LayoutAnimation, UIManager, Platform } from 'react-native';
@@ -47,7 +47,6 @@ export default function EnhancedEditorScreen() {
     setActiveFilterKey, resetCropAndRotation
   } = store;
   
-  // applyCrop fonksiyonunu ayrı olarak al
   const applyCrop = useEnhancedEditorStore((state) => state.applyCrop);
 
   const [activeTool, setActiveTool] = useState<ToolType>('adjust');
@@ -115,21 +114,18 @@ export default function EnhancedEditorScreen() {
     }
   };
 
-  // Crop aspect ratio değiştiğinde debug
   const handleAspectRatioSelect = (ratio: string) => {
     console.log('🎭 Aspect ratio changed to:', ratio);
     updateSettings({ cropAspectRatio: ratio });
     addSnapshotToHistory();
   };
 
-  // Crop uygulama ve çıkış fonksiyonu
   const handleApplyCrop = () => {
     console.log('✂️ Applying crop and exiting crop mode...');
     applyCrop();
-    // Crop uygulandıktan sonra adjust moduna geç
     setTimeout(() => {
       handleToolChange('adjust');
-    }, 500); // Toast mesajının görünmesi için kısa gecikme
+    }, 500);
   };
 
   const handleSave = async () => { store.saveChanges() };
@@ -146,15 +142,8 @@ export default function EnhancedEditorScreen() {
   const currentFeatureConfig = featuresForCurrentTarget.find(f => f.key === activeFeature);
   const currentSliderValue = getSliderValue(activeFeature);
 
-  // Debug log
-  console.log('🎬 Main render:', {
-    activeTool,
-    cropAspectRatio: settings.cropAspectRatio,
-    previewSize,
-    isCropping: activeTool === 'crop',
-    isExportActive: activeTool === 'export',
-    hasVisualCrop: !!settings.visualCrop?.isApplied
-  });
+  // Export modunda önizlemeyi gizle
+  const showPreview = activeTool !== 'export';
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -169,7 +158,8 @@ export default function EnhancedEditorScreen() {
           onRedo={redo} 
         />
         
-        <View style={styles.mainContent}>
+        {/* PREVIEW - Export modunda gizle, ama ref'i her zaman geç */}
+        <View style={[styles.mainContent, !showPreview && styles.hiddenPreview]}>
           <EditorPreview
             ref={skiaViewRef}
             activePhoto={activePhoto}
@@ -185,14 +175,11 @@ export default function EnhancedEditorScreen() {
         </View>
 
         {/* TOOLBAR WRAPPER */}
-        <View style={styles.toolbarsWrapper}>
+        <View style={[styles.toolbarsWrapper, !showPreview && styles.toolbarsFullHeight]}>
           
-          {/* CROP TOOLBAR - SADECE UYGULA BUTONU */}
+          {/* CROP TOOLBAR */}
           {activeTool === 'crop' && (
             <View style={styles.cropToolbarContainer}>
-              <View style={styles.debugBanner}>
-                <Text style={styles.debugText}>🎭 CROP MODE - {settings.cropAspectRatio}</Text>
-              </View>
               <CropToolbar 
                 activeRatio={settings.cropAspectRatio || 'original'} 
                 onAspectRatioSelect={handleAspectRatioSelect}
@@ -206,12 +193,9 @@ export default function EnhancedEditorScreen() {
             </View>
           )}
           
-          {/* EXPORT TOOLBAR - ORİJİNAL SEÇENEKLER */}
+          {/* EXPORT TOOLBAR - TAM EKRAN */}
           {activeTool === 'export' && (
             <View style={styles.exportToolbarContainer}>
-              <View style={styles.debugBanner}>
-                <Text style={styles.debugText}>📤 EXPORT TOOLBAR ACTIVE</Text>
-              </View>
               <ExportToolbar 
                 activeTool={activeTool} 
                 selectedPreset={selectedPreset}
@@ -222,7 +206,7 @@ export default function EnhancedEditorScreen() {
             </View>
           )}
           
-          {/* NORMAL TOOLBARS (Adjust, Filter, Background) */}
+          {/* NORMAL TOOLBARS */}
           {activeTool !== 'crop' && activeTool !== 'export' && (
             <View style={styles.normalToolbarsContainer}>
               {(activeTool === 'adjust' || activeTool === 'filter') && !isSliderActive && (
@@ -319,25 +303,34 @@ const styles = StyleSheet.create({
   mainContent: { 
     flex: 1 
   },
+  hiddenPreview: {
+    position: 'absolute',
+    top: -10000, // Ekran dışına çıkar ama ref hala çalışır
+    left: -10000,
+    width: 1,
+    height: 1,
+    opacity: 0,
+  },
   toolbarsWrapper: { 
     backgroundColor: Colors.card, 
     borderTopWidth: 1, 
     borderTopColor: Colors.border 
   },
   
-  // Crop toolbar container
+  // Export modunda toolbar'ın tam yüksekliği kullanması için
+  toolbarsFullHeight: {
+    flex: 1,
+  },
+  
   cropToolbarContainer: {
     backgroundColor: Colors.card,
   },
   
-  // Export toolbar container
   exportToolbarContainer: {
+    flex: 1, // Export modunda tam yüksekliği kullan
     backgroundColor: Colors.background,
-    minHeight: 400,
-    maxHeight: 500,
   },
   
-  // Normal toolbars container
   normalToolbarsContainer: {
     backgroundColor: Colors.card,
   },
@@ -351,18 +344,5 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     gap: Spacing.lg, 
     paddingVertical: Spacing.md 
-  },
-  
-  // Debug banner
-  debugBanner: {
-    backgroundColor: '#FFD700',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-  },
-  debugText: { 
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#000',
   },
 });

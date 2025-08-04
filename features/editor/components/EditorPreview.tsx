@@ -1,4 +1,4 @@
-// features/editor/components/EditorPreview.tsx - CROP OVERLAY Z-INDEX DÜZELTİLDİ
+// features/editor/components/EditorPreview.tsx - CROP GÖRSELLEŞTİRME DÜZELTMESİ
 
 import React, { forwardRef, useMemo } from 'react';
 import { View, Pressable, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
@@ -29,14 +29,30 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
 }, ref) => {
   const { photoX, photoY, photoScale, combinedGesture } = useEditorGestures({ settings, previewSize, updateSettings });
 
-  const productAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
+  // Visual crop uygulanmış mı kontrol et
+  const hasVisualCrop = settings.visualCrop?.isApplied;
+
+  const productAnimatedStyle = useAnimatedStyle(() => {
+    let transforms = [
       { translateX: photoX.value },
       { translateY: photoY.value },
       { scale: photoScale.value },
       { rotate: `${(settings.photoRotation || 0)}deg` },
-    ],
-  }));
+    ];
+
+    // Eğer visual crop uygulanmışsa crop transformasyonlarını ekle
+    if (hasVisualCrop && settings.visualCrop) {
+      const cropTransforms = [
+        { translateX: -(settings.visualCrop.x * previewSize.width) },
+        { translateY: -(settings.visualCrop.y * previewSize.height) },
+        { scaleX: settings.visualCrop.width },
+        { scaleY: settings.visualCrop.height },
+      ];
+      transforms = [...cropTransforms, ...transforms];
+    }
+
+    return { transform: transforms };
+  });
 
   const productFilterStyle = useMemo(() => generateAdvancedImageStyle(settings, 'product', showOriginal), [settings, showOriginal]);
   const backgroundFilterStyle = useMemo(() => generateAdvancedImageStyle(settings, 'background', showOriginal), [settings, showOriginal]);
@@ -44,13 +60,53 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   const backgroundUri = selectedBackground?.fullUrl;
   const vignetteIntensity = (settings as any).background_vignette || 0;
 
-  // Debug için console log ekleyelim
+  // Debug için console log
   console.log('🎬 EditorPreview render:', {
     isCropping,
+    hasVisualCrop,
     cropAspectRatio: settings.cropAspectRatio,
     previewSize,
-    hasPhoto: !!imageUriToShow
+    hasPhoto: !!imageUriToShow,
+    visualCropSettings: settings.visualCrop
   });
+
+  // Container style - visual crop uygulanmışsa dinamik boyutlandırma
+  const containerStyle = useMemo(() => {
+    const baseStyle = [styles.previewWrapper];
+    
+    if (hasVisualCrop && settings.visualCrop && previewSize.width > 0) {
+      // Crop aspect ratio'sunu hesapla
+      const cropAspectRatio = (() => {
+        if (settings.visualCrop!.aspectRatio === 'original') {
+          return previewSize.width / previewSize.height;
+        }
+        const [w, h] = settings.visualCrop!.aspectRatio.split(':').map(Number);
+        return w && h ? w / h : previewSize.width / previewSize.height;
+      })();
+      
+      // Container boyutunu hesapla - ekrana sığacak şekilde
+      const containerWidth = previewSize.width;
+      let containerHeight = containerWidth / cropAspectRatio;
+      
+      // Eğer yükseklik ekranı aşıyorsa, yüksekliği sınırla ve genişliği ayarla
+      const maxHeight = previewSize.height;
+      if (containerHeight > maxHeight) {
+        containerHeight = maxHeight;
+        // containerWidth = containerHeight * cropAspectRatio; // Genişliği ayarlamaya gerek yok, center'da kalacak
+      }
+      
+      baseStyle.push({
+        height: containerHeight,
+        alignSelf: 'center', // Yatayda ortala
+        overflow: 'hidden' as const,
+        borderWidth: 3,
+        borderColor: Colors.primary,
+        borderRadius: BorderRadius.lg,
+      });
+    }
+    
+    return baseStyle;
+  }, [hasVisualCrop, settings.visualCrop, previewSize]);
 
   return (
     <View style={styles.container} onLayout={onLayout} ref={ref}>
@@ -59,10 +115,10 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
         onPressIn={() => onShowOriginalChange(true)} 
         onPressOut={() => onShowOriginalChange(false)}
       >
-        <View style={styles.previewWrapper}>
+        <View style={containerStyle}>
           {previewSize.width > 0 && imageUriToShow ? (
             <View style={styles.imageContainer}>
-              {/* KATMAN 1: Background Layer (z-index: 1) */}
+              {/* KATMAN 1: Background Layer */}
               {backgroundUri && (
                 <View style={styles.backgroundContainer}>
                   <Image
@@ -74,7 +130,7 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
                 </View>
               )}
               
-              {/* KATMAN 2: Product Layer (z-index: 2) */}
+              {/* KATMAN 2: Product Layer */}
               <GestureDetector gesture={combinedGesture}>
                 <Animated.View style={[styles.productContainer, productAnimatedStyle]}>
                   <Image
@@ -85,8 +141,8 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
                 </Animated.View>
               </GestureDetector>
               
-              {/* KATMAN 3: Crop Overlay (z-index: 10) - EN ÜSTTE */}
-              {isCropping && previewSize.width > 0 && (
+              {/* KATMAN 3: Crop Overlay - Sadece crop modundayken göster */}
+              {isCropping && previewSize.width > 0 && !hasVisualCrop && (
                 <View style={styles.cropOverlayContainer} pointerEvents="none">
                   <CropOverlay 
                     previewSize={previewSize} 
@@ -98,7 +154,16 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
                 </View>
               )}
               
-              {/* KATMAN 4: Original Indicator (z-index: 100) */}
+              {/* KATMAN 4: Visual Crop Indicator */}
+              {hasVisualCrop && (
+                <View style={styles.cropAppliedIndicator}>
+                  <Text style={styles.cropAppliedText}>
+                    ✂️ {settings.visualCrop?.aspectRatio} Kırpıldı
+                  </Text>
+                </View>
+              )}
+              
+              {/* KATMAN 5: Original Indicator */}
               {showOriginal && (
                 <View style={styles.originalOverlay}>
                   <Text style={styles.originalText}>Orijinal</Text>
@@ -157,11 +222,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   
-  // CROP OVERLAY CONTAINER - EN ÖNEMLİ KISIM
+  // Crop overlay container
   cropOverlayContainer: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 10, // En üstte olması için yüksek z-index
-    backgroundColor: 'transparent', // Şeffaf arka plan
+    zIndex: 10,
+    backgroundColor: 'transparent',
+  },
+  
+  // Visual crop indicator
+  cropAppliedIndicator: {
+    position: 'absolute',
+    top: Spacing.md,
+    left: Spacing.md,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    zIndex: 15,
+  },
+  cropAppliedText: {
+    ...Typography.caption,
+    color: Colors.card,
+    fontWeight: '600',
   },
   
   loadingContainer: {
