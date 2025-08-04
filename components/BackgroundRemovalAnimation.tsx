@@ -1,4 +1,4 @@
-// components/BackgroundRemovalAnimation.tsx - TAMİRLİ VERSİYON
+// components/BackgroundRemovalAnimation.tsx - SLIDER GEÇİŞİ DÜZELTİLMİŞ VERSİYON
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, Image, Animated, Text, Dimensions } from 'react-native';
 import { Colors, BorderRadius, Typography, Spacing } from '@/constants';
@@ -85,7 +85,6 @@ const FloatingIcon: React.FC<{ icon: string; delay: number; index: number; isAct
     if (isActive) {
       animateIcon();
     } else {
-      // Cleanup when not active
       if (intervalRef.current) {
         clearTimeout(intervalRef.current);
         intervalRef.current = null;
@@ -255,7 +254,7 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
           <>
             {console.log('🖼️ RENDERING SLIDE PHASE')}
             
-            {/* Processed image (arka plan) */}
+            {/* KATMAN 1: Processed image (en altta) */}
             <Image 
               source={{ uri: processedUri }} 
               style={styles.processedImage}
@@ -264,27 +263,28 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
               onError={(error) => console.error('❌ Processed image error:', error)}
             />
             
-            {/* Original image mask (sliding overlay) */}
+            {/* KATMAN 2: Original image (ortada) - SABİT BOYUTTA */}
+            <Image 
+              source={{ uri: originalUri }} 
+              style={styles.originalImageFixed}
+              resizeMode="contain"
+            />
+            
+            {/* KATMAN 3: Beyaz overlay mask - sağdan solda kayar ve original'i örter */}
             <Animated.View 
               style={[
-                styles.originalMask,
-                { 
-                  width: slideAnim.interpolate({
+                styles.overlayMask,
+                {
+                  left: slideAnim.interpolate({
                     inputRange: [0, 100],
                     outputRange: ['100%', '0%'],
                     extrapolate: 'clamp',
                   }),
                 }
               ]}
-            >
-              <Image 
-                source={{ uri: originalUri }} 
-                style={styles.originalImageInMask}
-                resizeMode="contain"
-              />
-            </Animated.View>
+            />
 
-            {/* Slider line */}
+            {/* KATMAN 4: Slider line (en üstte) */}
             <Animated.View 
               style={[
                 styles.sliderLine,
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
   },
 
-  // Slide animation (sliding phase)
+  // Slide animation (sliding phase) - OVERLAY MASK ÇÖZÜMÜ
   processedImage: {
     position: 'absolute',
     top: 0,
@@ -413,17 +413,26 @@ const styles = StyleSheet.create({
     height: '100%',
     zIndex: 1,
   },
-  originalMask: {
+  // Original image - SABİT BOYUTTA (küçülmeyecek)
+  originalImageFixed: {
     position: 'absolute',
     top: 0,
     left: 0,
+    right: 0,
     bottom: 0,
-    overflow: 'hidden',
-    zIndex: 2,
-  },
-  originalImageInMask: {
     width: '100%',
     height: '100%',
+    zIndex: 2,
+  },
+  // Overlay mask - Original image'ı sağdan solda örter
+  overlayMask: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    backgroundColor: Colors.gray50, // Container ile aynı renk
+    zIndex: 3,
   },
   sliderLine: {
     position: 'absolute',
