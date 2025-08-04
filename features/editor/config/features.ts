@@ -16,7 +16,7 @@ export const ADJUST_FEATURES: FeatureConfig[] = [
   { key: 'highlights', label: 'Vurgular', icon: 'trending-up', min: -100, max: 100, step: 1, defaultValue: 0 },
   { key: 'shadows', label: 'Gölgeler', icon: 'trending-down', min: -100, max: 100, step: 1, defaultValue: 0 },
   { key: 'contrast', label: 'Kontrast', icon: 'bar-chart-2', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'saturation', label: 'Doygun.', icon: 'droplet', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'saturation', label: 'Doygunluk', icon: 'droplet', min: -100, max: 100, step: 1, defaultValue: 0 },
   { key: 'vibrance', label: 'Titreşim', icon: 'zap', min: -100, max: 100, step: 1, defaultValue: 0 },
   { key: 'warmth', label: 'Sıcaklık', icon: 'thermometer', min: -100, max: 100, step: 1, defaultValue: 0 },
   { key: 'clarity', label: 'Netlik', icon: 'aperture', min: -100, max: 100, step: 1, defaultValue: 0 },

@@ -1,4 +1,4 @@
-// features/editor/components/FeatureButton.tsx - GELİŞMİŞ VERSİYON
+// features/editor/components/FeatureButton.tsx - GENİŞLİK SORUNU DÜZELTİLDİ
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -11,7 +11,6 @@ interface FeatureButtonProps {
   value: number;
   isActive: boolean;
   onPress: () => void;
-  // Karışık durum için props
   hasMixedValues?: boolean;
   productValue?: number;
   backgroundValue?: number;
@@ -44,7 +43,7 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
     return isActive ? styles.containerActive : styles.container;
   };
 
-  // Icon container stili - daha akıllı
+  // Icon container stili
   const getIconContainerStyle = () => {
     if (isActive) {
       return styles.iconContainerActive;
@@ -52,10 +51,8 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
     
     if (hasMixedValues && hasAnyValue) {
       if (hasDifferentValues) {
-        // Farklı değerler varsa kırmızı border
         return styles.iconContainerMixed;
       } else {
-        // Aynı değerler varsa normal aktif stil
         return styles.iconContainerWithValue;
       }
     }
@@ -80,29 +77,18 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
     return styles.label;
   };
 
-  // Görüntülenecek değer - geliştirilmiş
+  // Görüntülenecek değer
   const getDisplayValue = () => {
     if (hasMixedValues && hasDifferentValues) {
-      // Farklı değerler varsa kısa gösterim
       return '±';
     }
     
     if (hasMixedValues && !hasDifferentValues && hasAnyValue) {
-      // Aynı değerler varsa o değeri göster
       const commonValue = productValue || backgroundValue;
       return commonValue > 0 ? `+${commonValue}` : `${commonValue}`;
     }
     
-    // Normal durumda değeri göster
     return value > 0 ? `+${value}` : `${value}`;
-  };
-
-  // Tooltip metni (debug için)
-  const getTooltipText = () => {
-    if (hasMixedValues) {
-      return `Ürün: ${productValue}, Arka Plan: ${backgroundValue}`;
-    }
-    return `Değer: ${value}`;
   };
 
   return (
@@ -110,10 +96,9 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
       style={getContainerStyle()} 
       onPress={handlePress}
       activeOpacity={0.7}
-      // Debug için uzun basma
       onLongPress={() => {
         if (__DEV__) {
-          console.log(`📊 ${label} - ${getTooltipText()}`);
+          console.log(`📊 ${label} - Ürün: ${productValue}, Arka Plan: ${backgroundValue}`);
         }
       }}
     >
@@ -134,7 +119,7 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
           />
         )}
         
-        {/* Karışık durum göstergesi - sadece gerçekten farklı değerler olduğunda */}
+        {/* Karışık durum göstergesi */}
         {hasMixedValues && hasDifferentValues && !isActive && (
           <View style={styles.mixedIndicator}>
             <View style={styles.mixedDot} />
@@ -149,11 +134,17 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
         )}
       </View>
       
-      <Text style={getLabelStyle()}>
+      <Text 
+        style={getLabelStyle()}
+        numberOfLines={2} // İki satıra izin ver
+        adjustsFontSizeToFit={true}
+        minimumFontScale={0.75} // %75'e kadar küçülme
+        textAlign="center"
+      >
         {label}
       </Text>
       
-      {/* Debug bilgisi - sadece geliştirme modunda */}
+      {/* Debug bilgisi */}
       {__DEV__ && hasMixedValues && (
         <Text style={styles.debugText}>
           {productValue}/{backgroundValue}
@@ -166,15 +157,19 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    minWidth: 60,
-    paddingHorizontal: Spacing.xs,
+    minWidth: 80, // GENİŞLİK ARTTIRILDI (60'tan 80'e)
+    maxWidth: 100, // Maksimum genişlik de arttırıldı
+    paddingHorizontal: Spacing.sm, // Daha fazla padding
     position: 'relative',
+    flex: 1, // Esnek genişlik
   },
   containerActive: {
     alignItems: 'center',
-    minWidth: 60,
-    paddingHorizontal: Spacing.xs,
+    minWidth: 80, // GENİŞLİK ARTTIRILDI
+    maxWidth: 100,
+    paddingHorizontal: Spacing.sm,
     position: 'relative',
+    flex: 1,
   },
   iconContainer: {
     width: 50,
@@ -217,7 +212,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: Colors.warning, // Farklı renk karışık durum için
+    backgroundColor: Colors.warning,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.sm,
@@ -233,7 +228,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   valueTextMixed: {
-    fontSize: 16, // Daha büyük ± işareti
+    fontSize: 16,
     fontWeight: '800',
   },
   label: {
@@ -241,7 +236,9 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     fontWeight: '500',
-    maxWidth: 60,
+    width: '100%', // TAM GENİŞLİK
+    minHeight: 24, // İki satır için minimum yükseklik
+    lineHeight: 12, // Satır yüksekliği
   },
   labelActive: {
     color: Colors.primary,

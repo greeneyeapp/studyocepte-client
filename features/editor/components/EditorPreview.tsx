@@ -1,4 +1,5 @@
-// client/features/editor/components/EditorPreview.tsx (ÜRÜ N GÖRÜNÜRLÜK SORUNU DÜZELTİLDİ)
+// features/editor/components/EditorPreview.tsx - GÜNCELLENMIŞ VERSİYON
+
 import React, { forwardRef, useMemo } from 'react';
 import { View, Pressable, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -6,7 +7,8 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { ProductPhoto, Background, EditorSettings } from '@/services/api';
 import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
 import { useEditorGestures } from '../hooks/useEditorGestures';
-import { CropOverlay } from './CropOverlay';
+import { SimpleVignetteOverlay } from './VignetteOverlay'; // YENİ IMPORT
+import { generateAdvancedImageStyle } from '../utils/cssFilterGenerator'; // YENİ IMPORT
 
 interface EditorPreviewProps {
   activePhoto: ProductPhoto;
@@ -20,55 +22,14 @@ interface EditorPreviewProps {
   isCropping: boolean;
 }
 
-// CSS Filter generator - sadeleştirilmiş versiyon
-const generateImageStyle = (settings: EditorSettings, prefix: 'product' | 'background', showOriginal: boolean) => {
-  if (showOriginal) return { filter: 'none' };
-
-  const getSetting = (key: string): number => {
-    const fullKey = `${prefix}_${key}` as keyof EditorSettings;
-    return (settings[fullKey] as number) || 0;
-  };
-
-  const filters = [];
-  
-  // Temel ayarlar
-  const brightness = getSetting('brightness') + getSetting('exposure') * 0.8;
-  const contrast = getSetting('contrast') + getSetting('clarity') * 0.5;
-  const saturation = getSetting('saturation') + getSetting('vibrance') * 0.7;
-  const warmth = getSetting('warmth');
-
-  if (Math.abs(brightness) > 1) {
-    filters.push(`brightness(${Math.max(0.1, 1 + brightness / 100)})`);
-  }
-  
-  if (Math.abs(contrast) > 1) {
-    filters.push(`contrast(${Math.max(0.1, 1 + contrast / 100)})`);
-  }
-  
-  if (Math.abs(saturation) > 1) {
-    filters.push(`saturate(${Math.max(0, 1 + saturation / 100)})`);
-  }
-  
-  if (Math.abs(warmth) > 1) {
-    filters.push(`hue-rotate(${warmth * 0.4}deg)`);
-  }
-
-  // Background özel efektler
-  if (prefix === 'background') {
-    const blur = getSetting('blur');
-    if (blur > 0) {
-      filters.push(`blur(${blur / 5}px)`);
-    }
-  }
-
-  return {
-    filter: filters.length > 0 ? filters.join(' ') : 'none'
-  };
-};
-
-// Basitleştirilmiş Vignette Overlay
+// Gerçek Vignette Overlay - Radial Gradient ile
 const VignetteOverlay: React.FC<{ intensity: number }> = ({ intensity }) => {
   if (intensity <= 0) return null;
+
+  // Intensity'ye göre vignette parametreleri
+  const opacity = Math.min(0.8, intensity * 0.01); // 0-0.8 arası opacity
+  const innerRadius = Math.max(20, 100 - intensity); // İç temiz alan
+  const outerRadius = Math.min(90, 40 + intensity); // Dış karartma alanı
 
   return (
     <View 
@@ -76,14 +37,50 @@ const VignetteOverlay: React.FC<{ intensity: number }> = ({ intensity }) => {
         StyleSheet.absoluteFillObject,
         {
           backgroundColor: 'transparent',
-          borderWidth: intensity * 20,
-          borderColor: `rgba(0,0,0,${Math.min(0.7, intensity * 0.8)})`,
-          margin: -intensity * 20,
-          borderRadius: 1,
+          // CSS'de radial-gradient yok ama box-shadow ile simüle edebiliriz
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: opacity,
+          shadowRadius: intensity / 2,
+          elevation: 0,
         }
       ]} 
       pointerEvents="none"
-    />
+    >
+      {/* Çoklu katmanlı vignette efekti */}
+      <View style={[
+        StyleSheet.absoluteFillObject,
+        {
+          backgroundColor: 'transparent',
+          borderWidth: Math.max(1, intensity / 3),
+          borderColor: `rgba(0,0,0,${opacity * 0.3})`,
+          margin: -Math.max(1, intensity / 3),
+          borderRadius: intensity,
+        }
+      ]} />
+      
+      <View style={[
+        StyleSheet.absoluteFillObject,
+        {
+          backgroundColor: 'transparent', 
+          borderWidth: Math.max(2, intensity / 2),
+          borderColor: `rgba(0,0,0,${opacity * 0.5})`,
+          margin: -Math.max(2, intensity / 2),
+          borderRadius: intensity * 1.5,
+        }
+      ]} />
+      
+      <View style={[
+        StyleSheet.absoluteFillObject,
+        {
+          backgroundColor: 'transparent',
+          borderWidth: Math.max(3, intensity),
+          borderColor: `rgba(0,0,0,${opacity * 0.7})`,
+          margin: -Math.max(3, intensity),
+          borderRadius: intensity * 2,
+        }
+      ]} />
+    </View>
   );
 };
 
@@ -103,14 +100,14 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
     ],
   }));
 
-  // Filter stilleri
+  // GELİŞTİRİLMİŞ Filter stilleri
   const productFilterStyle = useMemo(() => 
-    generateImageStyle(settings, 'product', showOriginal), 
+    generateAdvancedImageStyle(settings, 'product', showOriginal), 
     [settings, showOriginal]
   );
 
   const backgroundFilterStyle = useMemo(() => 
-    generateImageStyle(settings, 'background', showOriginal), 
+    generateAdvancedImageStyle(settings, 'background', showOriginal), 
     [settings, showOriginal]
   );
 
@@ -120,6 +117,15 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
 
   // Vignette intensity
   const vignetteIntensity = ((settings as any).background_vignette || 0) / 100;
+
+  // DEBUG: Development ortamında filter değerlerini konsola yazdır
+  if (__DEV__ && !showOriginal) {
+    console.log('🎨 Applied Filters:', {
+      product: productFilterStyle.filter,
+      background: backgroundFilterStyle.filter,
+      vignette: vignetteIntensity
+    });
+  }
 
   return (
     <View style={styles.container} onLayout={onLayout} ref={ref}>
@@ -138,19 +144,19 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
                     source={{ uri: backgroundUri }}
                     style={[
                       styles.backgroundImage,
-                      backgroundFilterStyle
+                      backgroundFilterStyle // Geliştirilmiş filtreler
                     ]}
                     resizeMode="cover"
                   />
                   
-                  {/* Background Vignette */}
+                  {/* Background Vignette - Gerçek gradient efekti */}
                   {vignetteIntensity > 0 && (
-                    <VignetteOverlay intensity={vignetteIntensity} />
+                    <SimpleVignetteOverlay intensity={vignetteIntensity * 100} />
                   )}
                 </View>
               )}
               
-              {/* KATMAN 2: Product Layer - Bu kısım düzeltildi */}
+              {/* KATMAN 2: Product Layer */}
               <GestureDetector gesture={combinedGesture}>
                 <Animated.View 
                   style={[
@@ -162,14 +168,14 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
                     source={{ uri: imageUriToShow }}
                     style={[
                       styles.productImage,
-                      productFilterStyle
+                      productFilterStyle // Geliştirilmiş filtreler
                     ]}
                     resizeMode="contain"
                     onError={(error) => {
                       console.error('❌ Product image load error:', error.nativeEvent.error);
                     }}
                     onLoad={() => {
-                      console.log('✅ Product image loaded successfully');
+                      if (__DEV__) console.log('✅ Product image loaded with filters:', productFilterStyle.filter);
                     }}
                   />
                 </Animated.View>
@@ -184,7 +190,6 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
             </View>
           )}
           
-          
           {/* Crop Overlay */}
           {isCropping && (
             <CropOverlay 
@@ -197,6 +202,21 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
           {showOriginal && (
             <View style={styles.originalOverlay}>
               <Text style={styles.originalText}>Orijinal</Text>
+            </View>
+          )}
+
+          {/* DEBUG: Aktif filtreler göstergesi (sadece development) */}
+          {__DEV__ && !showOriginal && (
+            <View style={styles.debugOverlay}>
+              <Text style={styles.debugText}>
+                Product: {productFilterStyle.filter === 'none' ? 'No filters' : 'Filtered'}
+              </Text>
+              <Text style={styles.debugText}>
+                Background: {backgroundFilterStyle.filter === 'none' ? 'No filters' : 'Filtered'}
+              </Text>
+              {vignetteIntensity > 0 && (
+                <Text style={styles.debugText}>Vignette: {Math.round(vignetteIntensity * 100)}%</Text>
+              )}
             </View>
           )}
         </View>
@@ -227,7 +247,7 @@ const styles = StyleSheet.create({
   },
   backgroundContainer: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 1, // Background en altta
+    zIndex: 1,
   },
   backgroundImage: {
     width: '100%',
@@ -237,14 +257,12 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 2, // Product en üstte
-    // Padding ekleyerek ürünün kenarlardan uzak durmasını sağla
+    zIndex: 2,
     padding: Spacing.md,
   },
   productImage: {
     width: '100%',
     height: '100%',
-    // Görünürlük sorunlarını önlemek için
     backgroundColor: 'transparent',
   },
   loadingContainer: {
@@ -262,10 +280,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     left: 10,
-    backgroundColor: 'rgba(0,0,0,0.9)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
     padding: 8,
     borderRadius: 6,
-    maxWidth: 280,
+    maxWidth: 200,
     zIndex: 1000,
   },
   debugText: {
