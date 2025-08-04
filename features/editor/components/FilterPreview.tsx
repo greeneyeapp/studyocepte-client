@@ -1,134 +1,187 @@
-// features/editor/components/FilterPreview.tsx - NO SKIA VERSION
+// features/editor/components/EditorPreview.tsx - HATA GİDERİLMİŞ VE GÜNCELLENMİŞ VERSİYON
 
-import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
-import { FilterPreset } from '../config/filters';
+import React, { forwardRef, useMemo } from 'react';
+import { View, Pressable, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { ProductPhoto, Background, EditorSettings } from '@/services/api';
+import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
+import { useEditorGestures } from '../hooks/useEditorGestures';
+import { SimpleVignetteOverlay } from './VignetteOverlay';
+import { generateAdvancedImageStyle } from '../utils/cssFilterGenerator';
+import { CropOverlay } from './CropOverlay'; // HATA DÜZELTİLDİ: CropOverlay bileşeni import edildi.
 
-interface FilterPreviewProps {
-  filter: FilterPreset;
-  imageUri: string;
-  backgroundUri: string;
-  isSelected: boolean;
-  onPress: () => void;
+interface EditorPreviewProps {
+  activePhoto: ProductPhoto;
+  selectedBackground?: Background;
+  settings: EditorSettings;
+  showOriginal: boolean;
+  onShowOriginalChange: (show: boolean) => void;
+  onLayout: (event: any) => void;
+  updateSettings: (newSettings: Partial<EditorSettings>) => void;
+  previewSize: { width: number; height: number };
+  isCropping: boolean;
 }
 
-// CSS Filter generator for filter preview
-const generateFilterStyle = (settings: Record<string, number>) => {
-  const filters = [];
-  
-  if (settings.brightness) {
-    const brightness = 1 + (settings.brightness / 100);
-    filters.push(`brightness(${brightness})`);
-  }
-  
-  if (settings.contrast) {
-    const contrast = 1 + (settings.contrast / 100);
-    filters.push(`contrast(${contrast})`);
-  }
-  
-  if (settings.saturation) {
-    const saturation = Math.max(0, 1 + (settings.saturation / 100));
-    filters.push(`saturate(${saturation})`);
-  }
-  
-  if (settings.warmth) {
-    // Warmth'i hue-rotate ile simüle et
-    const hue = settings.warmth * 0.5;
-    filters.push(`hue-rotate(${hue}deg)`);
-  }
-  
-  if (settings.sepia) {
-    const sepia = Math.max(0, Math.min(1, settings.sepia / 100));
-    filters.push(`sepia(${sepia})`);
-  }
-  
-  return filters.length > 0 ? { filter: filters.join(' ') } : {};
-};
+export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
+  activePhoto, selectedBackground, settings, showOriginal,
+  onShowOriginalChange, onLayout, updateSettings, previewSize, isCropping
+}, ref) => {
+  const { photoX, photoY, photoScale, combinedGesture } = useEditorGestures({ settings, previewSize, updateSettings });
 
-export const FilterPreview: React.FC<FilterPreviewProps> = ({
-  filter,
-  imageUri,
-  backgroundUri,
-  isSelected,
-  onPress,
-}) => {
-  const filterStyle = generateFilterStyle(filter.settings);
-  
-  return (
-    <TouchableOpacity
-      style={[styles.container, isSelected && styles.containerSelected]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.previewContainer}>
-        {/* Background layer */}
-        <Image
-          source={{ uri: backgroundUri }}
-          style={styles.backgroundImage}
-          resizeMode="cover"
-        />
+  const productAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: photoX.value },
+      { translateY: photoY.value },
+      { scale: photoScale.value },
+      { rotate: `${(settings.photoRotation || 0)}deg` },
+    ],
+  }));
 
-        {/* Photo layer with filter */}
-        <View style={styles.photoContainer}>
-          <Image
-            source={{ uri: imageUri }}
-            style={[styles.photoImage, filterStyle]}
-            resizeMode="contain"
-          />
-        </View>
-      </View>
-
-      <Text style={[styles.label, isSelected && styles.labelSelected]}>
-        {filter.name}
-      </Text>
-    </TouchableOpacity>
+  const productFilterStyle = useMemo(() => 
+    generateAdvancedImageStyle(settings, 'product', showOriginal), 
+    [settings, showOriginal]
   );
-};
+
+  const backgroundFilterStyle = useMemo(() => 
+    generateAdvancedImageStyle(settings, 'background', showOriginal), 
+    [settings, showOriginal]
+  );
+
+  const imageUriToShow = activePhoto?.processedImageUrl || activePhoto?.thumbnailUrl;
+  const backgroundUri = selectedBackground?.fullUrl;
+  const vignetteIntensity = ((settings as any).background_vignette || 0);
+
+  return (
+    <View style={styles.container} onLayout={onLayout} ref={ref}>
+      <Pressable 
+        style={styles.pressable} 
+        onPressIn={() => onShowOriginalChange(true)} 
+        onPressOut={() => onShowOriginalChange(false)}
+      >
+        <View style={styles.previewWrapper}>
+          {previewSize.width > 0 && imageUriToShow ? (
+            <View style={styles.imageContainer}>
+              {/* KATMAN 1: Background Layer */}
+              {backgroundUri && (
+                <View style={styles.backgroundContainer}>
+                  <Image
+                    source={{ uri: backgroundUri }}
+                    style={[
+                      styles.backgroundImage,
+                      backgroundFilterStyle
+                    ]}
+                    resizeMode="cover"
+                  />
+                  {vignetteIntensity > 0 && (
+                    <SimpleVignetteOverlay intensity={vignetteIntensity} />
+                  )}
+                </View>
+              )}
+              
+              {/* KATMAN 2: Product Layer */}
+              <GestureDetector gesture={combinedGesture}>
+                <Animated.View 
+                  style={[
+                    styles.productContainer,
+                    productAnimatedStyle
+                  ]}
+                >
+                  <Image
+                    source={{ uri: imageUriToShow }}
+                    style={[
+                      styles.productImage,
+                      productFilterStyle
+                    ]}
+                    resizeMode="contain"
+                  />
+                </Animated.View>
+              </GestureDetector>
+            </View>
+          ) : (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+          )}
+          
+          {/* Crop Overlay */}
+          {isCropping && (
+            <CropOverlay 
+              previewSize={previewSize} 
+              aspectRatioString={settings.cropAspectRatio || 'original'} 
+            />
+          )}
+          
+          {/* Original Indicator */}
+          {showOriginal && (
+            <View style={styles.originalOverlay}>
+              <Text style={styles.originalText}>Orijinal</Text>
+            </View>
+          )}
+        </View>
+      </Pressable>
+    </View>
+  );
+});
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    marginRight: Spacing.lg,
+  container: { 
+    flex: 1, 
+    width: '100%', 
+    backgroundColor: Colors.background, 
+    padding: Spacing.sm 
   },
-  containerSelected: {
-    transform: [{ scale: 1.05 }],
+  pressable: { 
+    flex: 1 
   },
-  previewContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: BorderRadius.md,
-    overflow: 'hidden',
-    backgroundColor: Colors.gray100,
-    marginBottom: Spacing.sm,
+  previewWrapper: { 
+    flex: 1, 
+    overflow: 'hidden', 
+    backgroundColor: Colors.gray100, 
+    borderRadius: BorderRadius.lg 
+  },
+  imageContainer: {
+    flex: 1,
     position: 'relative',
-    borderWidth: 2,
-    borderColor: 'transparent',
+  },
+  backgroundContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
   },
   backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
-    resizeMode: 'cover',
+    width: '100%',
+    height: '100%',
   },
-  photoContainer: {
+  productContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 6,
+    zIndex: 2,
+    padding: Spacing.md,
   },
-  photoImage: {
+  productImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'contain',
+    backgroundColor: 'transparent',
   },
-  label: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    fontWeight: '500',
-    maxWidth: 65,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.md,
   },
-  labelSelected: {
-    color: Colors.primary,
-    fontWeight: '600',
+  originalOverlay: { 
+    position: 'absolute', 
+    bottom: Spacing.lg, 
+    alignSelf: 'center', 
+    backgroundColor: 'rgba(0,0,0,0.7)', 
+    paddingHorizontal: Spacing.lg, 
+    paddingVertical: Spacing.sm, 
+    borderRadius: BorderRadius.full,
+    zIndex: 100,
+  },
+  originalText: { 
+    ...Typography.caption, 
+    color: Colors.card 
   },
 });

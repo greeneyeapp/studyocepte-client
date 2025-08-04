@@ -1,4 +1,4 @@
-// client/app/(tabs)/editor/components/CropToolbar.tsx (YENİ DOSYA)
+// features/editor/components/CropToolbar.tsx (TAM VE GÜNCELLENMİŞ KOD)
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -32,31 +32,35 @@ export const CropToolbar: React.FC<CropToolbarProps> = ({
 }) => {
   return (
     <View style={styles.container}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.ratioScroll}>
-        {ASPECT_RATIOS.map(ratio => (
-          <TouchableOpacity
-            key={ratio.key}
-            style={[styles.ratioButton, activeRatio === ratio.key && styles.ratioButtonActive]}
-            onPress={() => onAspectRatioSelect(ratio.key)}
-          >
-            <Text style={[styles.ratioText, activeRatio === ratio.key && styles.ratioTextActive]}>
-              {ratio.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {/* Üst Kısım: En-boy oranı seçenekleri */}
+      <View style={styles.ratioContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.ratioScrollContent}>
+          {ASPECT_RATIOS.map(ratio => (
+            <TouchableOpacity
+              key={ratio.key}
+              style={[styles.ratioButton, activeRatio === ratio.key && styles.ratioButtonActive]}
+              onPress={() => onAspectRatioSelect(ratio.key)}
+            >
+              <Text style={[styles.ratioText, activeRatio === ratio.key && styles.ratioTextActive]}>
+                {ratio.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
       
-      <View style={styles.bottomActions}>
-        <TouchableOpacity onPress={onCancel} style={styles.confirmButton}>
+      {/* Alt Kısım: İşlem butonları */}
+      <View style={styles.actionContainer}>
+        <TouchableOpacity onPress={onCancel} style={styles.actionButton}>
           <Feather name="x" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={onRotate} style={styles.iconButton}>
+        <TouchableOpacity onPress={onRotate} style={styles.actionButton}>
           <Feather name="rotate-cw" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={onReset} style={styles.iconButton}>
+        <TouchableOpacity onPress={onReset} style={styles.actionButton}>
           <Feather name="refresh-ccw" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={onDone} style={styles.confirmButton}>
+        <TouchableOpacity onPress={onDone} style={styles.actionButton}>
           <Feather name="check" size={24} color={Colors.primary} />
         </TouchableOpacity>
       </View>
@@ -70,15 +74,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
-  iconButton: {
-    padding: Spacing.md,
+  ratioContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
-  ratioScroll: {
+  ratioScrollContent: {
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   ratioButton: {
     paddingHorizontal: Spacing.lg,
@@ -99,13 +102,13 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '600',
   },
-  bottomActions: {
+  actionContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.sm, // Boşluğu azaltmak için padding ayarlandı
   },
-  confirmButton: {
+  actionButton: {
     padding: Spacing.md,
   },
 });

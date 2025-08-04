@@ -1,12 +1,12 @@
-// client/stores/useEnhancedEditorStore.ts (TAM, HATASIZ VE KESİN ÇÖZÜM)
+// client/stores/useEnhancedEditorStore.ts (TAM VE GÜNCELLENMİŞ HALİ)
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, ProductPhoto, EditorSettings as ApiEditorSettings } from '@/services/api';
 import { ToastService } from '@/components/Toast/ToastService';
-import { InputDialogService } from '@/components/Dialog/InputDialogService';
 import { ALL_FILTERS } from '@/features/editor/config/filters';
 import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/features';
+import { TargetType } from '@/features/editor/config/tools';
 
 export interface EditorSettings extends ApiEditorSettings {
   cropAspectRatio?: string;
@@ -40,7 +40,8 @@ interface EditorActions {
   addSnapshotToHistory: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
-  applyFilter: (filterKey: string) => void;
+  applyFilter: (filterKey: string, target: TargetType) => void;
+  resetCropAndRotation: () => void; // YENİ AKSİYON
   clearStore: () => void;
 }
 
@@ -68,6 +69,15 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       isSaving: false,
       userPresets: [],
 
+      // YENİ AKSİYON TANIMI
+      resetCropAndRotation: () => {
+        get().updateSettings({
+          cropAspectRatio: 'original',
+          photoRotation: 0,
+        });
+        get().addSnapshotToHistory();
+      },
+
       setActivePhoto: (photo: ProductPhoto) => {
         const loadedSettings: EditorSettings = { ...defaultSettings, ...(photo.editorSettings || {}) };
         const initialEntry = { settings: loadedSettings, timestamp: Date.now() };
@@ -75,39 +85,66 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       },
 
       updateSettings: (newSettings: Partial<EditorSettings>) => {
-        set(state => ({ settings: { ...state.settings, ...newSettings }, hasUnsavedChanges: true }));
+        set(state => ({
+          settings: { ...state.settings, ...newSettings },
+          hasUnsavedChanges: true,
+          activeFilterKey: 'custom'
+        }));
       },
 
-      applyFilter: (filterKey: string) => {
-        const filter = ALL_FILTERS.find(f => f.key === filterKey);
-        if (!filter) return;
+      applyFilter: (filterKey: string, target: TargetType) => {
+        const filterPreset = ALL_FILTERS.find(f => f.key === filterKey);
+        if (!filterPreset) return;
 
         const currentState = get();
-        // ÇÖZÜM: settingsToReset'i geçici olarak daha esnek bir tiple ele alıyoruz.
-        const settingsToReset: { [key: string]: any } = { ...currentState.settings };
+        const currentSettings = currentState.settings;
+        const newSettings = { ...currentSettings };
 
-        // ÇÖZÜM: Set iterasyon hatasını Array.from() ile çözüyoruz.
-        const allFeatures = Array.from(new Set([...ADJUST_FEATURES, ...BACKGROUND_FEATURES]));
+        if (target === 'all') {
+             const allFeatures = Array.from(new Set([...ADJUST_FEATURES, ...BACKGROUND_FEATURES]));
+             allFeatures.forEach(feature => {
+                 (newSettings as any)[`product_${feature.key}`] = 0;
+                 (newSettings as any)[`background_${feature.key}`] = 0;
+             });
+             (newSettings as any).background_blur = 0;
+             (newSettings as any).background_vignette = 0;
+        }
 
-        allFeatures.forEach(feature => {
-          const productKey = `product_${feature.key}`;
-          const backgroundKey = `background_${feature.key}`;
-          // ÇÖZÜM: Artık 'never' hatası vermeyecek çünkü settingsToReset esnek bir tipe sahip.
-          settingsToReset[productKey] = 0;
-          settingsToReset[backgroundKey] = 0;
+        for (const [key, value] of Object.entries(filterPreset.settings)) {
+          const settingKey = key as keyof EditorSettings;
+          if (target === 'all') {
+            (newSettings as any)[settingKey] = value;
+          } else if (target === 'product' && key.startsWith('product_')) {
+            (newSettings as any)[settingKey] = value;
+          } else if (target === 'background' && key.startsWith('background_')) {
+            (newSettings as any)[settingKey] = value;
+          }
+        }
+        
+        set({
+          settings: newSettings,
+          activeFilterKey: filterKey,
+          hasUnsavedChanges: true
         });
-
-        settingsToReset.background_blur = 0;
-        settingsToReset.background_vignette = 0;
-
-        // Final ayarları oluştururken tipi tekrar EditorSettings'e dönüştürüyoruz.
-        const newSettings = { ...settingsToReset, ...filter.settings } as EditorSettings;
-
-        set({ settings: newSettings, activeFilterKey: filterKey, hasUnsavedChanges: true });
+        
         currentState.addSnapshotToHistory();
       },
+
       setActiveFilterKey: (key) => set({ activeFilterKey: key }),
-      saveChanges: async () => { /* ... Değişiklik Yok ... */ },
+
+      saveChanges: async () => {
+        const { activePhoto, settings, isSaving } = get();
+        if (!activePhoto || isSaving) return;
+        set({ isSaving: true });
+        try {
+          await api.savePhotoSettings(activePhoto.id, settings);
+          set({ isSaving: false, hasUnsavedChanges: false });
+          ToastService.show({ type: 'success', text1: 'Kaydedildi', text2: 'Değişiklikler başarıyla kaydedildi.' });
+        } catch (error: any) {
+          set({ isSaving: false });
+          ToastService.show({ type: 'error', text1: 'Hata', text2: error.message || 'Değişiklikler kaydedilemedi.' });
+        }
+      },
 
       addSnapshotToHistory: () => {
         const { settings, history, currentHistoryIndex } = get();
@@ -135,11 +172,8 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
       canUndo: () => get().currentHistoryIndex > 0,
       canRedo: () => get().currentHistoryIndex < get().history.length - 1,
-      resetToDefaults: () => {
-        get().updateSettings(defaultSettings);
-        get().addSnapshotToHistory();
-      },
-      clearStore: () => set({ activePhoto: null, settings: { ...defaultSettings }, history: [], currentHistoryIndex: -1, hasUnsavedChanges: false }),
+
+      clearStore: () => set({ activePhoto: null, settings: { ...defaultSettings }, history: [], currentHistoryIndex: -1, hasUnsavedChanges: false, isSaving: false }),
     }),
     {
       name: 'enhanced-editor-storage-v2',
