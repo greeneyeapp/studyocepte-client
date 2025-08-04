@@ -121,15 +121,6 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   // Vignette intensity
   const vignetteIntensity = ((settings as any).background_vignette || 0) / 100;
 
-  console.log('🖼️ EditorPreview render:', {
-    imageUri: imageUriToShow,
-    backgroundUri,
-    previewSize,
-    productFilter: productFilterStyle.filter,
-    backgroundFilter: backgroundFilterStyle.filter,
-    vignetteIntensity
-  });
-
   return (
     <View style={styles.container} onLayout={onLayout} ref={ref}>
       <Pressable 

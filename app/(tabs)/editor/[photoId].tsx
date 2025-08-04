@@ -65,7 +65,6 @@ export default function EnhancedEditorScreen() {
   const animateLayout = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
   const handleToolChange = (tool: ToolType) => {
-    console.log('🔧 Tool changed from', activeTool, 'to', tool);
     animateLayout();
     if (tool !== 'adjust' && activeFeature) addSnapshotToHistory();
     setActiveFeature(null);
@@ -73,14 +72,12 @@ export default function EnhancedEditorScreen() {
   };
   
   const handleFeaturePress = (featureKey: string) => {
-    console.log('🎛️ Feature pressed:', featureKey, 'Current active:', activeFeature);
     if (activeFeature && activeFeature !== featureKey) addSnapshotToHistory();
     animateLayout();
     setActiveFeature(prev => (prev === featureKey ? null : featureKey));
   };
   
   const handleValueChange = useCallback((featureKey: string, value: number) => {
-    console.log(`🎯 Value Change: ${featureKey} = ${value}, Target: ${activeTarget}`);
     
     if (activeFilterKey !== 'custom') {
       setActiveFilterKey('custom');
@@ -91,18 +88,15 @@ export default function EnhancedEditorScreen() {
     switch (activeTarget) {
       case 'product':
         changes[`product_${featureKey}`] = value;
-        console.log(`📝 Setting product_${featureKey} = ${value}`);
         break;
         
       case 'background':
         changes[`background_${featureKey}`] = value;
-        console.log(`📝 Setting background_${featureKey} = ${value}`);
         break;
         
       case 'all':
         changes[`product_${featureKey}`] = value;
         changes[`background_${featureKey}`] = value;
-        console.log(`📝 Setting both product_${featureKey} and background_${featureKey} = ${value}`);
         break;
         
       default:
@@ -110,7 +104,6 @@ export default function EnhancedEditorScreen() {
         return;
     }
     
-    console.log('📦 Changes to apply:', changes);
     updateSettings(changes);
   }, [activeTarget, activeFilterKey, setActiveFilterKey, updateSettings]);
 
@@ -134,14 +127,12 @@ export default function EnhancedEditorScreen() {
     }
     
     const value = (settings as any)[settingKey] ?? 0;
-    console.log(`🎚️ Slider Value: ${settingKey} = ${value}`);
     return value;
   }, [settings, activeTarget]);
 
   const handlePreviewLayout = (event: any) => {
     const { width, height } = event.nativeEvent.layout;
     if (width > 0 && height > 0 && (width !== previewSize.width || height !== previewSize.height)) {
-        console.log('📐 Preview size changed:', { width, height });
         setPreviewSize({ width, height });
     }
   };
@@ -225,7 +216,6 @@ export default function EnhancedEditorScreen() {
             <TargetSelector 
               activeTarget={activeTarget} 
               onTargetChange={(t) => {
-                console.log('🎯 Target changed from', activeTarget, 'to', t);
                 animateLayout(); 
                 setActiveTarget(t);
               }} 
