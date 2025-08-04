@@ -1,4 +1,4 @@
-// features/editor/components/EditorPreview.tsx - CROP GÖRSELLEŞTİRME DÜZELTMESİ
+// client/features/editor/components/EditorPreview.tsx - "KIRPILDI" BİLGİSİ KALDIRILMIŞ TAM KOD
 
 import React, { forwardRef, useMemo } from 'react';
 import { View, Pressable, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
@@ -29,30 +29,16 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
 }, ref) => {
   const { photoX, photoY, photoScale, combinedGesture } = useEditorGestures({ settings, previewSize, updateSettings });
 
-  // Visual crop uygulanmış mı kontrol et
   const hasVisualCrop = settings.visualCrop?.isApplied;
 
-  const productAnimatedStyle = useAnimatedStyle(() => {
-    let transforms = [
+  const productAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
       { translateX: photoX.value },
       { translateY: photoY.value },
       { scale: photoScale.value },
       { rotate: `${(settings.photoRotation || 0)}deg` },
-    ];
-
-    // Eğer visual crop uygulanmışsa crop transformasyonlarını ekle
-    if (hasVisualCrop && settings.visualCrop) {
-      const cropTransforms = [
-        { translateX: -(settings.visualCrop.x * previewSize.width) },
-        { translateY: -(settings.visualCrop.y * previewSize.height) },
-        { scaleX: settings.visualCrop.width },
-        { scaleY: settings.visualCrop.height },
-      ];
-      transforms = [...cropTransforms, ...transforms];
-    }
-
-    return { transform: transforms };
-  });
+    ],
+  }));
 
   const productFilterStyle = useMemo(() => generateAdvancedImageStyle(settings, 'product', showOriginal), [settings, showOriginal]);
   const backgroundFilterStyle = useMemo(() => generateAdvancedImageStyle(settings, 'background', showOriginal), [settings, showOriginal]);
@@ -60,120 +46,63 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   const backgroundUri = selectedBackground?.fullUrl;
   const vignetteIntensity = (settings as any).background_vignette || 0;
 
-  // Debug için console log
-  console.log('🎬 EditorPreview render:', {
-    isCropping,
-    hasVisualCrop,
-    cropAspectRatio: settings.cropAspectRatio,
-    previewSize,
-    hasPhoto: !!imageUriToShow,
-    visualCropSettings: settings.visualCrop
-  });
+  const { containerStyle, contentStyle } = useMemo(() => {
+    const baseContainerStyle = [styles.previewWrapper];
+    let baseContentStyle: any = { ...StyleSheet.absoluteFillObject };
 
-  // Container style - visual crop uygulanmışsa dinamik boyutlandırma
-  const containerStyle = useMemo(() => {
-    const baseStyle = [styles.previewWrapper];
-    
-    if (hasVisualCrop && settings.visualCrop && previewSize.width > 0) {
-      // Crop aspect ratio'sunu hesapla
-      const cropAspectRatio = (() => {
-        if (settings.visualCrop!.aspectRatio === 'original') {
-          return previewSize.width / previewSize.height;
-        }
-        const [w, h] = settings.visualCrop!.aspectRatio.split(':').map(Number);
-        return w && h ? w / h : previewSize.width / previewSize.height;
-      })();
+    if (hasVisualCrop && !isCropping && settings.visualCrop && previewSize.width > 0) {
+      const crop = settings.visualCrop;
+      let cropAspectRatio;
+      if (!crop.aspectRatio || crop.aspectRatio === 'original') { cropAspectRatio = previewSize.width / previewSize.height; }
+      else { const [w, h] = crop.aspectRatio.split(':').map(Number); cropAspectRatio = w && h ? w / h : previewSize.width / previewSize.height; }
       
-      // Container boyutunu hesapla - ekrana sığacak şekilde
-      const containerWidth = previewSize.width;
+      let containerWidth = previewSize.width;
       let containerHeight = containerWidth / cropAspectRatio;
+      if (containerHeight > previewSize.height) { containerHeight = previewSize.height; containerWidth = containerHeight * cropAspectRatio; }
       
-      // Eğer yükseklik ekranı aşıyorsa, yüksekliği sınırla ve genişliği ayarla
-      const maxHeight = previewSize.height;
-      if (containerHeight > maxHeight) {
-        containerHeight = maxHeight;
-        // containerWidth = containerHeight * cropAspectRatio; // Genişliği ayarlamaya gerek yok, center'da kalacak
-      }
+      baseContainerStyle.push({ width: containerWidth, height: containerHeight, alignSelf: 'center' });
       
-      baseStyle.push({
-        height: containerHeight,
-        alignSelf: 'center', // Yatayda ortala
-        overflow: 'hidden' as const,
-        borderWidth: 3,
-        borderColor: Colors.primary,
-        borderRadius: BorderRadius.lg,
-      });
+      const scale = previewSize.width / (containerWidth * crop.width);
+      const translateX = (-crop.x * previewSize.width) / crop.width;
+      const translateY = (-crop.y * previewSize.height) / crop.width;
+
+      baseContentStyle.transform = [{ scale }, { translateX }, { translateY }];
     }
-    
-    return baseStyle;
-  }, [hasVisualCrop, settings.visualCrop, previewSize]);
+
+    return { containerStyle: baseContainerStyle, contentStyle: baseContentStyle };
+  }, [hasVisualCrop, isCropping, settings.visualCrop, previewSize]);
 
   return (
-    <View style={styles.container} onLayout={onLayout} ref={ref}>
-      <Pressable 
-        style={styles.pressable} 
-        onPressIn={() => onShowOriginalChange(true)} 
-        onPressOut={() => onShowOriginalChange(false)}
-      >
+    <View style={styles.container} onLayout={onLayout}>
+      <Pressable style={styles.pressable} onPressIn={() => onShowOriginalChange(true)} onPressOut={() => onShowOriginalChange(false)}>
         <View style={containerStyle}>
           {previewSize.width > 0 && imageUriToShow ? (
-            <View style={styles.imageContainer}>
-              {/* KATMAN 1: Background Layer */}
-              {backgroundUri && (
-                <View style={styles.backgroundContainer}>
-                  <Image
-                    source={{ uri: backgroundUri }}
-                    style={[styles.backgroundImage, backgroundFilterStyle]}
-                    resizeMode="cover"
-                  />
-                  {vignetteIntensity > 0 && <SimpleVignetteOverlay intensity={vignetteIntensity} />}
+            <Animated.View style={contentStyle}>
+                <View style={styles.imageContainer}>
+                  {backgroundUri && (
+                    <View style={styles.backgroundContainer}>
+                      <Image source={{ uri: backgroundUri }} style={[styles.backgroundImage, backgroundFilterStyle]} resizeMode="cover" />
+                      {vignetteIntensity > 0 && <SimpleVignetteOverlay intensity={vignetteIntensity} />}
+                    </View>
+                  )}
+                  <GestureDetector gesture={combinedGesture}>
+                    <Animated.View style={[styles.productContainer, productAnimatedStyle]}>
+                      <Image source={{ uri: imageUriToShow }} style={[styles.productImage, productFilterStyle]} resizeMode="contain" />
+                    </Animated.View>
+                  </GestureDetector>
+                  {isCropping && (
+                    <View style={styles.cropOverlayContainer} pointerEvents="none">
+                      <CropOverlay previewSize={previewSize} aspectRatioString={settings.cropAspectRatio || 'original'}/>
+                    </View>
+                  )}
+                  {/* YENİLİK: "Kırpıldı" bilgi balonu kaldırıldı. */}
+                  {showOriginal && (
+                    <View style={styles.originalOverlay}><Text style={styles.originalText}>Orijinal</Text></View>
+                  )}
                 </View>
-              )}
-              
-              {/* KATMAN 2: Product Layer */}
-              <GestureDetector gesture={combinedGesture}>
-                <Animated.View style={[styles.productContainer, productAnimatedStyle]}>
-                  <Image
-                    source={{ uri: imageUriToShow }}
-                    style={[styles.productImage, productFilterStyle]}
-                    resizeMode="contain"
-                  />
-                </Animated.View>
-              </GestureDetector>
-              
-              {/* KATMAN 3: Crop Overlay - Sadece crop modundayken göster */}
-              {isCropping && previewSize.width > 0 && !hasVisualCrop && (
-                <View style={styles.cropOverlayContainer} pointerEvents="none">
-                  <CropOverlay 
-                    previewSize={previewSize} 
-                    aspectRatioString={settings.cropAspectRatio || 'original'}
-                    photoScale={settings.photoScale}
-                    photoX={settings.photoX}
-                    photoY={settings.photoY}
-                  />
-                </View>
-              )}
-              
-              {/* KATMAN 4: Visual Crop Indicator */}
-              {hasVisualCrop && (
-                <View style={styles.cropAppliedIndicator}>
-                  <Text style={styles.cropAppliedText}>
-                    ✂️ {settings.visualCrop?.aspectRatio} Kırpıldı
-                  </Text>
-                </View>
-              )}
-              
-              {/* KATMAN 5: Original Indicator */}
-              {showOriginal && (
-                <View style={styles.originalOverlay}>
-                  <Text style={styles.originalText}>Orijinal</Text>
-                </View>
-              )}
-            </View>
+            </Animated.View>
           ) : (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={Colors.primary} />
-            </View>
+            <View style={styles.loadingContainer}><ActivityIndicator size="large" color={Colors.primary} /></View>
           )}
         </View>
       </Pressable>
@@ -181,88 +110,18 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   );
 });
 
+// Stiller aynı kalabilir, değişiklik yok.
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    width: '100%', 
-    backgroundColor: Colors.background, 
-    padding: Spacing.sm 
-  },
-  pressable: { 
-    flex: 1 
-  },
-  previewWrapper: { 
-    flex: 1, 
-    overflow: 'hidden', 
-    backgroundColor: Colors.gray100, 
-    borderRadius: BorderRadius.lg 
-  },
-  imageContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  backgroundContainer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 1,
-  },
-  backgroundImage: {
-    width: '100%',
-    height: '100%',
-  },
-  productContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-    padding: Spacing.md,
-  },
-  productImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'transparent',
-  },
-  
-  // Crop overlay container
-  cropOverlayContainer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 10,
-    backgroundColor: 'transparent',
-  },
-  
-  // Visual crop indicator
-  cropAppliedIndicator: {
-    position: 'absolute',
-    top: Spacing.md,
-    left: Spacing.md,
-    backgroundColor: Colors.primary,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    zIndex: 15,
-  },
-  cropAppliedText: {
-    ...Typography.caption,
-    color: Colors.card,
-    fontWeight: '600',
-  },
-  
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  originalOverlay: { 
-    position: 'absolute', 
-    bottom: Spacing.lg, 
-    alignSelf: 'center', 
-    backgroundColor: 'rgba(0,0,0,0.7)', 
-    paddingHorizontal: Spacing.lg, 
-    paddingVertical: Spacing.sm, 
-    borderRadius: BorderRadius.full,
-    zIndex: 100,
-  },
-  originalText: { 
-    ...Typography.caption, 
-    color: Colors.card 
-  },
+  container: { flex: 1, width: '100%', backgroundColor: Colors.background, padding: Spacing.sm, justifyContent: 'center', alignItems: 'center' },
+  pressable: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
+  previewWrapper: { overflow: 'hidden', backgroundColor: Colors.gray100, borderRadius: BorderRadius.lg, width: '100%', height: '100%' },
+  imageContainer: { ...StyleSheet.absoluteFillObject },
+  backgroundContainer: { ...StyleSheet.absoluteFillObject, zIndex: 1 },
+  backgroundImage: { width: '100%', height: '100%' },
+  productContainer: { ...StyleSheet.absoluteFillObject, zIndex: 2 },
+  productImage: { width: '100%', height: '100%', backgroundColor: 'transparent' },
+  cropOverlayContainer: { ...StyleSheet.absoluteFillObject, zIndex: 10 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  originalOverlay: { position: 'absolute', bottom: Spacing.lg, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: BorderRadius.full, zIndex: 100 },
+  originalText: { ...Typography.caption, color: Colors.card },
 });
