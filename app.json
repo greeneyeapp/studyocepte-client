@@ -7,6 +7,23 @@
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/images/splash-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "android": {
+      "package": "com.greeneyeapp.studyocepte",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA"
+      ]
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.greeneyeapp.studyocepte",
@@ -15,14 +32,6 @@
         "NSCameraUsageDescription": "App needs access to your camera to let you take photos of your products.",
         "NSPhotoLibraryAddUsageDescription": "App needs permission to save your edited product images to your photo library."
       }
-    },
-    "android": {
-      "package": "com.greeneyeapp.studyocepte",
-      "permissions": [
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.CAMERA"
-      ]
     },
     "web": {
       "bundler": "metro",
