@@ -1,8 +1,9 @@
+// app/(tabs)/product/[productId].tsx - ANIMASYONLU VERSİYON
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
   TouchableOpacity, Image, ActivityIndicator, LayoutAnimation,
-  UIManager, Platform, Animated,
+  UIManager, Platform, Animated, Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +19,7 @@ import { ToastService } from '@/components/Toast/ToastService';
 import { DialogService } from '@/components/Dialog/DialogService';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { LoadingService } from '@/components/Loading/LoadingService';
+import { BackgroundRemovalAnimation } from '@/components/BackgroundRemovalAnimation';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -25,11 +27,17 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const numColumns = Layout.isTablet ? 4 : 3;
 
-// DÜZELTME: 'showRemoveBgIcon' prop'u eklendi
+// GÜNCELLEME: Animasyon durumlarını track etmek için interface
+interface AnimatingPhoto {
+  id: string;
+  originalUri: string;
+  processedUri?: string;
+}
+
 const AnimatedCard = ({ photo, isSelected, showRemoveBgIcon, onPress, onLongPress }: { 
     photo: ProductPhoto; 
     isSelected: boolean; 
-    showRemoveBgIcon: boolean; // YENİ PROP
+    showRemoveBgIcon: boolean;
     onPress: () => void; 
     onLongPress: () => void; 
 }) => {
@@ -50,11 +58,11 @@ const AnimatedCard = ({ photo, isSelected, showRemoveBgIcon, onPress, onLongPres
                     <Image 
                         key={photo.modifiedAt}
                         source={{ uri: `${photo.thumbnailUri}?v=${photo.modifiedAt}` }} 
-                        style={styles.photoImage} 
+                        style={styles.photoImage}
+                        resizeMode="contain" // COVER'DAN CONTAIN'E DEĞİŞTİRİLDİ
                     />
                     {photo.status === 'processing' && <View style={styles.statusOverlay}><ActivityIndicator color={Colors.card} /></View>}
-                    {/* DÜZELTME: 'isSelectionMode' yerine yeni prop kullanılıyor */}
-                    {showRemoveBgIcon && <View style={styles.removeBgButton}><Feather name="wand" size={14} color={Colors.card} /></View>}
+                    {showRemoveBgIcon && <View style={styles.removeBgButton}><Feather name="zap" size={14} color={Colors.card} /></View>}
                     {isSelected && <View style={[styles.selectionOverlay, styles.selectionOverlayActive]}><Feather name="check-circle" size={24} color={Colors.card} /></View>}
                 </Card>
             </TouchableOpacity>
@@ -75,6 +83,10 @@ export default function ProductDetailScreen() {
 
   const [isSelectionMode, setSelectionMode] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
+  
+  // YENİ: Animasyon durumları (basitleştirildi)
+  const [showAnimationModal, setShowAnimationModal] = useState(false);
+  const [currentAnimatingPhoto, setCurrentAnimatingPhoto] = useState<AnimatingPhoto | null>(null);
 
   useEffect(() => {
     if (isProcessing) {
@@ -85,25 +97,70 @@ export default function ProductDetailScreen() {
   }, [isProcessing, processingMessage]);
 
   const handleAddPhoto = async () => {
-    if (!productId) return;
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      ToastService.show({ type: 'error', text1: t('common.permissions.galleryTitle'), text2: t('common.permissions.galleryMessage') });
+    console.log('🔘 Add photo button pressed');
+    
+    if (!productId) {
+      console.error('❌ Product ID missing');
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 1,
-      allowsMultipleSelection: true,
-    });
-    if (!result.canceled && result.assets) {
-      const uris = result.assets.map(asset => asset.uri);
-      const success = await addMultiplePhotos(productId, uris);
-      if (success) {
-        ToastService.show({ type: 'success', text1: `${uris.length} Fotoğraf Eklendi!` });
-      } else {
-        ToastService.show({ type: 'error', text1: 'Hata', text2: storeError || 'Fotoğraflar eklenemedi.' });
+
+    try {
+      console.log('📱 Requesting media library permissions...');
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log('✅ Permission status:', status);
+      
+      if (status !== 'granted') {
+        ToastService.show({ 
+          type: 'error', 
+          text1: 'İzin Gerekli', 
+          text2: 'Galeri erişimi için izin verin' 
+        });
+        return;
       }
+
+      console.log('🖼️ Launching image picker...');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // ESKİ FORMAT GERİ ALINDI
+        quality: 1,
+        allowsMultipleSelection: true,
+      });
+      
+      console.log('📋 Image picker result:', {
+        canceled: result.canceled,
+        assetsCount: result.assets?.length || 0
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const uris = result.assets.map(asset => asset.uri);
+        console.log('📸 Selected image URIs:', uris);
+        
+        console.log('💾 Adding photos to product...');
+        const success = await addMultiplePhotos(productId, uris);
+        
+        if (success) {
+          ToastService.show({ 
+            type: 'success', 
+            text1: `${uris.length} Fotoğraf Eklendi!` 
+          });
+          console.log('✅ Photos added successfully');
+        } else {
+          ToastService.show({ 
+            type: 'error', 
+            text1: 'Hata', 
+            text2: storeError || 'Fotoğraflar eklenemedi.' 
+          });
+          console.error('❌ Failed to add photos:', storeError);
+        }
+      } else {
+        console.log('ℹ️ User canceled or no assets selected');
+      }
+    } catch (error) {
+      console.error('❌ Add photo error:', error);
+      ToastService.show({ 
+        type: 'error', 
+        text1: 'Hata', 
+        text2: 'Fotoğraf eklenirken bir hata oluştu' 
+      });
     }
   };
 
@@ -149,10 +206,67 @@ export default function ProductDetailScreen() {
   };
 
   const handleSingleRemoveBackground = async (photo: ProductPhoto) => {
+      console.log('🚀 Starting background removal for photo:', photo.id);
+      
+      // YENİ: Tek fotoğraf için animasyon başlat
+      const animatingPhoto: AnimatingPhoto = {
+        id: photo.id,
+        originalUri: photo.originalUri,
+      };
+      
+      setCurrentAnimatingPhoto(animatingPhoto);
+      setShowAnimationModal(true);
+      
+      // Arka plan temizleme işlemini başlat
       const success = await removeMultipleBackgrounds(photo.productId, [photo.id]);
+      
       if (success) {
-          ToastService.show({type: 'success', text1: 'Arka Plan Temizlendi!'});
+          console.log('✅ Background removal successful, finding processed photo...');
+          
+          // İşlem başarılı - işlenmiş fotoğrafı bul ve animasyona ekle
+          const updatedProduct = useProductStore.getState().products.find(p => p.id === photo.productId);
+          const updatedPhoto = updatedProduct?.photos.find(p => p.id === photo.id);
+          
+          console.log('🔍 Updated photo data:', {
+            found: !!updatedPhoto,
+            hasProcessedUri: !!updatedPhoto?.processedUri,
+            processedUri: updatedPhoto?.processedUri,
+            status: updatedPhoto?.status
+          });
+          
+          if (updatedPhoto && updatedPhoto.processedUri) {
+            console.log('🎬 Setting processed URI for animation:', updatedPhoto.processedUri);
+            
+            // TAMAMEN YENİ OBJE OLUŞTUR - React'i zorla re-render et
+            const newAnimatingPhoto: AnimatingPhoto = {
+              id: photo.id,
+              originalUri: photo.originalUri,
+              processedUri: updatedPhoto.processedUri
+            };
+            
+            console.log('📝 Creating new animating photo object:', {
+              hasOriginal: !!newAnimatingPhoto.originalUri,
+              hasProcessed: !!newAnimatingPhoto.processedUri,
+              processedPath: newAnimatingPhoto.processedUri?.split('/').pop()
+            });
+            
+            setCurrentAnimatingPhoto(newAnimatingPhoto);
+            
+            // 5 saniye sonra animasyonu kapat
+            setTimeout(() => {
+              console.log('🔚 Closing animation modal');
+              setShowAnimationModal(false);
+              setCurrentAnimatingPhoto(null);
+            }, 5000);
+          } else {
+            console.error('❌ No processed URI found in updated photo');
+            setShowAnimationModal(false);
+            setCurrentAnimatingPhoto(null);
+          }
       } else {
+          console.error('❌ Background removal failed');
+          setShowAnimationModal(false);
+          setCurrentAnimatingPhoto(null);
           ToastService.show({type: 'error', text1: 'Hata', text2: storeError || 'Arka plan temizlenemedi.'});
       }
   };
@@ -179,6 +293,10 @@ export default function ProductDetailScreen() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
     const selectedIds = Array.from(selectedPhotos);
     if (!productId || selectedIds.length === 0) return;
+    
+    // YENİ: Toplu animasyonu başlat
+    // Burada hızlı gösterim için sadece toast gösterelim, 
+    // gerçek uygulamada her fotoğraf için ayrı animasyon da yapılabilir
     await removeMultipleBackgrounds(productId, selectedIds);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     toggleSelectionMode();
@@ -191,7 +309,6 @@ export default function ProductDetailScreen() {
       return photo?.status === 'raw';
     });
   }, [selectedPhotos, activeProduct]);
-
 
   if (!activeProduct) {
     return (
@@ -220,7 +337,18 @@ export default function ProductDetailScreen() {
           <Text style={styles.productName} numberOfLines={1}>{activeProduct.name}</Text>
           <Text style={styles.photoCount}>{activeProduct.photos.length} {t('products.photos')}</Text>
         </View>
-        <Button title="Ekle" onPress={handleAddPhoto} size="small" variant="outline" icon={<Feather name="plus" size={14} color={Colors.primary} />} />
+        <Button 
+          title="Ekle" 
+          onPress={() => {
+            console.log('🔘 Button touched!');
+            handleAddPhoto();
+          }} 
+          size="small" 
+          variant="outline" 
+          icon={<Feather name="plus" size={14} color={Colors.primary} />}
+          disabled={isProcessing}
+          loading={isProcessing}
+        />
         <Button title={isSelectionMode ? t('common.cancel') : "Seç"} onPress={toggleSelectionMode} size="small" variant="ghost" />
       </View>
 
@@ -233,7 +361,6 @@ export default function ProductDetailScreen() {
                  <AnimatedCard
                     photo={item}
                     isSelected={selectedPhotos.has(item.id)}
-                    // DÜZELTME: Gerekli bilgiyi prop olarak iletiyoruz
                     showRemoveBgIcon={item.status === 'raw' && !isSelectionMode}
                     onPress={() => handlePhotoPress(item)}
                     onLongPress={() => toggleSelectionMode(item.id)}
@@ -253,7 +380,7 @@ export default function ProductDetailScreen() {
               <Button
                 title="Temizle"
                 onPress={handleBatchRemoveBackground}
-                icon={<Feather name="wand" size={16} color={Colors.primary} />}
+                icon={<Feather name="zap" size={16} color={Colors.primary} />}
                 variant="outline"
               />
             )}
@@ -268,6 +395,38 @@ export default function ProductDetailScreen() {
           </View>
         </View>
       )}
+
+      {/* YENİ: Animasyon Modal */}
+      <Modal
+        visible={showAnimationModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowAnimationModal(false);
+          setCurrentAnimatingPhoto(null);
+        }}
+      >
+        <View style={styles.animationModalOverlay}>
+          <View style={styles.animationModalContent}>
+            {currentAnimatingPhoto && (
+              <BackgroundRemovalAnimation
+                key={`${currentAnimatingPhoto.id}-${currentAnimatingPhoto.processedUri || 'no-processed'}-${Date.now()}`} // Unique key with timestamp
+                originalUri={currentAnimatingPhoto.originalUri}
+                processedUri={currentAnimatingPhoto.processedUri}
+                isAnimating={true}
+                onAnimationComplete={() => {
+                  // Animasyon tamamlandığında modal'ı kapat
+                  setTimeout(() => {
+                    setShowAnimationModal(false);
+                    setCurrentAnimatingPhoto(null);
+                  }, 500);
+                }}
+                containerStyle={styles.animationContainer}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -292,4 +451,29 @@ const styles = StyleSheet.create({
   statusOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', borderRadius: BorderRadius.lg },
   removeBgButton: { position: 'absolute', bottom: Spacing.sm, right: Spacing.sm, backgroundColor: 'rgba(0, 0, 0, 0.6)', width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' },
   skeletonItem: { width: '100%', aspectRatio: 1, backgroundColor: Colors.gray200, borderRadius: BorderRadius.lg },
+  
+  // YENİ: Animasyon modal stilleri
+  animationModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  animationModalContent: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    margin: Spacing.xs,
+    maxWidth: '98%', // Neredeyse tam ekran
+    minWidth: 360,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  animationContainer: {
+    alignItems: 'center',
+  },
 });
