@@ -1,13 +1,11 @@
-// client/app/(tabs)/editor/[photoId].tsx - TÜM SORUNLARI ÇÖZEN NİHAİ KOD
-
 import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-// ... (tüm importlar aynı kalacak)
 import { useEnhancedEditorStore } from '@/stores/useEnhancedEditorStore';
+import { useProductStore } from '@/stores/useProductStore'; // YENİ: Product store import edildi
 import { useExportManager } from '@/features/editor/hooks/useExportManager';
 import { useScrollManager } from '@/features/editor/hooks/useScrollManager';
 import { EditorHeader } from '@/features/editor/components/EditorHeader';
@@ -23,14 +21,16 @@ import { ExportToolbar } from '@/features/editor/components/ExportToolbar';
 import { ToolType, TargetType } from '@/features/editor/config/tools';
 import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/features';
 import { ALL_FILTERS } from '@/features/editor/config/filters';
-import { api, Background } from '@/services/api';
 import { Colors, Spacing } from '@/constants';
 import { ExportPreset } from '@/features/editor/config/exportTools';
+import { ToastService } from '@/components/Toast/ToastService'; // YENİ: Toast service import edildi
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+// Background tipini ve verisini yerel olarak tanımlıyoruz
+interface Background { id: string; name: string; thumbnailUrl: string; fullUrl: string; }
 const staticBackgrounds: Background[] = [
     {id: "bg1", name: "Studio White", thumbnailUrl: "https://images.pexels.com/photos/1762851/pexels-photo-1762851.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/1762851/pexels-photo-1762851.jpeg?auto=compress&cs=tinysrgb&w=800"},
     {id: "bg2", name: "Concrete", thumbnailUrl: "https://images.pexels.com/photos/1191710/pexels-photo-1191710.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/1191710/pexels-photo-1191710.jpeg?auto=compress&cs=tinysrgb&w=800"},
@@ -38,12 +38,13 @@ const staticBackgrounds: Background[] = [
 
 export default function EnhancedEditorScreen() {
     const { t } = useTranslation();
-    const { photoId } = useLocalSearchParams<{ photoId: string }>();
+    const { photoId, productId } = useLocalSearchParams<{ photoId: string, productId: string }>();
     const router = useRouter();
 
     const store = useEnhancedEditorStore();
     const { activePhoto, settings, isSaving, activeFilterKey, applyFilter, undo, redo, canUndo, canRedo, addSnapshotToHistory, updateSettings, clearStore, setActivePhoto, setActiveFilterKey, resetCropAndRotation } = store;
     const applyCrop = useEnhancedEditorStore((state) => state.applyCrop);
+    const getProductById = useProductStore(state => state.getProductById);
 
     const [activeTool, setActiveTool] = useState<ToolType>('adjust');
     const [activeTarget, setActiveTarget] = useState<TargetType>('product');
@@ -56,10 +57,20 @@ export default function EnhancedEditorScreen() {
     const { isExporting, shareWithOption, skiaViewRef } = useExportManager();
     const { currentScrollRef } = useScrollManager({ activeTool, activeTarget, activeFeature, isSliderActive });
 
+    // DEĞİŞİKLİK: Veri artık API'den değil, yerel Product Store'dan alınıyor.
     useEffect(() => {
-        if (photoId) api.fetchPhotoById(photoId).then(setActivePhoto).catch(() => router.back());
+        if (photoId && productId) {
+          const product = getProductById(productId);
+          const photo = product?.photos.find(p => p.id === photoId);
+          if (photo) {
+            setActivePhoto(photo);
+          } else {
+            ToastService.show({type: 'error', text1: 'Hata', text2: 'Düzenlenecek fotoğraf bulunamadı.'});
+            router.back();
+          }
+        }
         return () => clearStore();
-    }, [photoId, setActivePhoto, clearStore]);
+    }, [photoId, productId, getProductById, setActivePhoto, clearStore, router]);
 
     const animateLayout = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     
@@ -103,14 +114,11 @@ export default function EnhancedEditorScreen() {
     const handleApplyCrop = () => { applyCrop(); setTimeout(() => handleToolChange('adjust'), 300); };
     const handleSave = async () => { await store.saveChanges(); };
 
-    // YENİLİK: Cancel butonu artık bağlama duyarlı
     const handleCancel = () => {
-        // Eğer kullanıcı kırpma veya export modundaysa, sadece ana arayüze dön
         if (activeTool === 'crop' || activeTool === 'export' || activeFeature) {
             setActiveFeature(null);
             handleToolChange('adjust');
         } else {
-            // Aksi halde editörden tamamen çık
             router.back();
         }
     };
@@ -126,13 +134,12 @@ export default function EnhancedEditorScreen() {
     return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        {/* onCancel prop'u yeni fonksiyonu kullanıyor */}
         <EditorHeader onCancel={handleCancel} onSave={handleSave} isSaving={isSaving} canUndo={canUndo()} canRedo={canRedo()} onUndo={undo} onRedo={redo} />
         
-        {/* YENİ YAPI: Ana içerik ve toolbar'lar flex ile ayrıldı */}
         <View style={styles.contentWrapper}>
             <View style={styles.previewContainer} ref={skiaViewRef} collapsable={false}>
-                <EditorPreview activePhoto={activePhoto} selectedBackground={staticBackgrounds.find(bg => bg.id === settings.backgroundId)} settings={settings} showOriginal={showOriginal} onShowOriginalChange={setShowOriginal} onLayout={handlePreviewLayout} updateSettings={updateSettings} previewSize={previewSize} isCropping={activeTool === 'crop'} />
+                {/* DEĞİŞİKLİK: activePhoto.processedUri kullanılıyor */}
+                <EditorPreview activePhoto={{...activePhoto, processedImageUrl: activePhoto.processedUri}} selectedBackground={staticBackgrounds.find(bg => bg.id === settings.backgroundId)} settings={settings} showOriginal={showOriginal} onShowOriginalChange={setShowOriginal} onLayout={handlePreviewLayout} updateSettings={updateSettings} previewSize={previewSize} isCropping={activeTool === 'crop'} />
             </View>
 
             <View style={styles.bottomToolbarContainer}>
@@ -151,14 +158,14 @@ export default function EnhancedEditorScreen() {
                         {(activeTool === 'adjust' || activeTool === 'filter') && !activeFeature && (
                             <TargetSelector activeTarget={activeTarget} onTargetChange={(t) => { animateLayout(); setActiveTarget(t); }} activeTool={activeTool} />
                         )}
-                        {/* YENİLİK: Slider veya Butonlar'dan sadece biri gösteriliyor */}
                         <View style={styles.dynamicToolContainer}>
                             {activeTool === 'adjust' && currentFeatureConfig ? (
                                 <CustomSlider feature={currentFeatureConfig} value={currentSliderValue} onValueChange={(v) => handleValueChange(activeFeature!, v)} onSlidingStart={() => setIsSliderActive(true)} onSlidingComplete={() => { addSnapshotToHistory(); setIsSliderActive(false); setActiveFeature(null); }} isActive={!!activeFeature} />
                             ) : (
                                 <ScrollView ref={currentScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                                     {activeTool === 'adjust' && featuresForCurrentTarget.map(f => <FeatureButton key={f.key} icon={f.icon} label={f.label} value={getSliderValue(f.key)} isActive={activeFeature === f.key} onPress={() => handleFeaturePress(f.key)} />)}
-                                    {activeTool === 'filter' && ALL_FILTERS.map(f => <FilterPreview key={f.key} filter={f} imageUri={activePhoto.processedImageUrl!} backgroundUri={staticBackgrounds.find(bg => bg.id === settings.backgroundId)?.fullUrl!} isSelected={activeFilterKey === f.key} onPress={() => applyFilter(f.key, activeTarget)} />)}
+                                    {/* DEĞİŞİKLİK: activePhoto.processedUri kullanılıyor */}
+                                    {activeTool === 'filter' && ALL_FILTERS.map(f => <FilterPreview key={f.key} filter={f} imageUri={activePhoto.processedUri!} backgroundUri={staticBackgrounds.find(bg => bg.id === settings.backgroundId)?.fullUrl!} isSelected={activeFilterKey === f.key} onPress={() => applyFilter(f.key, activeTarget)} />)}
                                     {activeTool === 'background' && staticBackgrounds.map(bg => <BackgroundButton key={bg.id} background={bg} isSelected={settings.backgroundId === bg.id} onPress={() => { updateSettings({backgroundId: bg.id}); addSnapshotToHistory();}} />)}
                                 </ScrollView>
                             )}
@@ -166,7 +173,6 @@ export default function EnhancedEditorScreen() {
                     </>
                 )}
                 
-                {/* YENİLİK: MainToolbar artık sadece 'crop' modunda gizli */}
                 {activeTool !== 'crop' && <MainToolbar activeTool={activeTool} onToolChange={handleToolChange} />}
             </View>
         </View>
@@ -175,33 +181,13 @@ export default function EnhancedEditorScreen() {
   );
 }
 
-// TAMAMEN YENİLENMİŞ STİLLER
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   contentWrapper: { flex: 1, flexDirection: 'column' },
-  previewContainer: {
-    flex: 1, // Önizleme mevcut tüm dikey alanı kullanır
-    width: '100%',
-  },
-  bottomToolbarContainer: {
-    backgroundColor: Colors.card,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  dynamicToolContainer: {
-    minHeight: 120, // Slider veya butonlar için sabit yükseklik
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullScreenTool: {
-      // Export gibi tam ekran araçlar için
-      height: '100%', 
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    alignItems: 'center',
-    gap: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
+  previewContainer: { flex: 1, width: '100%' },
+  bottomToolbarContainer: { backgroundColor: Colors.card, borderTopWidth: 1, borderTopColor: Colors.border },
+  dynamicToolContainer: { minHeight: 120, justifyContent: 'center', alignItems: 'center' },
+  fullScreenTool: { minHeight: 120 },
+  scrollContent: { paddingHorizontal: Spacing.lg, alignItems: 'center', gap: Spacing.lg, paddingVertical: Spacing.md },
 });

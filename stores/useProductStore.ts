@@ -1,143 +1,206 @@
-// stores/useProductStore.ts - YENİ YAPI GÜNCELLEMESİ
 import { create } from 'zustand';
-import { api, Product, ProductDetail, ProductPhoto  } from '@/services/api';
-import { LoadingService } from '@/components/Loading/LoadingService';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
+import * as FileSystem from 'expo-file-system';
+import * as Haptics from 'expo-haptics';
 
-const poll = (fn: () => Promise<boolean>, ms: number) => {
-  return new Promise<void>((resolve, reject) => {
-    const interval = setInterval(async () => {
-      try {
-        const done = await fn();
-        if (done) {
-          clearInterval(interval);
-          resolve();
-        }
-      } catch (error) {
-        clearInterval(interval);
-        reject(error);
-      }
-    }, ms);
-  });
-};
+import { api } from '@/services/api';
+import { fileSystemManager } from '@/services/fileSystemManager';
+import { imageProcessor } from '@/services/imageProcessor';
+import { EditorSettings } from './useEnhancedEditorStore';
+
+// --- Arayüzler ---
+export interface ProductPhoto {
+  id: string;
+  productId: string;
+  originalUri: string;
+  processedUri: string | null;
+  thumbnailUri: string;
+  createdAt: string;
+  modifiedAt: number;
+  editorSettings?: EditorSettings;
+  status: 'raw' | 'processing' | 'processed';
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  createdAt: string;
+  modifiedAt: number;
+  photos: ProductPhoto[];
+}
 
 interface ProductState {
   products: Product[];
-  activeProduct: ProductDetail | null;
   isLoading: boolean;
+  isProcessing: boolean;
+  processingMessage: string;
   error: string | null;
-  lastFetched: number | null;
 }
 
 interface ProductActions {
-  fetchProducts: (force?: boolean) => Promise<void>;
-  fetchProductById: (productId: string) => Promise<void>;
-  createProduct: (name: string) => Promise<Product | undefined>; // Değiştirildi
-  uploadMultiplePhotos: (productId: string, imageUris: string[]) => Promise<void>; // Yeni
-  clearActiveProduct: () => void;
-  refreshProductsIfNeeded: () => Promise<void>;
+  loadProducts: () => void;
+  createProduct: (name: string) => Promise<Product>;
+  deleteProduct: (productId: string) => Promise<void>;
+  addMultiplePhotos: (productId: string, originalImageUris: string[]) => Promise<boolean>;
+  deletePhoto: (productId: string, photoId: string) => Promise<void>;
+  removeMultipleBackgrounds: (productId: string, photoIds: string[]) => Promise<boolean>;
+  updatePhotoSettings: (productId: string, photoId: string, settings: EditorSettings) => void;
   getProductById: (productId: string) => Product | undefined;
-  clearError: () => void;
 }
 
-const REFRESH_THRESHOLD = 15 * 60 * 1000; // 15 dakika
+export const useProductStore = create<ProductState & ProductActions>()(
+  persist(
+    (set, get) => ({
+      products: [],
+      isLoading: false,
+      isProcessing: false,
+      processingMessage: '',
+      error: null,
 
-export const useProductStore = create<ProductState & ProductActions>((set, get) => ({
-  products: [],
-  activeProduct: null,
-  isLoading: false,
-  error: null,
-  lastFetched: null,
+      loadProducts: () => {},
 
-  fetchProducts: async (force = false) => {
-    if (!force && get().isLoading) return;
-    set({ isLoading: true, error: null });
-    try {
-      const products = await api.fetchProductsOptimized({ include_photos: true });
-      set({ products, isLoading: false, lastFetched: Date.now() });
-    } catch (error: any) {
-      set({ error: error.message || 'Ürünler yüklenemedi.', isLoading: false });
-    }
-  },
+      createProduct: async (name: string): Promise<Product> => {
+        const now = Date.now();
+        const newProduct: Product = {
+          id: uuidv4(), name, createdAt: new Date(now).toISOString(), modifiedAt: now, photos: [],
+        };
+        await fileSystemManager.createProductDirectory(newProduct.id);
+        set(state => ({ products: [newProduct, ...state.products] }));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        return newProduct;
+      },
 
-  refreshProductsIfNeeded: async () => {
-    const { lastFetched, isLoading } = get();
-    if (!isLoading && (!lastFetched || Date.now() - lastFetched > REFRESH_THRESHOLD)) {
-      await get().fetchProducts(true);
-    }
-  },
+      deleteProduct: async (productId: string) => {
+        set(state => ({ products: state.products.filter(p => p.id !== productId) }));
+        await fileSystemManager.deleteProductDirectory(productId);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      },
 
-  fetchProductById: async (productId: string) => {
-    set({ isLoading: true, error: null, activeProduct: null });
-    try {
-      const product = await api.fetchProductById(productId);
-      set({ activeProduct: product, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message || 'Ürün detayı alınamadı.', isLoading: false });
-    }
-  },
-
-  // Sadece ürün oluşturan yeni fonksiyon
-  createProduct: async (name: string) => {
-    set({ isLoading: true });
-    try {
-      const newProduct = await api.createProduct(name);
-      await get().fetchProducts(true); // Listeyi yenile
-      set({ isLoading: false });
-      return newProduct;
-    } catch (error: any) {
-      const errorMessage = error.message || 'Ürün oluşturulamadı.';
-      set({ error: errorMessage, isLoading: false });
-      throw new Error(errorMessage);
-    }
-  },
-
-  uploadMultiplePhotos: async (productId: string, imageUris: string[]) => {
-    // Yükleme başladığında Loading'i metinsiz göster
-    LoadingService.show();
-    let uploadedPhotos: ProductPhoto[] = [];
-
-    try {
-      for (const uri of imageUris) {
-        if (uri && typeof uri === 'string') {
-          const newPhoto = await api.uploadPhoto(productId, uri);
-          uploadedPhotos.push(newPhoto);
-        }
-      }
-
-      // Yükleme bitti, şimdi arka plan temizlemeyi takip et
-      const total = uploadedPhotos.length;
-      if (total > 0) {
-        let completed = 0;
-        LoadingService.show(`0 / ${total} fotoğraf işlendi...`);
-
-        // Her fotoğrafın durumunu periyodik olarak kontrol et
-        await Promise.all(uploadedPhotos.map(async (photo) => {
-          await poll(async () => {
-            const statusRes = await api.getPhotoStatus(photo.id); // API'ye yeni endpoint'i çağır
-            if (statusRes.status === 'completed' || statusRes.status === 'failed') {
-              completed++;
-              LoadingService.show(`${completed} / ${total} fotoğraf işlendi...`);
-              return true; // Polling'i durdur
+      addMultiplePhotos: async (productId: string, originalImageUris: string[]): Promise<boolean> => {
+        set({ isProcessing: true, processingMessage: `0 / ${originalImageUris.length} fotoğraf ekleniyor...` });
+        const now = Date.now();
+        const newPhotos: ProductPhoto[] = [];
+        try {
+            for (const [index, uri] of originalImageUris.entries()) {
+              set({ processingMessage: `${index + 1} / ${originalImageUris.length} fotoğraf ekleniyor...` });
+              const photoId = uuidv4();
+              const originalUri = await fileSystemManager.saveImage(productId, uri, `${photoId}-original.jpg`);
+              const thumbnailTempUri = await imageProcessor.createThumbnail(originalUri);
+              const thumbnailUri = await fileSystemManager.saveImage(productId, thumbnailTempUri, `${photoId}-thumb.jpg`);
+              newPhotos.push({
+                id: photoId, productId, originalUri, thumbnailUri,
+                processedUri: null, status: 'raw',
+                createdAt: new Date(now).toISOString(), modifiedAt: now,
+              });
             }
-            return false; // Devam et
-          }, 2000); // Her 2 saniyede bir kontrol et
+            set(state => ({
+              products: state.products.map(p =>
+                p.id === productId ? { ...p, photos: [...newPhotos, ...p.photos], modifiedAt: now } : p
+              ),
+            }));
+            return true; // Başarılı olduğunu belirtmek için true dön
+        } catch (error: any) {
+            console.error("Fotoğraf ekleme hatası:", error);
+            set({ error: "Fotoğraflar eklenirken bir sorun oluştu." });
+            return false; // Başarısız olduğunu belirt
+        } finally {
+            set({ isProcessing: false, processingMessage: '' });
+        }
+      },
+      
+      removeMultipleBackgrounds: async (productId: string, photoIds: string[]): Promise<boolean> => {
+        const product = get().getProductById(productId);
+        if (!product) return false;
+        const photosToProcess = product.photos.filter(p => photoIds.includes(p.id) && p.status === 'raw');
+        if (photosToProcess.length === 0) return true;
+        
+        set({ isProcessing: true, processingMessage: `0 / ${photosToProcess.length} arka plan temizleniyor...` });
+
+        try {
+          const photoPayload = photosToProcess.map(p => ({ filename: `${p.id}-original.jpg`, uri: p.originalUri }));
+          const results = await api.removeMultipleBackgrounds(photoPayload);
+          
+          const now = Date.now();
+          const updatedPhotos: Partial<ProductPhoto>[] = [];
+          for (const filename in results.success) {
+            const photoId = filename.split('-')[0];
+            const originalPhoto = photosToProcess.find(p => p.id === photoId);
+            if (!originalPhoto) continue;
+            const tempUri = FileSystem.cacheDirectory + `processed-${photoId}.png`;
+            await FileSystem.writeAsStringAsync(tempUri, results.success[filename], { encoding: FileSystem.EncodingType.Base64 });
+            const processedUri = await fileSystemManager.saveImage(productId, tempUri, `${photoId}-processed.png`);
+            await fileSystemManager.deleteImage(originalPhoto.thumbnailUri);
+            const newThumbnailTempUri = await imageProcessor.createThumbnail(processedUri);
+            const thumbnailUri = await fileSystemManager.saveImage(productId, newThumbnailTempUri, `${photoId}-thumb.jpg`);
+            updatedPhotos.push({ id: photoId, status: 'processed', processedUri, thumbnailUri, modifiedAt: now });
+          }
+
+          set(state => ({
+            products: state.products.map(p => p.id === productId ? {
+              ...p, modifiedAt: now,
+              photos: p.photos.map(ph => {
+                const update = updatedPhotos.find(u => u.id === ph.id);
+                if (update) return { ...ph, ...update };
+                if (results.errors[`${ph.id}-original.jpg`]) return { ...ph, status: 'raw', modifiedAt: now };
+                return ph;
+              })
+            } : p)
+          }));
+          return true;
+        } catch (error: any) {
+          console.error("Arka plan temizleme hatası:", error);
+          set(state => ({
+            products: state.products.map(p => p.id === productId ? {
+              ...p, photos: p.photos.map(ph => photoIds.includes(ph.id) ? { ...ph, status: 'raw' } : ph)
+            } : p),
+            error: error.message
+          }));
+          return false;
+        } finally {
+          set({ isProcessing: false, processingMessage: '' });
+        }
+      },
+
+      deletePhoto: async (productId: string, photoId: string) => {
+        const product = get().getProductById(productId);
+        const photo = product?.photos.find(p => p.id === photoId);
+        if (!photo) return;
+        set(state => ({
+          products: state.products.map(p =>
+            p.id === productId ? { ...p, photos: p.photos.filter(ph => ph.id !== photoId), modifiedAt: Date.now() } : p
+          ),
         }));
-      }
+        await Promise.all([
+            fileSystemManager.deleteImage(photo.originalUri),
+            fileSystemManager.deleteImage(photo.processedUri || ''),
+            fileSystemManager.deleteImage(photo.thumbnailUri),
+        ]);
+      },
+      
+      updatePhotoSettings: (productId, photoId, settings) => {
+          const now = Date.now();
+          set(state => ({
+              products: state.products.map(p =>
+                  p.id === productId ? {
+                      ...p, modifiedAt: now,
+                      photos: p.photos.map(ph =>
+                          ph.id === photoId ? { ...ph, editorSettings: settings, modifiedAt: now } : ph
+                      )
+                  } : p
+              )
+          }));
+      },
 
-      await get().fetchProductById(productId);
-      await get().fetchProducts(true);
-
-    } catch (error: any) {
-      throw new Error(error.message || 'Fotoğraflar yüklenemedi.');
-    } finally {
-      LoadingService.hide();
+      getProductById: (productId: string) => get().products.find(p => p.id === productId),
+    }),
+    {
+      name: 'studyo-cepte-products-v3',
+      storage: createJSONStorage(() => AsyncStorage),
     }
-  },
+  )
+);
 
-  getProductById: (productId: string) => {
-    return get().products.find(p => p.id === productId);
-  },
-
-  clearActiveProduct: () => set({ activeProduct: null }),
-  clearError: () => set({ error: null }),
-}));
+useProductStore.getState().loadProducts();

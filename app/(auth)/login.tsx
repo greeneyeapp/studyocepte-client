@@ -31,15 +31,6 @@ export default function LoginScreen() {
   const login = useAuthStore((state) => state.login);
   const isLoading = useAuthStore((state) => state.isLoading);
 
-  useEffect(() => {
-    if (isLoading) {
-      LoadingService.show();
-    } else {
-      LoadingService.hide();
-    }
-  }, [isLoading]);
-
-
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
       ToastService.show({

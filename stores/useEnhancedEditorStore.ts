@@ -1,21 +1,52 @@
-// stores/useEnhancedEditorStore.ts - CROP SİSTEMİ DÜZELTMESİ
-
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api, ProductPhoto, EditorSettings as ApiEditorSettings } from '@/services/api';
 import { ToastService } from '@/components/Toast/ToastService';
 import { ALL_FILTERS } from '@/features/editor/config/filters';
 import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/features';
 import { TargetType } from '@/features/editor/config/tools';
+import { useProductStore, ProductPhoto } from './useProductStore';
 
-export interface EditorSettings extends ApiEditorSettings {
+/**
+ * Editörde kullanılabilecek tüm ayarları içeren kapsamlı arayüz.
+ * Bu ayarlar, hem ürün hem de arka plan için ayrı ayrı tutulur.
+ */
+export interface EditorSettings {
+  // Genel Ayarlar
+  backgroundId: string;
+
+  // Fotoğrafın Pozisyon, Boyut ve Dönme Ayarları
+  photoX?: number;
+  photoY?: number;
+  photoScale?: number;
+  photoRotation?: number;
+
+  // Ürün Ayarları
+  product_exposure?: number;
+  product_brightness?: number;
+  product_highlights?: number;
+  product_shadows?: number;
+  product_contrast?: number;
+  product_saturation?: number;
+  product_vibrance?: number;
+  product_warmth?: number;
+  product_clarity?: number;
+
+  // Arka Plan Ayarları
+  background_exposure?: number;
+  background_brightness?: number;
+  background_contrast?: number;
+  background_saturation?: number;
+  background_warmth?: number;
+  background_vignette?: number;
+  background_blur?: number;
+
+  // Kırpma Ayarları
   cropAspectRatio?: string;
   cropX?: number;
   cropY?: number;
   cropWidth?: number;
   cropHeight?: number;
-  // Görsel crop uygulama - bu crop'un uygulanıp uygulanmadığını takip eder
   visualCrop?: {
     aspectRatio: string;
     x: number;
@@ -60,12 +91,10 @@ const defaultSettings: EditorSettings = {
   backgroundId: 'bg1',
   photoX: 0.5, photoY: 0.5, photoScale: 1.0, photoRotation: 0,
   product_exposure: 0, product_brightness: 0, product_contrast: 0, product_saturation: 0,
-  product_vibrance: 0, product_warmth: 0, product_clarity: 0,
-  product_highlights: 0, product_shadows: 0,
+  product_vibrance: 0, product_warmth: 0, product_clarity: 0, product_highlights: 0, product_shadows: 0,
   background_exposure: 0, background_brightness: 0, background_contrast: 0, background_saturation: 0,
-  background_vibrance: 0, background_warmth: 0, background_clarity: 0,
-  background_highlights: 0, background_shadows: 0, background_blur: 0, background_vignette: 0,
-  cropAspectRatio: 'original', cropX: 0, cropY: 0, cropWidth: 1, cropHeight: 1,
+  background_warmth: 0, background_vignette: 0, background_blur: 0,
+  cropAspectRatio: 'original', cropX: 0, cropY: 0, cropWidth: 1, cropHeight: 1, visualCrop: undefined,
 };
 
 export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
@@ -80,82 +109,16 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       isSaving: false,
       userPresets: [],
 
-      resetCropAndRotation: () => {
-        console.log('🔄 Resetting crop and rotation');
-        get().updateSettings({
-          cropAspectRatio: 'original',
-          photoRotation: 0,
-          cropX: 0,
-          cropY: 0,
-          cropWidth: 1,
-          cropHeight: 1,
-          visualCrop: undefined, // Görsel crop'u tamamen sıfırla
-        });
-        get().addSnapshotToHistory();
-      },
-
-      // Crop'u uygula - mevcut crop ayarlarını "visual crop" olarak kaydet
-      applyCrop: () => {
-        const state = get();
-        const { settings } = state;
-        
-        console.log('✂️ Applying visual crop:', {
-          aspectRatio: settings.cropAspectRatio,
-          currentCropSettings: { 
-            x: settings.cropX || 0, 
-            y: settings.cropY || 0, 
-            width: settings.cropWidth || 1, 
-            height: settings.cropHeight || 1 
-          }
-        });
-
-        // Mevcut crop ayarlarını visual crop olarak kaydet
-        const visualCrop = {
-          aspectRatio: settings.cropAspectRatio || 'original',
-          x: settings.cropX || 0,
-          y: settings.cropY || 0,
-          width: settings.cropWidth || 1,
-          height: settings.cropHeight || 1,
-          isApplied: true,
-        };
-
-        // Settings'i güncelle - visual crop'u aktif et
-        const newSettings = {
-          ...settings,
-          visualCrop,
-          // Normal crop ayarlarını sıfırlayabilir veya koruyabiliriz
-          // Şimdilik koruyalım ki tekrar crop yapılabilsin
-        };
-
-        set(prevState => ({
-          settings: newSettings,
-          hasUnsavedChanges: true,
-        }));
-        
-        // History'ye ekle
-        state.addSnapshotToHistory();
-        
-        // Başarı mesajı
-        const aspectRatioText = settings.cropAspectRatio === 'original' ? 'Orijinal' : settings.cropAspectRatio;
-        ToastService.show({
-          type: 'success',
-          text1: 'Crop Uygulandı',
-          text2: `${aspectRatioText} oranında kırpıldı`,
-        });
-
-        console.log('✅ Visual crop applied successfully:', visualCrop);
-      },
-
       setActivePhoto: (photo: ProductPhoto) => {
         const loadedSettings: EditorSettings = { ...defaultSettings, ...(photo.editorSettings || {}) };
         const initialEntry = { settings: loadedSettings, timestamp: Date.now() };
-        set({ 
-          activePhoto: photo, 
-          settings: loadedSettings, 
-          hasUnsavedChanges: false, 
-          history: [initialEntry], 
-          currentHistoryIndex: 0, 
-          activeFilterKey: 'original' 
+        set({
+          activePhoto: photo,
+          settings: loadedSettings,
+          hasUnsavedChanges: false,
+          history: [initialEntry],
+          currentHistoryIndex: 0,
+          activeFilterKey: 'original'
         });
       },
 
@@ -163,7 +126,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         set(state => ({
           settings: { ...state.settings, ...newSettings },
           hasUnsavedChanges: true,
-          activeFilterKey: newSettings.cropAspectRatio ? state.activeFilterKey : 'custom'
+          activeFilterKey: 'custom'
         }));
       },
 
@@ -171,84 +134,50 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         const filterPreset = ALL_FILTERS.find(f => f.key === filterKey);
         if (!filterPreset) return;
 
-        const currentState = get();
-        const currentSettings = currentState.settings;
-        const newSettings = { ...currentSettings };
+        const currentSettings = { ...get().settings };
 
-        // Eğer "original" filtresi seçildiyse, tüm ayarları sıfırla (visual crop hariç)
-        if (filterKey === 'original') {
-          const resetSettings = { ...defaultSettings };
-          // Visual crop'u koru
-          if (currentSettings.visualCrop) {
-            resetSettings.visualCrop = currentSettings.visualCrop;
-          }
-          // Background ID'yi koru
-          resetSettings.backgroundId = currentSettings.backgroundId;
-          // Photo position'ları koru
-          resetSettings.photoX = currentSettings.photoX;
-          resetSettings.photoY = currentSettings.photoY;
-          resetSettings.photoScale = currentSettings.photoScale;
-          resetSettings.photoRotation = currentSettings.photoRotation;
-          
-          set({
-            settings: resetSettings,
-            activeFilterKey: filterKey,
-            hasUnsavedChanges: true
-          });
-          currentState.addSnapshotToHistory();
-          return;
-        }
+        const featuresToReset = target === 'all'
+          ? [...ADJUST_FEATURES, ...BACKGROUND_FEATURES]
+          : target === 'product' ? ADJUST_FEATURES : BACKGROUND_FEATURES;
 
-        // Diğer filtreler için normal işlem
-        if (target === 'all') {
-             const allFeatures = Array.from(new Set([...ADJUST_FEATURES, ...BACKGROUND_FEATURES]));
-             allFeatures.forEach(feature => {
-                 (newSettings as any)[`product_${feature.key}`] = 0;
-                 (newSettings as any)[`background_${feature.key}`] = 0;
-             });
-             (newSettings as any).background_blur = 0;
-             (newSettings as any).background_vignette = 0;
-        }
+        featuresToReset.forEach(feature => {
+            if (target === 'all') {
+                (currentSettings as any)[`product_${feature.key}`] = 0;
+                (currentSettings as any)[`background_${feature.key}`] = 0;
+            } else {
+                 (currentSettings as any)[`${target}_${feature.key}`] = 0;
+            }
+        });
 
         for (const [key, value] of Object.entries(filterPreset.settings)) {
-          const settingKey = key as keyof EditorSettings;
-          if (target === 'all') {
-            (newSettings as any)[settingKey] = value;
-          } else if (target === 'product' && key.startsWith('product_')) {
-            (newSettings as any)[settingKey] = value;
-          } else if (target === 'background' && key.startsWith('background_')) {
-            (newSettings as any)[settingKey] = value;
+          if (target === 'all' || key.startsWith(target)) {
+            (currentSettings as any)[key] = value;
           }
         }
         
-        set({
-          settings: newSettings,
-          activeFilterKey: filterKey,
-          hasUnsavedChanges: true
-        });
-        
-        currentState.addSnapshotToHistory();
+        set({ settings: currentSettings, activeFilterKey: filterKey, hasUnsavedChanges: true });
+        get().addSnapshotToHistory();
       },
-
-      setActiveFilterKey: (key) => set({ activeFilterKey: key }),
 
       saveChanges: async () => {
         const { activePhoto, settings, isSaving } = get();
         if (!activePhoto || isSaving) return;
         set({ isSaving: true });
         try {
-          await api.savePhotoSettings(activePhoto.id, settings);
+          useProductStore.getState().updatePhotoSettings(activePhoto.productId, activePhoto.id, settings);
           set({ isSaving: false, hasUnsavedChanges: false });
-          ToastService.show({ type: 'success', text1: 'Kaydedildi', text2: 'Değişiklikler başarıyla kaydedildi.' });
+          ToastService.show({ type: 'success', text1: 'Kaydedildi', text2: 'Değişiklikler yerel olarak kaydedildi.' });
         } catch (error: any) {
           set({ isSaving: false });
-          ToastService.show({ type: 'error', text1: 'Hata', text2: error.message || 'Değişiklikler kaydedilemedi.' });
+          ToastService.show({ type: 'error', text1: 'Hata', text2: 'Değişiklikler kaydedilemedi.' });
         }
       },
 
       addSnapshotToHistory: () => {
         const { settings, history, currentHistoryIndex } = get();
-        if (JSON.stringify(history[currentHistoryIndex]?.settings) === JSON.stringify(settings)) return;
+        const currentSnapshot = history[currentHistoryIndex]?.settings;
+        if (currentSnapshot && JSON.stringify(currentSnapshot) === JSON.stringify(settings)) return;
+        
         const newHistory = history.slice(0, currentHistoryIndex + 1);
         newHistory.push({ settings: { ...settings }, timestamp: Date.now() });
         set({ history: newHistory, currentHistoryIndex: newHistory.length - 1 });
@@ -273,14 +202,36 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       canUndo: () => get().currentHistoryIndex > 0,
       canRedo: () => get().currentHistoryIndex < get().history.length - 1,
 
-      clearStore: () => set({ 
-        activePhoto: null, 
-        settings: { ...defaultSettings }, 
-        history: [], 
-        currentHistoryIndex: -1, 
-        hasUnsavedChanges: false, 
-        isSaving: false 
+      resetCropAndRotation: () => {
+        get().updateSettings({
+          cropAspectRatio: 'original', photoRotation: 0,
+          cropX: 0, cropY: 0, cropWidth: 1, cropHeight: 1,
+          visualCrop: undefined,
+        });
+        get().addSnapshotToHistory();
+      },
+
+      applyCrop: () => {
+        const { settings } = get();
+        const visualCrop = {
+          aspectRatio: settings.cropAspectRatio || 'original',
+          x: settings.cropX || 0, y: settings.cropY || 0,
+          width: settings.cropWidth || 1, height: settings.cropHeight || 1,
+          isApplied: true,
+        };
+        get().updateSettings({ visualCrop });
+        get().addSnapshotToHistory();
+        ToastService.show({ type: 'success', text1: 'Kırpma Uygulandı' });
+      },
+      
+      clearStore: () => set({
+        activePhoto: null, settings: { ...defaultSettings }, history: [],
+        currentHistoryIndex: -1, hasUnsavedChanges: false, isSaving: false
       }),
+
+      // Bu fonksiyonlar dışarıdan export edilmiyor ama burada tanımlı.
+      // Bunlar EditorActions'da var.
+      setActiveFilterKey: (key) => set({ activeFilterKey: key }),
     }),
     {
       name: 'enhanced-editor-storage-v2',

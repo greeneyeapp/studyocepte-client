@@ -1,5 +1,3 @@
-// kodlar/stores/useAuthStore.ts
-
 import { create } from 'zustand';
 import { api, User } from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,8 +15,7 @@ interface AuthActions {
   logout: () => Promise<void>;
   checkAuthStatus: () => Promise<void>;
   clearError: () => void;
-  updateProfile: (userData: Partial<User>) => Promise<void>;
-  handleUnauthorized: () => void; // YENİ EKLENDİ
+  handleUnauthorized: () => void;
 }
 
 const USER_STORAGE_KEY = 'user';
@@ -29,7 +26,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   isLoading: false,
   error: null,
 
-  // YENİ FONKSİYON: Sadece state ve storage'ı temizler
   handleUnauthorized: () => {
     AsyncStorage.removeItem(USER_STORAGE_KEY);
     set({ user: null, isAuthenticated: false, isLoading: false, error: 'Oturumunuz sonlandırıldı. Lütfen tekrar giriş yapın.' });
@@ -38,14 +34,12 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   login: async (email: string, password: string) => {
     set({ isLoading: true, error: null });
     try {
-      const userData = await api.login(email, password);
-      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
-      set({ user: userData, isAuthenticated: true, isLoading: false });
+      const { user, access_token } = await api.login(email, password);
+      const userDataToStore = { ...user, access_token };
+      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userDataToStore));
+      set({ user: userDataToStore, isAuthenticated: true, isLoading: false });
     } catch (error: any) {
-      set({ 
-        error: error.message || 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.',
-        isLoading: false 
-      });
+      set({ error: error.message || 'Giriş başarısız.', isLoading: false });
       throw error;
     }
   },
@@ -53,14 +47,12 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   register: async (name: string, email: string, password: string) => {
     set({ isLoading: true, error: null });
     try {
-      const userData = await api.register(name, email, password);
-      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
-      set({ user: userData, isAuthenticated: true, isLoading: false });
+      const { user, access_token } = await api.register(name, email, password);
+      const userDataToStore = { ...user, access_token };
+      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userDataToStore));
+      set({ user: userDataToStore, isAuthenticated: true, isLoading: false });
     } catch (error: any) {
-      set({ 
-        error: error.message || 'Kayıt başarısız. Lütfen bilgilerinizi kontrol edin.',
-        isLoading: false 
-      });
+      set({ error: error.message || 'Kayıt başarısız.', isLoading: false });
       throw error;
     }
   },
@@ -68,16 +60,13 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   logout: async () => {
     set({ isLoading: true });
     try {
-      await api.logout(); // Backend'de özel bir işlem yapmasa da API katmanını çağırıyoruz
-      get().handleUnauthorized(); // State temizleme işlemini çağır
-    } catch (error: any) {
-      console.error('Çıkış sırasında hata oluştu:', error);
-      // Hata durumunda bile state'i temizle
+      await api.logout();
       get().handleUnauthorized();
-      set({ 
-        error: error.message || 'Çıkış yapılamadı.',
-        isLoading: false 
-      });
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      get().handleUnauthorized(); // Hata olsa bile çıkış yap
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -87,13 +76,15 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       const userJson = await AsyncStorage.getItem(USER_STORAGE_KEY);
       if (userJson) {
         const userData = JSON.parse(userJson);
-        set({ user: userData, isAuthenticated: true, isLoading: false });
+        set({ user: userData, isAuthenticated: true });
       } else {
-        set({ user: null, isAuthenticated: false, isLoading: false });
+        set({ user: null, isAuthenticated: false });
       }
     } catch (error: any) {
-      console.error('Kimlik doğrulama durumu kontrol edilirken hata oluştu:', error);
+      console.error('Auth check failed:', error);
       get().handleUnauthorized();
+    } finally {
+        set({ isLoading: false });
     }
   },
 
@@ -101,24 +92,5 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     set({ error: null });
   },
 
-  updateProfile: async (userData: Partial<User>) => {
-    set({ isLoading: true, error: null });
-    try {
-      const updatedUser = await api.updateProfile(userData);
-      const currentUserData = get().user;
-      if (currentUserData) {
-        const mergedUserData = { ...currentUserData, ...updatedUser };
-        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(mergedUserData));
-        set({ user: mergedUserData, isLoading: false });
-      } else {
-        set({ user: updatedUser, isLoading: false });
-      }
-    } catch (error: any) {
-      set({ 
-        error: error.message || 'Profil güncelleme başarısız.',
-        isLoading: false 
-      });
-      throw error;
-    }
-  },
+  // updateProfile fonksiyonu tamamen kaldırıldı.
 }));
