@@ -254,7 +254,7 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
           <>
             {console.log('🖼️ RENDERING SLIDE PHASE')}
             
-            {/* KATMAN 1: Processed image (en altta) */}
+            {/* KATMAN 1: Processed image (en altta) - Temizlenmiş görsel */}
             <Image 
               source={{ uri: processedUri }} 
               style={styles.processedImage}
@@ -263,35 +263,34 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
               onError={(error) => console.error('❌ Processed image error:', error)}
             />
             
-            {/* KATMAN 2: Original image (ortada) - SABİT BOYUTTA */}
-            <Image 
-              source={{ uri: originalUri }} 
-              style={styles.originalImageFixed}
-              resizeMode="contain"
-            />
-            
-            {/* KATMAN 3: Beyaz overlay mask - sağdan solda kayar ve original'i örter */}
+            {/* KATMAN 2: Original image overlay - Slider ile kaybolacak */}
             <Animated.View 
               style={[
-                styles.overlayMask,
+                styles.originalImageOverlay,
                 {
-                  left: slideAnim.interpolate({
+                  width: slideAnim.interpolate({
                     inputRange: [0, 100],
                     outputRange: ['100%', '0%'],
                     extrapolate: 'clamp',
                   }),
                 }
               ]}
-            />
+            >
+              <Image 
+                source={{ uri: originalUri }} 
+                style={styles.originalImageInOverlay}
+                resizeMode="contain"
+              />
+            </Animated.View>
 
-            {/* KATMAN 4: Slider line (en üstte) */}
+            {/* KATMAN 3: Slider line (en üstte) */}
             <Animated.View 
               style={[
                 styles.sliderLine,
                 {
-                  left: slideAnim.interpolate({
+                  right: slideAnim.interpolate({
                     inputRange: [0, 100],
-                    outputRange: ['100%', '0%'],
+                    outputRange: ['0%', '100%'],
                     extrapolate: 'clamp',
                   }),
                 }
@@ -402,7 +401,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
   },
 
-  // Slide animation (sliding phase) - OVERLAY MASK ÇÖZÜMÜ
+  // Slide animation (sliding phase) - DÜZELTİLMİŞ KATMANLAR
   processedImage: {
     position: 'absolute',
     top: 0,
@@ -411,42 +410,41 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
-    zIndex: 1,
+    zIndex: 1, // En altta - temizlenmiş görsel
   },
-  // Original image - SABİT BOYUTTA (küçülmeyecek)
-  originalImageFixed: {
+  
+  // Original image overlay - Sağdan sola küçülecek
+  originalImageOverlay: {
     position: 'absolute',
     top: 0,
-    left: 0,
-    right: 0,
+    right: 0, // Sağdan başla
     bottom: 0,
-    width: '100%',
+    overflow: 'hidden',
+    zIndex: 2, // Ortada - orijinal görsel overlay
+  },
+  
+  originalImageInOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0, // Overlay içinde sağa hizala
+    bottom: 0,
+    width: '100%', // Tam genişlik
     height: '100%',
-    zIndex: 2,
   },
-  // Overlay mask - Original image'ı sağdan solda örter
-  overlayMask: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    backgroundColor: Colors.gray50, // Container ile aynı renk
-    zIndex: 3,
-  },
+  
   sliderLine: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     width: 4,
     backgroundColor: Colors.primary,
-    marginLeft: -2,
+    marginRight: -2,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 8,
     elevation: 20,
-    zIndex: 3,
+    zIndex: 3, // En üstte - slider çizgisi
   },
   
   // Progress (sliding phase)
