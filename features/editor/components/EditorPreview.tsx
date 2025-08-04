@@ -193,19 +193,6 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
             </View>
           )}
           
-          {/* Debug Overlay - Genişletildi */}
-          {__DEV__ && (
-            <View style={styles.debugOverlay}>
-              <Text style={styles.debugText}>Image URI: {imageUriToShow ? '✅' : '❌'}</Text>
-              <Text style={styles.debugText}>Background URI: {backgroundUri ? '✅' : '❌'}</Text>
-              <Text style={styles.debugText}>Preview Size: {previewSize.width}x{previewSize.height}</Text>
-              <Text style={styles.debugText}>Product Brightness: {(settings as any).product_brightness || 0}</Text>
-              <Text style={styles.debugText}>Background Vignette: {(settings as any).background_vignette || 0}</Text>
-              <Text style={styles.debugText}>Photo Scale: {settings.photoScale || 1}</Text>
-              <Text style={styles.debugText}>Photo Position: {settings.photoX || 0.5}, {settings.photoY || 0.5}</Text>
-              <Text style={styles.debugText}>Show Original: {showOriginal ? '✅' : '❌'}</Text>
-            </View>
-          )}
           
           {/* Crop Overlay */}
           {isCropping && (
