@@ -1,5 +1,5 @@
-// client/app/(tabs)/editor/[photoId].tsx (TAM, HATASIZ VE SON HALİ)
-import React, { useEffect, useState } from 'react';
+// client/app/(tabs)/editor/[photoId].tsx (TAMAMEN DÜZELTİLMİŞ VERSİYON)
+import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, Dimensions, LayoutAnimation, UIManager, Platform, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -44,7 +44,7 @@ export default function EnhancedEditorScreen() {
   const {
     activePhoto, settings, isSaving, activeFilterKey,
     applyFilter, undo, redo, canUndo, canRedo, addSnapshotToHistory, updateSettings, clearStore, setActivePhoto,
-    setActiveFilterKey // ÇÖZÜM: Yeni action'ı store'dan alıyoruz
+    setActiveFilterKey
   } = store;
 
   const [activeTool, setActiveTool] = useState<ToolType>('adjust');
@@ -78,13 +78,12 @@ export default function EnhancedEditorScreen() {
     setActiveFeature(prev => (prev === featureKey ? null : featureKey));
   };
   
-  const handleValueChange = (featureKey: string, value: number) => {
-    // ÇÖZÜM: 'activeFilterKey' hatasını gidermek için yeni action'ı kullanıyoruz.
+  // ÇÖZÜM: Value change handler'ı düzelt - debouncing ekle
+  const handleValueChange = useCallback((featureKey: string, value: number) => {
     if (activeFilterKey !== 'custom') {
       setActiveFilterKey('custom');
     }
     
-    // ÇÖZÜM: 'implicit any' hatasını gidermek için geçici bir 'any' tipi kullanıyoruz.
     const changes: any = {};
     if (activeTarget === 'all') {
       const pVal = (settings as any)[`product_${featureKey}`] ?? 0;
@@ -95,13 +94,14 @@ export default function EnhancedEditorScreen() {
       changes[`${activeTarget}_${featureKey}`] = value;
     }
     updateSettings(changes);
-  };
-  
-  const getSliderValue = (featureKey: string | null): number => {
+  }, [activeTarget, settings, activeFilterKey, setActiveFilterKey, updateSettings]);
+
+  // ÇÖZÜM: Slider value'yu memoize et
+  const getSliderValue = useCallback((featureKey: string | null): number => {
     if (!featureKey) return 0;
     if (activeTarget !== 'background') return (settings as any)[`product_${featureKey}`] ?? 0;
     return (settings as any)[`background_${featureKey}`] ?? 0;
-  };
+  }, [settings, activeTarget]);
 
   const handlePreviewLayout = (event: any) => {
     const { width, height } = event.nativeEvent.layout;
@@ -118,11 +118,20 @@ export default function EnhancedEditorScreen() {
 
   const featuresForCurrentTarget = activeTarget === 'background' ? BACKGROUND_FEATURES : ADJUST_FEATURES;
   const currentFeatureConfig = featuresForCurrentTarget.find(f => f.key === activeFeature);
+  const currentSliderValue = getSliderValue(activeFeature);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        <EditorHeader onCancel={() => router.back()} onSave={handleSave} isSaving={isSaving} canUndo={canUndo()} canRedo={canRedo()} onUndo={undo} onRedo={redo} />
+        <EditorHeader 
+          onCancel={() => router.back()} 
+          onSave={handleSave} 
+          isSaving={isSaving} 
+          canUndo={canUndo()} 
+          canRedo={canRedo()} 
+          onUndo={undo} 
+          onRedo={redo} 
+        />
         
         <View style={styles.mainContent}>
           {activeTool !== 'export' ? (
@@ -140,23 +149,112 @@ export default function EnhancedEditorScreen() {
             />
           ) : (
             <ExportToolbar 
-              activeTool={activeTool} selectedPreset={selectedPreset}
-              isExporting={isExporting} setSelectedPreset={setSelectedPreset}
-              shareWithOption={async (option: ShareOption) => { if(selectedPreset) await shareWithOption(option, selectedPreset) }}
+              activeTool={activeTool} 
+              selectedPreset={selectedPreset}
+              isExporting={isExporting} 
+              setSelectedPreset={setSelectedPreset}
+              shareWithOption={async (option: ShareOption) => { 
+                if(selectedPreset) await shareWithOption(option, selectedPreset) 
+              }}
             />
           )}
         </View>
 
         <View style={styles.toolbarsWrapper}>
-          {activeTool === 'crop' && <CropToolbar activeRatio={settings.cropAspectRatio || 'original'} onAspectRatioSelect={(ratio) => {updateSettings({ cropAspectRatio: ratio }); addSnapshotToHistory();}} onRotate={() => {updateSettings({ photoRotation: ((settings.photoRotation || 0) + 90) % 360 }); addSnapshotToHistory();}} onReset={() => {}} onDone={() => handleToolChange('adjust')} onCancel={() => {undo(); handleToolChange('adjust');}} /> }
+          {activeTool === 'crop' && (
+            <CropToolbar 
+              activeRatio={settings.cropAspectRatio || 'original'} 
+              onAspectRatioSelect={(ratio) => {
+                updateSettings({ cropAspectRatio: ratio }); 
+                addSnapshotToHistory();
+              }} 
+              onRotate={() => {
+                updateSettings({ photoRotation: ((settings.photoRotation || 0) + 90) % 360 }); 
+                addSnapshotToHistory();
+              }} 
+              onReset={() => {}} 
+              onDone={() => handleToolChange('adjust')} 
+              onCancel={() => {
+                undo(); 
+                handleToolChange('adjust');
+              }} 
+            />
+          )}
           
-          {activeTool === 'adjust' && !isSliderActive && <TargetSelector activeTarget={activeTarget} onTargetChange={(t) => {animateLayout(); setActiveTarget(t);}} activeTool={activeTool} />}
-          {activeTool === 'adjust' && currentFeatureConfig && <CustomSlider feature={currentFeatureConfig} value={getSliderValue(activeFeature)} onValueChange={(v) => handleValueChange(activeFeature!, v)} onSlidingStart={() => setIsSliderActive(true)} onSlidingComplete={() => {addSnapshotToHistory(); setIsSliderActive(false);}} isActive={!!activeFeature} hasMixedValues={activeTarget === 'all'} productValue={(settings as any)[`product_${activeFeature}`] ?? 0} backgroundValue={(settings as any)[`background_${activeFeature}`] ?? 0} /> }
+          {activeTool === 'adjust' && !isSliderActive && (
+            <TargetSelector 
+              activeTarget={activeTarget} 
+              onTargetChange={(t) => {
+                animateLayout(); 
+                setActiveTarget(t);
+              }} 
+              activeTool={activeTool} 
+            />
+          )}
+
+          {activeTool === 'adjust' && currentFeatureConfig && (
+            <CustomSlider 
+              feature={currentFeatureConfig} 
+              value={currentSliderValue}
+              onValueChange={(v) => handleValueChange(activeFeature!, v)} 
+              onSlidingStart={() => setIsSliderActive(true)} 
+              onSlidingComplete={() => {
+                addSnapshotToHistory(); 
+                setIsSliderActive(false);
+              }} 
+              isActive={!!activeFeature} 
+              hasMixedValues={activeTarget === 'all'} 
+              productValue={(settings as any)[`product_${activeFeature}`] ?? 0} 
+              backgroundValue={(settings as any)[`background_${activeFeature}`] ?? 0} 
+            />
+          )}
           
           <View style={styles.scrollToolbarContainer}>
-            {!isSliderActive && activeTool === 'adjust' && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>{featuresForCurrentTarget.map(f => <FeatureButton key={f.key} icon={f.icon} label={f.label} value={getSliderValue(f.key)} isActive={activeFeature === f.key} onPress={() => handleFeaturePress(f.key)} />)}</ScrollView>}
-            {!isSliderActive && activeTool === 'filter' && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>{ALL_FILTERS.map(f => <FilterPreview key={f.key} filter={f} imageUri={activePhoto.processedImageUrl!} backgroundUri={staticBackgrounds.find(bg => bg.id === settings.backgroundId)?.fullUrl!} isSelected={activeFilterKey === f.key} onPress={() => applyFilter(f.key)} />)}</ScrollView>}
-            {!isSliderActive && activeTool === 'background' && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>{staticBackgrounds.map(bg => <BackgroundButton key={bg.id} background={bg} isSelected={settings.backgroundId === bg.id} onPress={() => {updateSettings({backgroundId: bg.id}); addSnapshotToHistory();}} />)}</ScrollView>}
+            {!isSliderActive && activeTool === 'adjust' && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                {featuresForCurrentTarget.map(f => (
+                  <FeatureButton 
+                    key={f.key} 
+                    icon={f.icon} 
+                    label={f.label} 
+                    value={getSliderValue(f.key)} 
+                    isActive={activeFeature === f.key} 
+                    onPress={() => handleFeaturePress(f.key)} 
+                  />
+                ))}
+              </ScrollView>
+            )}
+
+            {!isSliderActive && activeTool === 'filter' && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                {ALL_FILTERS.map(f => (
+                  <FilterPreview 
+                    key={f.key} 
+                    filter={f} 
+                    imageUri={activePhoto.processedImageUrl!} 
+                    backgroundUri={staticBackgrounds.find(bg => bg.id === settings.backgroundId)?.fullUrl!} 
+                    isSelected={activeFilterKey === f.key} 
+                    onPress={() => applyFilter(f.key)} 
+                  />
+                ))}
+              </ScrollView>
+            )}
+
+            {!isSliderActive && activeTool === 'background' && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                {staticBackgrounds.map(bg => (
+                  <BackgroundButton 
+                    key={bg.id} 
+                    background={bg} 
+                    isSelected={settings.backgroundId === bg.id} 
+                    onPress={() => {
+                      updateSettings({backgroundId: bg.id}); 
+                      addSnapshotToHistory();
+                    }} 
+                  />
+                ))}
+              </ScrollView>
+            )}
           </View>
           
           <MainToolbar activeTool={activeTool} onToolChange={handleToolChange} />

@@ -1,6 +1,6 @@
-// app/(tabs)/editor/components/CustomSlider.tsx - Basitleştirilmiş Versiyon
+// features/editor/components/CustomSlider.tsx - Optimize Edilmiş Versiyon
 
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
@@ -13,7 +13,6 @@ interface CustomSliderProps {
   onSlidingStart: () => void;
   onSlidingComplete: () => void;
   isActive: boolean;
-  // Karışık durum artık sadece bilgi amaçlı
   hasMixedValues?: boolean;
   productValue?: number;
   backgroundValue?: number;
@@ -30,36 +29,59 @@ export const CustomSlider: React.FC<CustomSliderProps> = ({
   productValue = 0,
   backgroundValue = 0,
 }) => {
+  // Performans optimizasyonu: callbacks'leri memoize et
+  const handleValueChange = useCallback((newValue: number) => {
+    const roundedValue = Math.round(newValue);
+    onValueChange(roundedValue);
+  }, [onValueChange]);
+
+  const handleSlidingStart = useCallback(() => {
+    onSlidingStart();
+  }, [onSlidingStart]);
+
+  const handleSlidingComplete = useCallback(() => {
+    onSlidingComplete();
+  }, [onSlidingComplete]);
+
+  // Değer formatlamasını memoize et
+  const formattedValue = useMemo(() => {
+    return value > 0 ? `+${value}` : `${value}`;
+  }, [value]);
+
+  const mixedInfoText = useMemo(() => {
+    if (!hasMixedValues) return null;
+    return `Ürün: ${productValue > 0 ? '+' : ''}${productValue} • Arka Plan: ${backgroundValue > 0 ? '+' : ''}${backgroundValue}`;
+  }, [hasMixedValues, productValue, backgroundValue]);
+
   if (!isActive) return null;
 
-  // Artık her zaman normal slider göster
   return (
     <View style={styles.container}>
-      {/* Feature info */}
+      {/* Feature bilgileri */}
       <View style={styles.featureInfo}>
         <Text style={styles.featureLabel}>{feature.label}</Text>
         <Text style={styles.featureValue}>
-          {value > 0 ? `+${value}` : `${value}`}
+          {formattedValue}
         </Text>
         
-        {/* Karışık durumda bilgi yazısı */}
-        {hasMixedValues && (
+        {/* Karışık durum bilgisi */}
+        {mixedInfoText && (
           <Text style={styles.mixedInfo}>
-            Ürün: {productValue > 0 ? '+' : ''}{productValue} • Arka Plan: {backgroundValue > 0 ? '+' : ''}{backgroundValue}
+            {mixedInfoText}
           </Text>
         )}
       </View>
 
-      {/* Normal Slider */}
+      {/* Slider */}
       <View style={styles.sliderContainer}>
         <Slider
           style={styles.slider}
           minimumValue={feature.min}
           maximumValue={feature.max}
           value={value}
-          onValueChange={onValueChange}
-          onSlidingStart={onSlidingStart}
-          onSlidingComplete={onSlidingComplete}
+          onValueChange={handleValueChange}
+          onSlidingStart={handleSlidingStart}
+          onSlidingComplete={handleSlidingComplete}
           minimumTrackTintColor={Colors.primary}
           maximumTrackTintColor={Colors.gray200}
           thumbStyle={styles.sliderThumb}
@@ -67,7 +89,7 @@ export const CustomSlider: React.FC<CustomSliderProps> = ({
           step={feature.step}
         />
         
-        {/* Slider markers */}
+        {/* Slider işaretleri */}
         <View style={styles.sliderMarkers}>
           <Text style={styles.markerText}>{feature.min}</Text>
           <View style={styles.centerMarker} />
@@ -104,8 +126,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     textAlign: 'center',
   },
-  
-  // Normal slider stilleri
   sliderContainer: {
     position: 'relative',
   },

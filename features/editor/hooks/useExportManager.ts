@@ -1,9 +1,10 @@
-// client/features/editor/hooks/useExportManager.ts (TAM VE HATASIZ KOD)
+// client/features/editor/hooks/useExportManager.ts (DÜZELTİLMİŞ VERSİYON)
 import { useState, createRef } from 'react';
-import { Skia, type SkiaView } from '@shopify/react-native-skia'; // ÇÖZÜM: SkiaView'ı 'type' olarak import et.
+import { type SkiaView } from '@shopify/react-native-skia';
 import { ExportService } from '@/services/exportService';
 import { ExportPreset, ShareOption } from '../config/exportTools';
-import { ToastService } from '@/components/Toast/ToastService'; // ÇÖZÜM: Eksik import eklendi.
+import { ToastService } from '@/components/Toast/ToastService';
+import { LoadingService } from '@/components/Loading/LoadingService'; // EKSIK IMPORT EKLENDİ
 import { useEnhancedEditorStore } from '@/stores/useEnhancedEditorStore';
 
 export const useExportManager = () => {
