@@ -1,6 +1,6 @@
-// components/BackgroundRemovalAnimation.tsx - ÜRÜN ARKA PLAN TEMİZLEME ANİMASYONU
-import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Image, Animated, Text } from 'react-native';
+// components/BackgroundRemovalAnimation.tsx - TAMİRLİ VERSİYON
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { View, StyleSheet, Image, Animated, Text, Dimensions } from 'react-native';
 import { Colors, BorderRadius, Typography, Spacing } from '@/constants';
 import { Feather } from '@expo/vector-icons';
 
@@ -13,17 +13,20 @@ interface BackgroundRemovalAnimationProps {
   showLabel?: boolean;
 }
 
-// Rastgele görünecek iconlar - SADECE GEÇERLİ FEATHER İKONLARI
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 const FLOATING_ICONS = [
   'zap', 'star', 'heart', 'award', 'target', 'check-circle', 
   'shield', 'trending-up', 'sun', 'moon', 'gift', 'aperture'
 ];
 
-const FloatingIcon: React.FC<{ icon: string; delay: number; index: number }> = ({ icon, delay, index }) => {
+const FloatingIcon: React.FC<{ icon: string; delay: number; index: number; isActive: boolean }> = ({ 
+  icon, delay, index, isActive 
+}) => {
   const animValue = useRef(new Animated.Value(0)).current;
   const opacityValue = useRef(new Animated.Value(0)).current;
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Rastgele pozisyon hesapla
   const getRandomPosition = () => {
     const positions = [
       { top: '15%', left: '10%' },
@@ -38,40 +41,66 @@ const FloatingIcon: React.FC<{ icon: string; delay: number; index: number }> = (
 
   const position = getRandomPosition();
 
-  useEffect(() => {
-    const animateIcon = () => {
-      animValue.setValue(0);
-      opacityValue.setValue(0);
+  const animateIcon = useCallback(() => {
+    if (!isActive) return;
+    
+    animValue.setValue(0);
+    opacityValue.setValue(0);
 
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(opacityValue, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(animValue, {
-            toValue: 1,
-            duration: 2200,
-            useNativeDriver: true,
-          })
-        ]).start(() => {
-          Animated.timing(opacityValue, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }).start(() => {
-            // 1 saniye bekle ve tekrar başla
-            setTimeout(() => {
+    const timeout = setTimeout(() => {
+      if (!isActive) return;
+      
+      Animated.parallel([
+        Animated.timing(opacityValue, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animValue, {
+          toValue: 1,
+          duration: 2200,
+          useNativeDriver: true,
+        })
+      ]).start(() => {
+        if (!isActive) return;
+        
+        Animated.timing(opacityValue, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }).start(() => {
+          if (isActive) {
+            intervalRef.current = setTimeout(() => {
               animateIcon();
             }, 1000);
-          });
+          }
         });
-      }, delay);
-    };
+      });
+    }, delay);
 
-    animateIcon();
-  }, []);
+    return () => clearTimeout(timeout);
+  }, [isActive, animValue, opacityValue, delay]);
+
+  useEffect(() => {
+    if (isActive) {
+      animateIcon();
+    } else {
+      // Cleanup when not active
+      if (intervalRef.current) {
+        clearTimeout(intervalRef.current);
+        intervalRef.current = null;
+      }
+      opacityValue.setValue(0);
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearTimeout(intervalRef.current);
+      }
+    };
+  }, [isActive, animateIcon]);
+
+  if (!isActive) return null;
 
   const translateY = animValue.interpolate({
     inputRange: [0, 1],
@@ -117,121 +146,132 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
   showLabel = true
 }) => {
   const slideAnim = useRef(new Animated.Value(0)).current;
-  const [showRevealAnimation, setShowRevealAnimation] = useState(false);
+  const [animationPhase, setAnimationPhase] = useState<'waiting' | 'sliding' | 'completed'>('waiting');
+  
+  // Modal boyutları
+  const modalWidth = Math.min(SCREEN_WIDTH * 0.95, 500);
+  const modalHeight = Math.min(SCREEN_HEIGHT * 0.7, 600);
+  const imageContainerHeight = modalHeight - 120;
 
-  // Processed URI geldiğinde reveal animasyonunu başlat
+  console.log('🎨 Animation Render:', {
+    originalUri: originalUri ? 'PRESENT' : 'MISSING',
+    processedUri: processedUri ? 'PRESENT' : 'MISSING', 
+    processedPath: processedUri?.split('/').pop() || 'NONE',
+    animationPhase,
+    isAnimating
+  });
+
+  // İşlem tamamlandığında slide animasyonunu başlat
   useEffect(() => {
-    console.log('🎭 Animation effect triggered:', {
+    console.log('🎭 Effect Check:', {
       hasProcessedUri: !!processedUri,
-      processedUri: processedUri ? processedUri.split('/').pop() : 'NONE',
-      isAnimating,
-      showRevealAnimation,
+      processedFile: processedUri?.split('/').pop() || 'NONE',
+      currentPhase: animationPhase,
+      isAnimating
     });
-    
-    if (processedUri && isAnimating && !showRevealAnimation) {
-      console.log('🎬 Starting reveal animation with processed URI:', processedUri);
+
+    // Sadece processed URI geldiğinde ve henüz sliding'e geçmediysek
+    if (processedUri && isAnimating && animationPhase === 'waiting') {
+      console.log('🎬 STARTING SLIDE ANIMATION');
+      console.log('📂 Original URI:', originalUri);
+      console.log('📂 Processed URI:', processedUri);
       
-      // Reveal state'ini hemen set et
-      setShowRevealAnimation(true);
+      setAnimationPhase('sliding');
       
-      // Animasyonu biraz geciktir ki render tamamlansın
+      // Kısa bir gecikme sonra slide animasyonunu başlat
       setTimeout(() => {
         Animated.timing(slideAnim, {
           toValue: 100,
           duration: 3000,
           useNativeDriver: false,
-        }).start(() => {
-          console.log('✅ Reveal animation completed');
-          onAnimationComplete();
+        }).start((finished) => {
+          if (finished) {
+            console.log('✅ SLIDE ANIMATION COMPLETED');
+            setAnimationPhase('completed');
+            setTimeout(() => {
+              onAnimationComplete();
+            }, 1000);
+          }
         });
-      }, 200); // 200ms delay
+      }, 300);
     }
-  }, [processedUri, isAnimating, showRevealAnimation]);
+  }, [processedUri, isAnimating, animationPhase, originalUri, onAnimationComplete, slideAnim]);
 
-  // Reset animasyonu
+  // Reset when animation stops
   useEffect(() => {
     if (!isAnimating) {
+      console.log('🔄 RESETTING ANIMATION STATE');
       slideAnim.setValue(0);
-      setShowRevealAnimation(false);
+      setAnimationPhase('waiting');
     }
-  }, [isAnimating]);
+  }, [isAnimating, slideAnim]);
 
-  // Slider animasyonu - soldan sağa
   const sliderPosition = slideAnim.interpolate({
     inputRange: [0, 100],
     outputRange: ['0%', '100%'],
     extrapolate: 'clamp',
   });
 
-  console.log('🎨 Component props:', {
-    hasOriginalUri: !!originalUri,
-    hasProcessedUri: !!processedUri,
-    processedUriPath: processedUri?.split('/').pop() || 'NONE',
-    showRevealAnimation,
-    currentSliderValue: slideAnim._value
-  });
-
-  console.log('🎨 Current render state:', {
-    hasProcessedUri: !!processedUri,
-    showRevealAnimation,
-    currentSliderValue: slideAnim._value
-  });
-
   return (
-    <View style={[styles.container, containerStyle]}>
+    <View style={[styles.container, containerStyle, { width: modalWidth, height: modalHeight }]}>
       {showLabel && (
         <View style={styles.labelContainer}>
-          <Feather name="zap" size={16} color={Colors.primary} />
+          <Feather name="zap" size={20} color={Colors.primary} />
           <Text style={styles.label}>
-            {!showRevealAnimation ? 'Arka Plan Temizleniyor...' : 'İşlem Tamamlandı!'}
+            {animationPhase === 'waiting' ? 'Arka Plan Temizleniyor...' : 
+             animationPhase === 'sliding' ? 'İşlem Tamamlandı!' :
+             'Hazır!'}
           </Text>
         </View>
       )}
       
-      <View style={styles.imageContainer}>
-        {/* Orijinal fotoğraf her zaman görünür - ARKADA */}
-        <Image 
-          source={{ uri: originalUri }} 
-          style={styles.originalImage}
-          resizeMode="contain"
-        />
-
-        {/* Floating icons - sadece bekleme sırasında */}
-        {isAnimating && !showRevealAnimation && (
-          <View style={styles.floatingIconsContainer}>
-            {FLOATING_ICONS.slice(0, 6).map((icon, index) => (
-              <FloatingIcon
-                key={`${icon}-${index}`}
-                icon={icon}
-                index={index}
-                delay={index * 500}
-              />
-            ))}
-          </View>
+      <View style={[styles.imageContainer, { height: imageContainerHeight }]}>
+        
+        {/* Phase 1: WAITING - Orijinal görsel + floating iconlar */}
+        {animationPhase === 'waiting' && (
+          <>
+            <Image 
+              source={{ uri: originalUri }} 
+              style={styles.baseImage}
+              resizeMode="contain"
+            />
+            <View style={styles.floatingIconsContainer}>
+              {FLOATING_ICONS.slice(0, 6).map((icon, index) => (
+                <FloatingIcon
+                  key={`${icon}-${index}`}
+                  icon={icon}
+                  index={index}
+                  delay={index * 300}
+                  isActive={animationPhase === 'waiting' && isAnimating}
+                />
+              ))}
+            </View>
+            <View style={styles.loadingOverlay} />
+          </>
         )}
 
-        {/* Reveal aşaması - TAMAMEN YENİ YAPIŞ */}
-        {processedUri && showRevealAnimation && (
+        {/* Phase 2: SLIDING - Processed görsel slide ile açılıyor */}
+        {(animationPhase === 'sliding' || animationPhase === 'completed') && processedUri && (
           <>
-            {console.log('🖼️ Rendering processed image section')}
+            {console.log('🖼️ RENDERING SLIDE PHASE')}
             
-            {/* Processed image - TAM BOYUTTA ARKADA */}
+            {/* Processed image (arka plan) */}
             <Image 
               source={{ uri: processedUri }} 
-              style={styles.processedImageFull}
+              style={styles.processedImage}
               resizeMode="contain"
-              onLoad={() => console.log('✅ Processed image loaded successfully')}
-              onError={(error) => console.error('❌ Processed image load error:', error)}
+              onLoad={() => console.log('✅ Processed image loaded for slide')}
+              onError={(error) => console.error('❌ Processed image error:', error)}
             />
             
-            {/* Orijinal image mask - SOL TARAFTAN KÜÇÜLÜR */}
+            {/* Original image mask (sliding overlay) */}
             <Animated.View 
               style={[
                 styles.originalMask,
                 { 
                   width: slideAnim.interpolate({
                     inputRange: [0, 100],
-                    outputRange: ['100%', '0%'], // Tam'dan 0'a küçülür
+                    outputRange: ['100%', '0%'],
                     extrapolate: 'clamp',
                   }),
                 }
@@ -244,14 +284,14 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
               />
             </Animated.View>
 
-            {/* Slider çizgisi */}
+            {/* Slider line */}
             <Animated.View 
               style={[
                 styles.sliderLine,
                 {
                   left: slideAnim.interpolate({
                     inputRange: [0, 100],
-                    outputRange: ['100%', '0%'], // Sağdan sola hareket
+                    outputRange: ['100%', '0%'],
                     extrapolate: 'clamp',
                   }),
                 }
@@ -259,24 +299,17 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
             />
           </>
         )}
-
-        {/* Hafif overlay - sadece bekleme sırasında */}
-        {isAnimating && !showRevealAnimation && (
-          <View style={styles.loadingOverlay} />
-        )}
       </View>
 
-      {/* İlerleme çubuğu - sadece reveal sırasında */}
-      {showRevealAnimation && (
+      {/* Progress bar - sliding sırasında */}
+      {animationPhase === 'sliding' && (
         <View style={styles.progressContainer}>
           <Text style={styles.progressLabel}>Arka Plan Temizleniyor...</Text>
           <View style={styles.progressBarContainer}>
             <Animated.View 
               style={[
                 styles.progressBar,
-                {
-                  width: sliderPosition,
-                }
+                { width: sliderPosition }
               ]}
             />
           </View>
@@ -289,35 +322,42 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 25,
+    elevation: 15,
   },
   labelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     backgroundColor: Colors.primary + '15',
     borderRadius: BorderRadius.full,
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
   label: {
-    ...Typography.captionMedium,
+    ...Typography.bodyMedium,
     color: Colors.primary,
     fontWeight: '600',
   },
   imageContainer: {
     position: 'relative',
-    width: 350,
-    height: 280,
+    width: '100%',
     borderRadius: BorderRadius.xl,
     overflow: 'hidden',
-    backgroundColor: Colors.gray100,
+    backgroundColor: Colors.gray50,
     borderWidth: 2,
     borderColor: Colors.border,
   },
   
-  // Original Image (Background)
-  originalImage: {
+  // Base image (waiting phase)
+  baseImage: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -327,7 +367,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   
-  // Floating Icons
+  // Floating Icons (waiting phase)
   floatingIconsContainer: {
     position: 'absolute',
     top: 0,
@@ -337,33 +377,33 @@ const styles = StyleSheet.create({
   },
   floatingIcon: {
     position: 'absolute',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.card + 'F0',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.card + 'F5',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: Colors.primary + '30',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+    borderWidth: 1.5,
+    borderColor: Colors.primary + '40',
   },
   
-  // Loading
+  // Loading overlay (waiting phase)
   loadingOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
   },
 
-  // Slider Animation - YENİ YAPIŞ
-  processedImageFull: {
+  // Slide animation (sliding phase)
+  processedImage: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -371,8 +411,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
-    backgroundColor: 'transparent',
-    zIndex: 1, // Orijinalin üstünde
+    zIndex: 1,
   },
   originalMask: {
     position: 'absolute',
@@ -380,12 +419,11 @@ const styles = StyleSheet.create({
     left: 0,
     bottom: 0,
     overflow: 'hidden',
-    zIndex: 2, // En üstte
+    zIndex: 2,
   },
   originalImageInMask: {
-    width: 350, // Sabit boyut
-    height: 280, // Sabit boyut
-    backgroundColor: 'transparent',
+    width: '100%',
+    height: '100%',
   },
   sliderLine: {
     position: 'absolute',
@@ -396,32 +434,34 @@ const styles = StyleSheet.create({
     marginLeft: -2,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    elevation: 10,
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 20,
+    zIndex: 3,
   },
   
-  // Progress
+  // Progress (sliding phase)
   progressContainer: {
     width: '100%',
-    marginTop: Spacing.md,
+    marginTop: Spacing.lg,
     alignItems: 'center',
   },
   progressLabel: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xs,
+    ...Typography.bodyMedium,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
+    fontWeight: '500',
   },
   progressBarContainer: {
     width: '100%',
-    height: 6,
+    height: 8,
     backgroundColor: Colors.gray200,
-    borderRadius: 3,
+    borderRadius: 4,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
     backgroundColor: Colors.primary,
-    borderRadius: 3,
+    borderRadius: 4,
   },
 });

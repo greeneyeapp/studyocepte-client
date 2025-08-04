@@ -34,40 +34,40 @@ interface AnimatingPhoto {
   processedUri?: string;
 }
 
-const AnimatedCard = ({ photo, isSelected, showRemoveBgIcon, onPress, onLongPress }: { 
-    photo: ProductPhoto; 
-    isSelected: boolean; 
-    showRemoveBgIcon: boolean;
-    onPress: () => void; 
-    onLongPress: () => void; 
+const AnimatedCard = ({ photo, isSelected, showRemoveBgIcon, onPress, onLongPress }: {
+  photo: ProductPhoto;
+  isSelected: boolean;
+  showRemoveBgIcon: boolean;
+  onPress: () => void;
+  onLongPress: () => void;
 }) => {
-    const scale = new Animated.Value(1);
-    const handlePressIn = () => Animated.spring(scale, { toValue: 0.95, useNativeDriver: true }).start();
-    const handlePressOut = () => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
+  const scale = new Animated.Value(1);
+  const handlePressIn = () => Animated.spring(scale, { toValue: 0.95, useNativeDriver: true }).start();
+  const handlePressOut = () => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
 
-    return (
-        <Animated.View style={{ transform: [{ scale }] }}>
-            <TouchableOpacity 
-              onPress={onPress} 
-              onLongPress={onLongPress} 
-              activeOpacity={0.9}
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-            >
-                <Card padding="none" style={isSelected ? styles.selectedCard : undefined}>
-                    <Image 
-                        key={photo.modifiedAt}
-                        source={{ uri: `${photo.thumbnailUri}?v=${photo.modifiedAt}` }} 
-                        style={styles.photoImage}
-                        resizeMode="contain" // COVER'DAN CONTAIN'E DEĞİŞTİRİLDİ
-                    />
-                    {photo.status === 'processing' && <View style={styles.statusOverlay}><ActivityIndicator color={Colors.card} /></View>}
-                    {showRemoveBgIcon && <View style={styles.removeBgButton}><Feather name="zap" size={14} color={Colors.card} /></View>}
-                    {isSelected && <View style={[styles.selectionOverlay, styles.selectionOverlayActive]}><Feather name="check-circle" size={24} color={Colors.card} /></View>}
-                </Card>
-            </TouchableOpacity>
-        </Animated.View>
-    );
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        onPress={onPress}
+        onLongPress={onLongPress}
+        activeOpacity={0.9}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <Card padding="none" style={isSelected ? styles.selectedCard : undefined}>
+          <Image
+            key={photo.modifiedAt}
+            source={{ uri: `${photo.thumbnailUri}?v=${photo.modifiedAt}` }}
+            style={styles.photoImage}
+            resizeMode="contain" // COVER'DAN CONTAIN'E DEĞİŞTİRİLDİ
+          />
+          {photo.status === 'processing' && <View style={styles.statusOverlay}><ActivityIndicator color={Colors.card} /></View>}
+          {showRemoveBgIcon && <View style={styles.removeBgButton}><Feather name="zap" size={14} color={Colors.card} /></View>}
+          {isSelected && <View style={[styles.selectionOverlay, styles.selectionOverlayActive]}><Feather name="check-circle" size={24} color={Colors.card} /></View>}
+        </Card>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 };
 
 export default function ProductDetailScreen() {
@@ -83,7 +83,7 @@ export default function ProductDetailScreen() {
 
   const [isSelectionMode, setSelectionMode] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
-  
+
   // YENİ: Animasyon durumları (basitleştirildi)
   const [showAnimationModal, setShowAnimationModal] = useState(false);
   const [currentAnimatingPhoto, setCurrentAnimatingPhoto] = useState<AnimatingPhoto | null>(null);
@@ -98,7 +98,7 @@ export default function ProductDetailScreen() {
 
   const handleAddPhoto = async () => {
     console.log('🔘 Add photo button pressed');
-    
+
     if (!productId) {
       console.error('❌ Product ID missing');
       return;
@@ -108,12 +108,12 @@ export default function ProductDetailScreen() {
       console.log('📱 Requesting media library permissions...');
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       console.log('✅ Permission status:', status);
-      
+
       if (status !== 'granted') {
-        ToastService.show({ 
-          type: 'error', 
-          text1: 'İzin Gerekli', 
-          text2: 'Galeri erişimi için izin verin' 
+        ToastService.show({
+          type: 'error',
+          text1: 'İzin Gerekli',
+          text2: 'Galeri erişimi için izin verin'
         });
         return;
       }
@@ -124,7 +124,7 @@ export default function ProductDetailScreen() {
         quality: 1,
         allowsMultipleSelection: true,
       });
-      
+
       console.log('📋 Image picker result:', {
         canceled: result.canceled,
         assetsCount: result.assets?.length || 0
@@ -133,21 +133,21 @@ export default function ProductDetailScreen() {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const uris = result.assets.map(asset => asset.uri);
         console.log('📸 Selected image URIs:', uris);
-        
+
         console.log('💾 Adding photos to product...');
         const success = await addMultiplePhotos(productId, uris);
-        
+
         if (success) {
-          ToastService.show({ 
-            type: 'success', 
-            text1: `${uris.length} Fotoğraf Eklendi!` 
+          ToastService.show({
+            type: 'success',
+            text1: `${uris.length} Fotoğraf Eklendi!`
           });
           console.log('✅ Photos added successfully');
         } else {
-          ToastService.show({ 
-            type: 'error', 
-            text1: 'Hata', 
-            text2: storeError || 'Fotoğraflar eklenemedi.' 
+          ToastService.show({
+            type: 'error',
+            text1: 'Hata',
+            text2: storeError || 'Fotoğraflar eklenemedi.'
           });
           console.error('❌ Failed to add photos:', storeError);
         }
@@ -156,10 +156,10 @@ export default function ProductDetailScreen() {
       }
     } catch (error) {
       console.error('❌ Add photo error:', error);
-      ToastService.show({ 
-        type: 'error', 
-        text1: 'Hata', 
-        text2: 'Fotoğraf eklenirken bir hata oluştu' 
+      ToastService.show({
+        type: 'error',
+        text1: 'Hata',
+        text2: 'Fotoğraf eklenirken bir hata oluştu'
       });
     }
   };
@@ -167,14 +167,14 @@ export default function ProductDetailScreen() {
   const toggleSelectionMode = (photoId?: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectionMode(prev => {
-        const newMode = !prev;
-        if (newMode && photoId) {
-            setSelectedPhotos(new Set([photoId]));
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        } else {
-            setSelectedPhotos(new Set());
-        }
-        return newMode;
+      const newMode = !prev;
+      if (newMode && photoId) {
+        setSelectedPhotos(new Set([photoId]));
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } else {
+        setSelectedPhotos(new Set());
+      }
+      return newMode;
     });
   };
 
@@ -191,14 +191,14 @@ export default function ProductDetailScreen() {
           params: { photoId: photo.id, productId: photo.productId },
         });
       } else if (photo.status === 'raw') {
-         DialogService.show({
-            title: 'Arka Planı Temizle',
-            message: 'Bu fotoğrafı düzenlemeden önce arka planını temizlemek ister misiniz?',
-            buttons: [
-                { text: 'İptal', style: 'cancel' },
-                { text: 'Evet, Temizle', onPress: () => handleSingleRemoveBackground(photo) }
-            ]
-         });
+        DialogService.show({
+          title: 'Arka Planı Temizle',
+          message: 'Bu fotoğrafı düzenlemeden önce arka planını temizlemek ister misiniz?',
+          buttons: [
+            { text: 'İptal', style: 'cancel' },
+            { text: 'Evet, Temizle', onPress: () => handleSingleRemoveBackground(photo) }
+          ]
+        });
       } else {
         ToastService.show({ type: 'info', text1: 'Lütfen Bekleyin', text2: 'Fotoğraf şu anda işleniyor.' });
       }
@@ -206,69 +206,61 @@ export default function ProductDetailScreen() {
   };
 
   const handleSingleRemoveBackground = async (photo: ProductPhoto) => {
-      console.log('🚀 Starting background removal for photo:', photo.id);
-      
-      // YENİ: Tek fotoğraf için animasyon başlat
-      const animatingPhoto: AnimatingPhoto = {
-        id: photo.id,
-        originalUri: photo.originalUri,
-      };
-      
-      setCurrentAnimatingPhoto(animatingPhoto);
-      setShowAnimationModal(true);
-      
-      // Arka plan temizleme işlemini başlat
-      const success = await removeMultipleBackgrounds(photo.productId, [photo.id]);
-      
-      if (success) {
-          console.log('✅ Background removal successful, finding processed photo...');
-          
-          // İşlem başarılı - işlenmiş fotoğrafı bul ve animasyona ekle
-          const updatedProduct = useProductStore.getState().products.find(p => p.id === photo.productId);
-          const updatedPhoto = updatedProduct?.photos.find(p => p.id === photo.id);
-          
-          console.log('🔍 Updated photo data:', {
-            found: !!updatedPhoto,
-            hasProcessedUri: !!updatedPhoto?.processedUri,
-            processedUri: updatedPhoto?.processedUri,
-            status: updatedPhoto?.status
-          });
-          
-          if (updatedPhoto && updatedPhoto.processedUri) {
-            console.log('🎬 Setting processed URI for animation:', updatedPhoto.processedUri);
-            
-            // TAMAMEN YENİ OBJE OLUŞTUR - React'i zorla re-render et
-            const newAnimatingPhoto: AnimatingPhoto = {
-              id: photo.id,
-              originalUri: photo.originalUri,
+    console.log('🚀 Starting background removal for photo:', photo.id);
+
+    // YENİ: Tek fotoğraf için animasyon başlat - sadece original URI ile
+    const animatingPhoto: AnimatingPhoto = {
+      id: photo.id,
+      originalUri: photo.originalUri,
+      // processedUri: undefined - Başlangıçta yok
+    };
+
+    setCurrentAnimatingPhoto(animatingPhoto);
+    setShowAnimationModal(true);
+
+    // Arka plan temizleme işlemini başlat
+    const success = await removeMultipleBackgrounds(photo.productId, [photo.id]);
+
+    if (success) {
+      console.log('✅ Background removal successful, finding processed photo...');
+
+      // İşlem başarılı - işlenmiş fotoğrafı bul
+      const updatedProduct = useProductStore.getState().products.find(p => p.id === photo.productId);
+      const updatedPhoto = updatedProduct?.photos.find(p => p.id === photo.id);
+
+      console.log('🔍 Updated photo data:', {
+        found: !!updatedPhoto,
+        hasProcessedUri: !!updatedPhoto?.processedUri,
+        processedUri: updatedPhoto?.processedUri,
+        status: updatedPhoto?.status
+      });
+
+      if (updatedPhoto && updatedPhoto.processedUri) {
+        console.log('🎬 Setting processed URI for animation:', updatedPhoto.processedUri);
+
+        // GÜNCELLENME: Mevcut animating photo objesini güncelle
+        setCurrentAnimatingPhoto(prevPhoto => {
+          if (prevPhoto && prevPhoto.id === photo.id) {
+            return {
+              ...prevPhoto,
               processedUri: updatedPhoto.processedUri
             };
-            
-            console.log('📝 Creating new animating photo object:', {
-              hasOriginal: !!newAnimatingPhoto.originalUri,
-              hasProcessed: !!newAnimatingPhoto.processedUri,
-              processedPath: newAnimatingPhoto.processedUri?.split('/').pop()
-            });
-            
-            setCurrentAnimatingPhoto(newAnimatingPhoto);
-            
-            // 5 saniye sonra animasyonu kapat
-            setTimeout(() => {
-              console.log('🔚 Closing animation modal');
-              setShowAnimationModal(false);
-              setCurrentAnimatingPhoto(null);
-            }, 5000);
-          } else {
-            console.error('❌ No processed URI found in updated photo');
-            setShowAnimationModal(false);
-            setCurrentAnimatingPhoto(null);
           }
+          return prevPhoto;
+        });
+
+        // NOT: onAnimationComplete modal'ı kapatacak, burada manuel kapatmaya gerek yok
       } else {
-          console.error('❌ Background removal failed');
-          setShowAnimationModal(false);
-          setCurrentAnimatingPhoto(null);
-          ToastService.show({type: 'error', text1: 'Hata', text2: storeError || 'Arka plan temizlenemedi.'});
+        console.error('❌ No processed URI found in updated photo');
+        setShowAnimationModal(false);
+        setCurrentAnimatingPhoto(null);
       }
+    } else {
+      console.error('❌ Background removal failed');
+      setShowAnimationModal(false);
+      setCurrentAnimatingPhoto(null);
+      ToastService.show({ type: 'error', text1: 'Hata', text2: storeError || 'Arka plan temizlenemedi.' });
+    }
   };
 
   const handleBatchDelete = () => {
@@ -278,7 +270,8 @@ export default function ProductDetailScreen() {
       message: `${selectedPhotos.size} fotoğraf kalıcı olarak silinecek. Emin misiniz?`,
       buttons: [
         { text: 'İptal', style: 'cancel' },
-        { text: 'Sil', style: 'destructive',
+        {
+          text: 'Sil', style: 'destructive',
           onPress: async () => {
             await Promise.all(Array.from(selectedPhotos).map(photoId => deletePhoto(productId!, photoId)));
             ToastService.show({ type: 'success', text1: 'Başarılı', text2: `${selectedPhotos.size} fotoğraf silindi.` });
@@ -293,7 +286,7 @@ export default function ProductDetailScreen() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
     const selectedIds = Array.from(selectedPhotos);
     if (!productId || selectedIds.length === 0) return;
-    
+
     // YENİ: Toplu animasyonu başlat
     // Burada hızlı gösterim için sadece toast gösterelim, 
     // gerçek uygulamada her fotoğraf için ayrı animasyon da yapılabilir
@@ -313,15 +306,15 @@ export default function ProductDetailScreen() {
   if (!activeProduct) {
     return (
       <SafeAreaView style={styles.container}>
-         <Stack.Screen options={{ title: 'Yükleniyor...' }} />
-         <View style={styles.header}><ActivityIndicator/></View>
-         <View style={styles.listContainer}>
-            {Array.from({ length: 9 }).map((_, index) => (
-                <View key={index} style={styles.photoWrapper}>
-                    <View style={styles.skeletonItem} />
-                </View>
-            ))}
-         </View>
+        <Stack.Screen options={{ title: 'Yükleniyor...' }} />
+        <View style={styles.header}><ActivityIndicator /></View>
+        <View style={styles.listContainer}>
+          {Array.from({ length: 9 }).map((_, index) => (
+            <View key={index} style={styles.photoWrapper}>
+              <View style={styles.skeletonItem} />
+            </View>
+          ))}
+        </View>
       </SafeAreaView>
     );
   }
@@ -337,14 +330,14 @@ export default function ProductDetailScreen() {
           <Text style={styles.productName} numberOfLines={1}>{activeProduct.name}</Text>
           <Text style={styles.photoCount}>{activeProduct.photos.length} {t('products.photos')}</Text>
         </View>
-        <Button 
-          title="Ekle" 
+        <Button
+          title="Ekle"
           onPress={() => {
             console.log('🔘 Button touched!');
             handleAddPhoto();
-          }} 
-          size="small" 
-          variant="outline" 
+          }}
+          size="small"
+          variant="outline"
           icon={<Feather name="plus" size={14} color={Colors.primary} />}
           disabled={isProcessing}
           loading={isProcessing}
@@ -357,15 +350,15 @@ export default function ProductDetailScreen() {
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
         renderItem={({ item }) => (
-            <View style={styles.photoWrapper}>
-                 <AnimatedCard
-                    photo={item}
-                    isSelected={selectedPhotos.has(item.id)}
-                    showRemoveBgIcon={item.status === 'raw' && !isSelectionMode}
-                    onPress={() => handlePhotoPress(item)}
-                    onLongPress={() => toggleSelectionMode(item.id)}
-                />
-            </View>
+          <View style={styles.photoWrapper}>
+            <AnimatedCard
+              photo={item}
+              isSelected={selectedPhotos.has(item.id)}
+              showRemoveBgIcon={item.status === 'raw' && !isSelectionMode}
+              onPress={() => handlePhotoPress(item)}
+              onLongPress={() => toggleSelectionMode(item.id)}
+            />
+          </View>
         )}
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={<ErrorMessage message="Bu ürüne ait hiç fotoğraf yok." />}
@@ -396,12 +389,12 @@ export default function ProductDetailScreen() {
         </View>
       )}
 
-      {/* YENİ: Animasyon Modal */}
       <Modal
         visible={showAnimationModal}
         transparent
         animationType="fade"
         onRequestClose={() => {
+          console.log('📱 Modal close requested');
           setShowAnimationModal(false);
           setCurrentAnimatingPhoto(null);
         }}
@@ -410,12 +403,12 @@ export default function ProductDetailScreen() {
           <View style={styles.animationModalContent}>
             {currentAnimatingPhoto && (
               <BackgroundRemovalAnimation
-                key={`${currentAnimatingPhoto.id}-${currentAnimatingPhoto.processedUri || 'no-processed'}-${Date.now()}`} // Unique key with timestamp
+                key={`animation-${currentAnimatingPhoto.id}-${Date.now()}`} // Unique key with timestamp
                 originalUri={currentAnimatingPhoto.originalUri}
                 processedUri={currentAnimatingPhoto.processedUri}
                 isAnimating={true}
                 onAnimationComplete={() => {
-                  // Animasyon tamamlandığında modal'ı kapat
+                  console.log('🎉 Animation completed, closing modal...');
                   setTimeout(() => {
                     setShowAnimationModal(false);
                     setCurrentAnimatingPhoto(null);
@@ -451,29 +444,24 @@ const styles = StyleSheet.create({
   statusOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', borderRadius: BorderRadius.lg },
   removeBgButton: { position: 'absolute', bottom: Spacing.sm, right: Spacing.sm, backgroundColor: 'rgba(0, 0, 0, 0.6)', width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' },
   skeletonItem: { width: '100%', aspectRatio: 1, backgroundColor: Colors.gray200, borderRadius: BorderRadius.lg },
-  
+
   // YENİ: Animasyon modal stilleri
   animationModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)', // Daha koyu
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xl,
+  },
+  animationModalContent: {
+    backgroundColor: 'transparent', // Animation component'ı kendi stilini kullanır
+    width: '100%',
+    alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  animationModalContent: {
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.md,
-    margin: Spacing.xs,
-    maxWidth: '98%', // Neredeyse tam ekran
-    minWidth: 360,
-    alignSelf: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-  },
   animationContainer: {
-    alignItems: 'center',
+    
   },
 });
