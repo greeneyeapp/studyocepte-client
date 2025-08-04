@@ -1,89 +1,238 @@
-// client/features/editor/components/CropOverlay.tsx (TAM VE GÜNCELLENMİŞ KOD)
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+// features/editor/components/CropOverlay.tsx - TAM VE EKSİKSİZ VERSİYON
+
+import React, { useMemo } from 'react';
+import { View, StyleSheet, Text } from 'react-native';
+import { Colors, Typography } from '@/constants';
 
 interface CropOverlayProps {
   previewSize: { width: number; height: number };
   aspectRatioString: string;
+  photoScale?: number;
+  photoX?: number;
+  photoY?: number;
 }
 
-const MASK_COLOR = 'rgba(0, 0, 0, 0.6)';
-const HANDLE_COLOR = 'rgba(255, 255, 255, 0.9)';
-const HANDLE_SIZE = 24;
-const HANDLE_THICKNESS = 4;
+const MASK_COLOR = 'rgba(0, 0, 0, 0.7)';
+const FRAME_COLOR = '#FFD700'; // Altın sarısı - daha belirgin
+const GRID_COLOR = 'rgba(255, 255, 255, 0.8)';
 
-export const CropOverlay: React.FC<CropOverlayProps> = ({ previewSize, aspectRatioString }) => {
-  // Eğer önizleme boyutu henüz hesaplanmadıysa hiçbir şey çizme
-  if (!previewSize || previewSize.width === 0 || previewSize.height === 0) {
-    return null;
-  }
+export const CropOverlay: React.FC<CropOverlayProps> = ({ 
+  previewSize, 
+  aspectRatioString,
+  photoScale = 1,
+  photoX = 0.5,
+  photoY = 0.5 
+}) => {
+  const cropFrame = useMemo(() => {
+    console.log('🎭 CropOverlay calculating frame:', { previewSize, aspectRatioString });
+    
+    if (!previewSize || previewSize.width === 0 || previewSize.height === 0) {
+      console.log('❌ Invalid preview size');
+      return null;
+    }
 
-  // 1. Hedef en-boy oranını (aspect ratio) hesapla.
-  let targetRatio: number;
-  if (aspectRatioString === 'original' || !aspectRatioString) {
-    // 'Orijinal' seçiliyse, önizleme alanının kendi oranını kullan.
-    targetRatio = previewSize.width / previewSize.height;
-  } else {
-    // '4:5' gibi bir string'i sayısal bir orana çevir.
-    const [w, h] = aspectRatioString.split(':').map(Number);
-    targetRatio = w && h ? w / h : previewSize.width / previewSize.height;
-  }
+    // Hedef aspect ratio'yu hesapla
+    let targetRatio: number;
+    if (aspectRatioString === 'original' || !aspectRatioString) {
+      targetRatio = previewSize.width / previewSize.height;
+    } else {
+      const [w, h] = aspectRatioString.split(':').map(Number);
+      targetRatio = w && h ? w / h : previewSize.width / previewSize.height;
+    }
 
-  // 2. Kırpma çerçevesinin (frame) boyutlarını, önizleme alanına sığacak şekilde hesapla.
-  let frameWidth = previewSize.width;
-  let frameHeight = frameWidth / targetRatio;
+    console.log('📐 Target ratio:', targetRatio, 'from', aspectRatioString);
 
-  // Eğer hesaplanan yükseklik, önizleme alanının yüksekliğini aşıyorsa,
-  // yüksekliği sabitleyip genişliği yeniden hesapla.
-  if (frameHeight > previewSize.height) {
-    frameHeight = previewSize.height;
-    frameWidth = frameHeight * targetRatio;
-  }
+    // Crop frame boyutlarını hesapla - daha küçük olsun ki belirgin görünsün
+    const maxWidth = previewSize.width * 0.8; // %80'i kullan
+    const maxHeight = previewSize.height * 0.8;
 
-  // 3. Çerçevenin, önizleme alanı içinde ortalanması için gereken pozisyonu hesapla.
-  const frameTop = (previewSize.height - frameHeight) / 2;
-  const frameLeft = (previewSize.width - frameWidth) / 2;
+    let frameWidth = maxWidth;
+    let frameHeight = frameWidth / targetRatio;
 
-  const frameStyle = {
-    top: frameTop,
-    left: frameLeft,
-    width: frameWidth,
-    height: frameHeight,
-  };
+    // Eğer yükseklik sınırı aşılıyorsa, yüksekliği temel al
+    if (frameHeight > maxHeight) {
+      frameHeight = maxHeight;
+      frameWidth = frameHeight * targetRatio;
+    }
+
+    // Frame pozisyonunu hesapla (ortalanmış)
+    const frameLeft = (previewSize.width - frameWidth) / 2;
+    const frameTop = (previewSize.height - frameHeight) / 2;
+
+    const result = {
+      left: frameLeft,
+      top: frameTop,
+      width: frameWidth,
+      height: frameHeight,
+      ratio: targetRatio
+    };
+
+    console.log('✅ Calculated crop frame:', result);
+    return result;
+  }, [previewSize, aspectRatioString]);
+
+  if (!cropFrame) return null;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* KARARTMA MASKELERİ (Çerçevenin dışındaki alanlar) */}
-      <View style={[styles.mask, { top: 0, left: 0, right: 0, height: frameTop }]} />
-      <View style={[styles.mask, { bottom: 0, left: 0, right: 0, height: frameTop }]} />
-      <View style={[styles.mask, { top: frameTop, left: 0, bottom: frameTop, width: frameLeft }]} />
-      <View style={[styles.mask, { top: frameTop, right: 0, bottom: frameTop, width: frameLeft }]} />
-
-      {/* KIRPMA ÇERÇEVESİ, KILAVUZ ÇİZGİLERİ VE KÖŞE TUTAMAÇLARI */}
-      <View style={[styles.cropFrame, frameStyle]}>
-        <View style={styles.gridContainer}>
-          <View style={styles.gridLine} /><View style={styles.gridLine} />
-        </View>
-        <View style={[styles.gridContainer, { transform: [{ rotate: '90deg' }] }]}>
-          <View style={styles.gridLine} /><View style={styles.gridLine} />
-        </View>
-        <View style={[styles.handle, styles.topLeft]} />
-        <View style={[styles.handle, styles.topRight]} />
-        <View style={[styles.handle, styles.bottomLeft]} />
-        <View style={[styles.handle, styles.bottomRight]} />
+    <>
+      {/* Debug bilgisi - geliştirme aşamasında */}
+      <View style={styles.debugContainer}>
+        <Text style={styles.debugText}>
+          CROP: {aspectRatioString} | {Math.round(cropFrame.width)}×{Math.round(cropFrame.height)}
+        </Text>
       </View>
-    </View>
+
+      {/* Maskeleme alanları */}
+      {/* Üst */}
+      <View style={[
+        styles.mask, 
+        { 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          height: cropFrame.top 
+        }
+      ]} />
+      
+      {/* Alt */}
+      <View style={[
+        styles.mask, 
+        { 
+          bottom: 0, 
+          left: 0, 
+          right: 0, 
+          height: previewSize.height - cropFrame.top - cropFrame.height 
+        }
+      ]} />
+      
+      {/* Sol */}
+      <View style={[
+        styles.mask, 
+        { 
+          top: cropFrame.top, 
+          left: 0, 
+          width: cropFrame.left,
+          height: cropFrame.height
+        }
+      ]} />
+      
+      {/* Sağ */}
+      <View style={[
+        styles.mask, 
+        { 
+          top: cropFrame.top, 
+          right: 0, 
+          width: previewSize.width - cropFrame.left - cropFrame.width,
+          height: cropFrame.height
+        }
+      ]} />
+
+      {/* Crop frame ve grid */}
+      <View style={[
+        styles.cropFrame, 
+        {
+          left: cropFrame.left,
+          top: cropFrame.top,
+          width: cropFrame.width,
+          height: cropFrame.height,
+        }
+      ]}>
+        {/* Grid çizgileri */}
+        <View style={styles.gridContainer}>
+          {/* Dikey çizgiler */}
+          <View style={[styles.gridLineVertical, { left: cropFrame.width * 0.33 }]} />
+          <View style={[styles.gridLineVertical, { left: cropFrame.width * 0.66 }]} />
+          
+          {/* Yatay çizgiler */}
+          <View style={[styles.gridLineHorizontal, { top: cropFrame.height * 0.33 }]} />
+          <View style={[styles.gridLineHorizontal, { top: cropFrame.height * 0.66 }]} />
+        </View>
+
+        {/* Köşe göstergeleri */}
+        <View style={[styles.corner, styles.topLeft]} />
+        <View style={[styles.corner, styles.topRight]} />
+        <View style={[styles.corner, styles.bottomLeft]} />
+        <View style={[styles.corner, styles.bottomRight]} />
+      </View>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  mask: { position: 'absolute', backgroundColor: MASK_COLOR },
-  cropFrame: { position: 'absolute', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.7)' },
-  gridContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'space-around' },
-  gridLine: { width: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255, 255, 255, 0.5)' },
-  handle: { position: 'absolute', width: HANDLE_SIZE, height: HANDLE_SIZE, borderColor: HANDLE_COLOR },
-  topLeft: { top: -HANDLE_THICKNESS, left: -HANDLE_THICKNESS, borderTopWidth: HANDLE_THICKNESS, borderLeftWidth: HANDLE_THICKNESS },
-  topRight: { top: -HANDLE_THICKNESS, right: -HANDLE_THICKNESS, borderTopWidth: HANDLE_THICKNESS, borderRightWidth: HANDLE_THICKNESS },
-  bottomLeft: { bottom: -HANDLE_THICKNESS, left: -HANDLE_THICKNESS, borderBottomWidth: HANDLE_THICKNESS, borderLeftWidth: HANDLE_THICKNESS },
-  bottomRight: { bottom: -HANDLE_THICKNESS, right: -HANDLE_THICKNESS, borderBottomWidth: HANDLE_THICKNESS, borderRightWidth: HANDLE_THICKNESS },
+  debugContainer: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    padding: 8,
+    borderRadius: 4,
+    zIndex: 1000,
+  },
+  debugText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  mask: {
+    position: 'absolute',
+    backgroundColor: MASK_COLOR,
+  },
+  cropFrame: {
+    position: 'absolute',
+    borderWidth: 3,
+    borderColor: FRAME_COLOR,
+    borderStyle: 'solid',
+  },
+  gridContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  gridLineVertical: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: GRID_COLOR,
+  },
+  gridLineHorizontal: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: GRID_COLOR,
+  },
+  corner: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderColor: FRAME_COLOR,
+    borderWidth: 3,
+  },
+  topLeft: {
+    top: -3,
+    left: -3,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+  },
+  topRight: {
+    top: -3,
+    right: -3,
+    borderLeftWidth: 0,
+    borderBottomWidth: 0,
+  },
+  bottomLeft: {
+    bottom: -3,
+    left: -3,
+    borderRightWidth: 0,
+    borderTopWidth: 0,
+  },
+  bottomRight: {
+    bottom: -3,
+    right: -3,
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+  },
 });

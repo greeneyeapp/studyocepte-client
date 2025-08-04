@@ -1,4 +1,5 @@
-// features/editor/hooks/useExportManager.ts - DÜZELTILMIŞ EXPORT SISTEMI
+// features/editor/hooks/useExportManager.ts - HIZLI EXPORT DESTEKLİ VERSİYON
+
 import { useState, createRef } from 'react';
 import { View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
@@ -13,32 +14,46 @@ export const useExportManager = () => {
   const viewRef = createRef<View>();
   const settings = useEnhancedEditorStore(state => state.settings);
 
-  const shareWithOption = async (shareOption: ShareOption, preset: ExportPreset) => {
-    if (!preset) {
+  const shareWithOption = async (shareOption: ShareOption, preset?: ExportPreset) => {
+    // Hızlı custom export için preset yoksa hata ver
+    if (!preset && shareOption.type !== 'quick_custom') {
       ToastService.show({ type: 'error', text1: 'Hata', text2: 'Lütfen bir format seçin' });
       return;
     }
+
     if (!viewRef.current) {
       ToastService.show({ type: 'error', text1: 'Hata', text2: 'Önizleme hazır değil.' });
       return;
     }
 
+    // Hızlı custom export için varsayılan preset
+    const exportPreset = preset || {
+      id: 'quick_default',
+      name: 'Hızlı Export',
+      description: 'Varsayılan boyut',
+      dimensions: { width: 1080, height: 1080 },
+      format: 'png' as const,
+      quality: 0.95,
+      category: 'custom' as const,
+      icon: 'zap',
+    };
+
     setIsExporting(true);
-    LoadingService.show(`${preset.name} formatında işleniyor...`); 
+    LoadingService.show(`${exportPreset.name} formatında işleniyor...`);
 
     try {
       console.log('🖼️ Capturing view with settings:', {
-        format: preset.format,
-        quality: preset.quality,
-        dimensions: preset.dimensions,
+        format: exportPreset.format,
+        quality: exportPreset.quality,
+        dimensions: exportPreset.dimensions,
       });
 
-      // React Native View Shot kullanarak capture et
+      // View capture et
       const uri = await captureRef(viewRef, {
-        format: preset.format === 'png' ? 'png' : 'jpg', 
-        quality: preset.quality,
-        width: preset.dimensions.width,
-        height: preset.dimensions.height,
+        format: exportPreset.format === 'png' ? 'png' : 'jpg', 
+        quality: exportPreset.quality,
+        width: exportPreset.dimensions.width,
+        height: exportPreset.dimensions.height,
         result: 'base64',
       });
 
@@ -50,14 +65,20 @@ export const useExportManager = () => {
       
       await ExportService.shareWithOption({
         shareOption,
-        preset,
+        preset: exportPreset,
         base64Data: uri,
-        filename: `studyo-cepte-${preset.id}-${Date.now()}.${preset.format}`,
+        filename: `studyo-cepte-${exportPreset.id}-${Date.now()}.${exportPreset.format}`,
       });
       
-      const successMessage = shareOption.type === 'gallery' 
-        ? `${preset.name} formatında galeriye kaydedildi` 
-        : `${preset.name} formatında paylaşım başarılı`;
+      // Başarı mesajını share option'a göre belirle
+      let successMessage = '';
+      if (shareOption.type === 'gallery') {
+        successMessage = `${exportPreset.name} formatında galeriye kaydedildi`;
+      } else if (shareOption.type === 'quick_custom') {
+        successMessage = `Özel boyutta görüntü galeriye kaydedildi`;
+      } else {
+        successMessage = `${exportPreset.name} formatında paylaşım başarılı`;
+      }
         
       ToastService.show({ 
         type: 'success', 

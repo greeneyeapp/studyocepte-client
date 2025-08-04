@@ -1,4 +1,5 @@
-// client/stores/useEnhancedEditorStore.ts (TAM VE GÜNCELLENMİŞ HALİ)
+// stores/useEnhancedEditorStore.ts - GERÇEK CROP UYGULAMA SİSTEMİ
+
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,6 +15,15 @@ export interface EditorSettings extends ApiEditorSettings {
   cropY?: number;
   cropWidth?: number;
   cropHeight?: number;
+  // Görsel crop uygulama
+  visualCrop?: {
+    aspectRatio: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    isApplied: boolean;
+  };
 }
 
 interface UserPreset extends EditorSettings { id: string; name: string; }
@@ -41,7 +51,8 @@ interface EditorActions {
   canUndo: () => boolean;
   canRedo: () => boolean;
   applyFilter: (filterKey: string, target: TargetType) => void;
-  resetCropAndRotation: () => void; // YENİ AKSİYON
+  resetCropAndRotation: () => void;
+  applyCrop: () => void; // Crop'u uygula ve crop modundan çık
   clearStore: () => void;
 }
 
@@ -69,19 +80,83 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       isSaving: false,
       userPresets: [],
 
-      // YENİ AKSİYON TANIMI
       resetCropAndRotation: () => {
+        console.log('🔄 Resetting crop and rotation');
         get().updateSettings({
           cropAspectRatio: 'original',
           photoRotation: 0,
+          cropX: 0,
+          cropY: 0,
+          cropWidth: 1,
+          cropHeight: 1,
+          visualCrop: undefined, // Görsel crop'u sıfırla
         });
         get().addSnapshotToHistory();
+      },
+
+      // Crop'u uygula ve crop modundan çık
+      applyCrop: () => {
+        const state = get();
+        const { settings } = state;
+        
+        console.log('✂️ Applying visual crop:', {
+          aspectRatio: settings.cropAspectRatio,
+          cropSettings: { 
+            x: settings.cropX || 0, 
+            y: settings.cropY || 0, 
+            width: settings.cropWidth || 1, 
+            height: settings.cropHeight || 1 
+          }
+        });
+
+        // Görsel crop bilgilerini kaydet
+        const visualCrop = {
+          aspectRatio: settings.cropAspectRatio || 'original',
+          x: settings.cropX || 0,
+          y: settings.cropY || 0,
+          width: settings.cropWidth || 1,
+          height: settings.cropHeight || 1,
+          isApplied: true,
+        };
+
+        // Crop settings'ini uygula - bu görsel crop'u aktif eder
+        const newSettings = {
+          ...settings,
+          visualCrop,
+        };
+
+        set(prevState => ({
+          settings: newSettings,
+          hasUnsavedChanges: true,
+        }));
+        
+        // History'ye ekle
+        state.addSnapshotToHistory();
+        
+        // Başarı mesajı
+        ToastService.show({
+          type: 'success',
+          text1: 'Crop Uygulandı',
+          text2: `${settings.cropAspectRatio} oranında kırpıldı`,
+        });
+
+        console.log('✅ Visual crop applied successfully');
+        
+        // Crop modundan çıkmak için sinyal
+        return { shouldExitCropMode: true };
       },
 
       setActivePhoto: (photo: ProductPhoto) => {
         const loadedSettings: EditorSettings = { ...defaultSettings, ...(photo.editorSettings || {}) };
         const initialEntry = { settings: loadedSettings, timestamp: Date.now() };
-        set({ activePhoto: photo, settings: loadedSettings, hasUnsavedChanges: false, history: [initialEntry], currentHistoryIndex: 0, activeFilterKey: 'original' });
+        set({ 
+          activePhoto: photo, 
+          settings: loadedSettings, 
+          hasUnsavedChanges: false, 
+          history: [initialEntry], 
+          currentHistoryIndex: 0, 
+          activeFilterKey: 'original' 
+        });
       },
 
       updateSettings: (newSettings: Partial<EditorSettings>) => {
@@ -173,7 +248,14 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       canUndo: () => get().currentHistoryIndex > 0,
       canRedo: () => get().currentHistoryIndex < get().history.length - 1,
 
-      clearStore: () => set({ activePhoto: null, settings: { ...defaultSettings }, history: [], currentHistoryIndex: -1, hasUnsavedChanges: false, isSaving: false }),
+      clearStore: () => set({ 
+        activePhoto: null, 
+        settings: { ...defaultSettings }, 
+        history: [], 
+        currentHistoryIndex: -1, 
+        hasUnsavedChanges: false, 
+        isSaving: false 
+      }),
     }),
     {
       name: 'enhanced-editor-storage-v2',

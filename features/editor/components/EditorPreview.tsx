@@ -1,4 +1,5 @@
-// kodlar/features/editor/components/EditorPreview.tsx (TAM VE DOĞRU KOD)
+// features/editor/components/EditorPreview.tsx - CROP OVERLAY Z-INDEX DÜZELTİLDİ
+
 import React, { forwardRef, useMemo } from 'react';
 import { View, Pressable, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -43,6 +44,14 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   const backgroundUri = selectedBackground?.fullUrl;
   const vignetteIntensity = (settings as any).background_vignette || 0;
 
+  // Debug için console log ekleyelim
+  console.log('🎬 EditorPreview render:', {
+    isCropping,
+    cropAspectRatio: settings.cropAspectRatio,
+    previewSize,
+    hasPhoto: !!imageUriToShow
+  });
+
   return (
     <View style={styles.container} onLayout={onLayout} ref={ref}>
       <Pressable 
@@ -53,35 +62,52 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
         <View style={styles.previewWrapper}>
           {previewSize.width > 0 && imageUriToShow ? (
             <View style={styles.imageContainer}>
+              {/* KATMAN 1: Background Layer (z-index: 1) */}
               {backgroundUri && (
                 <View style={styles.backgroundContainer}>
-                  <Image source={{ uri: backgroundUri }} style={[styles.backgroundImage, backgroundFilterStyle]} resizeMode="cover"/>
+                  <Image
+                    source={{ uri: backgroundUri }}
+                    style={[styles.backgroundImage, backgroundFilterStyle]}
+                    resizeMode="cover"
+                  />
                   {vignetteIntensity > 0 && <SimpleVignetteOverlay intensity={vignetteIntensity} />}
                 </View>
               )}
+              
+              {/* KATMAN 2: Product Layer (z-index: 2) */}
               <GestureDetector gesture={combinedGesture}>
                 <Animated.View style={[styles.productContainer, productAnimatedStyle]}>
-                  <Image source={{ uri: imageUriToShow }} style={[styles.productImage, productFilterStyle]} resizeMode="contain"/>
+                  <Image
+                    source={{ uri: imageUriToShow }}
+                    style={[styles.productImage, productFilterStyle]}
+                    resizeMode="contain"
+                  />
                 </Animated.View>
               </GestureDetector>
+              
+              {/* KATMAN 3: Crop Overlay (z-index: 10) - EN ÜSTTE */}
+              {isCropping && previewSize.width > 0 && (
+                <View style={styles.cropOverlayContainer} pointerEvents="none">
+                  <CropOverlay 
+                    previewSize={previewSize} 
+                    aspectRatioString={settings.cropAspectRatio || 'original'}
+                    photoScale={settings.photoScale}
+                    photoX={settings.photoX}
+                    photoY={settings.photoY}
+                  />
+                </View>
+              )}
+              
+              {/* KATMAN 4: Original Indicator (z-index: 100) */}
+              {showOriginal && (
+                <View style={styles.originalOverlay}>
+                  <Text style={styles.originalText}>Orijinal</Text>
+                </View>
+              )}
             </View>
           ) : (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={Colors.primary} />
-            </View>
-          )}
-          
-          {isCropping && (
-            <CropOverlay 
-              key={settings.cropAspectRatio} // Bu key, oran değiştiğinde bileşenin yeniden çizilmesini sağlar.
-              previewSize={previewSize} 
-              aspectRatioString={settings.cropAspectRatio || 'original'} 
-            />
-          )}
-          
-          {showOriginal && (
-            <View style={styles.originalOverlay}>
-              <Text style={styles.originalText}>Orijinal</Text>
             </View>
           )}
         </View>
@@ -91,15 +117,70 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
 });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, width: '100%', backgroundColor: Colors.background, padding: Spacing.sm },
-  pressable: { flex: 1 },
-  previewWrapper: { flex: 1, overflow: 'hidden', backgroundColor: Colors.gray100, borderRadius: BorderRadius.lg },
-  imageContainer: { flex: 1, position: 'relative' },
-  backgroundContainer: { ...StyleSheet.absoluteFillObject, zIndex: 1 },
-  backgroundImage: { width: '100%', height: '100%' },
-  productContainer: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 2, padding: Spacing.md },
-  productImage: { width: '100%', height: '100%', backgroundColor: 'transparent' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  originalOverlay: { position: 'absolute', bottom: Spacing.lg, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: BorderRadius.full, zIndex: 100 },
-  originalText: { ...Typography.caption, color: Colors.card },
+  container: { 
+    flex: 1, 
+    width: '100%', 
+    backgroundColor: Colors.background, 
+    padding: Spacing.sm 
+  },
+  pressable: { 
+    flex: 1 
+  },
+  previewWrapper: { 
+    flex: 1, 
+    overflow: 'hidden', 
+    backgroundColor: Colors.gray100, 
+    borderRadius: BorderRadius.lg 
+  },
+  imageContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  backgroundContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  backgroundImage: {
+    width: '100%',
+    height: '100%',
+  },
+  productContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+    padding: Spacing.md,
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent',
+  },
+  
+  // CROP OVERLAY CONTAINER - EN ÖNEMLİ KISIM
+  cropOverlayContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10, // En üstte olması için yüksek z-index
+    backgroundColor: 'transparent', // Şeffaf arka plan
+  },
+  
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  originalOverlay: { 
+    position: 'absolute', 
+    bottom: Spacing.lg, 
+    alignSelf: 'center', 
+    backgroundColor: 'rgba(0,0,0,0.7)', 
+    paddingHorizontal: Spacing.lg, 
+    paddingVertical: Spacing.sm, 
+    borderRadius: BorderRadius.full,
+    zIndex: 100,
+  },
+  originalText: { 
+    ...Typography.caption, 
+    color: Colors.card 
+  },
 });

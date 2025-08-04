@@ -1,4 +1,5 @@
-// kodlar/app/(tabs)/editor/[photoId].tsx (TAM VE DOĞRU KOD)
+// app/(tabs)/editor/[photoId].tsx - CROP ÇIKIŞ ÖZELLİĞİ EKLENMİŞ
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -45,6 +46,9 @@ export default function EnhancedEditorScreen() {
     applyFilter, undo, redo, canUndo, canRedo, addSnapshotToHistory, updateSettings, clearStore, setActivePhoto,
     setActiveFilterKey, resetCropAndRotation
   } = store;
+  
+  // applyCrop fonksiyonunu ayrı olarak al
+  const applyCrop = useEnhancedEditorStore((state) => state.applyCrop);
 
   const [activeTool, setActiveTool] = useState<ToolType>('adjust');
   const [activeTarget, setActiveTarget] = useState<TargetType>('product');
@@ -58,13 +62,16 @@ export default function EnhancedEditorScreen() {
   const { currentScrollRef } = useScrollManager({ activeTool, activeTarget, activeFeature, isSliderActive });
 
   useEffect(() => {
-    if (photoId) api.fetchPhotoById(photoId).then(setActivePhoto).catch(() => router.back());
+    if (photoId) {
+      api.fetchPhotoById(photoId).then(setActivePhoto).catch(() => router.back());
+    }
     return () => clearStore();
   }, [photoId, setActivePhoto, clearStore]);
 
   const animateLayout = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
   const handleToolChange = (tool: ToolType) => {
+    console.log('🔧 Tool changing from', activeTool, 'to', tool);
     animateLayout();
     if (tool !== 'adjust' && activeFeature) addSnapshotToHistory();
     setActiveFeature(null);
@@ -103,8 +110,26 @@ export default function EnhancedEditorScreen() {
   const handlePreviewLayout = (event: any) => {
     const { width, height } = event.nativeEvent.layout;
     if (width > 0 && height > 0 && (width !== previewSize.width || height !== previewSize.height)) {
+        console.log('📐 Preview size updated:', { width, height });
         setPreviewSize({ width, height });
     }
+  };
+
+  // Crop aspect ratio değiştiğinde debug
+  const handleAspectRatioSelect = (ratio: string) => {
+    console.log('🎭 Aspect ratio changed to:', ratio);
+    updateSettings({ cropAspectRatio: ratio });
+    addSnapshotToHistory();
+  };
+
+  // Crop uygulama ve çıkış fonksiyonu
+  const handleApplyCrop = () => {
+    console.log('✂️ Applying crop and exiting crop mode...');
+    applyCrop();
+    // Crop uygulandıktan sonra adjust moduna geç
+    setTimeout(() => {
+      handleToolChange('adjust');
+    }, 500); // Toast mesajının görünmesi için kısa gecikme
   };
 
   const handleSave = async () => { store.saveChanges() };
@@ -121,10 +146,28 @@ export default function EnhancedEditorScreen() {
   const currentFeatureConfig = featuresForCurrentTarget.find(f => f.key === activeFeature);
   const currentSliderValue = getSliderValue(activeFeature);
 
+  // Debug log
+  console.log('🎬 Main render:', {
+    activeTool,
+    cropAspectRatio: settings.cropAspectRatio,
+    previewSize,
+    isCropping: activeTool === 'crop',
+    isExportActive: activeTool === 'export',
+    hasVisualCrop: !!settings.visualCrop?.isApplied
+  });
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        <EditorHeader onCancel={() => router.back()} onSave={handleSave} isSaving={isSaving} canUndo={canUndo()} canRedo={canRedo()} onUndo={undo} onRedo={redo} />
+        <EditorHeader 
+          onCancel={() => router.back()} 
+          onSave={handleSave} 
+          isSaving={isSaving} 
+          canUndo={canUndo()} 
+          canRedo={canRedo()} 
+          onUndo={undo} 
+          onRedo={redo} 
+        />
         
         <View style={styles.mainContent}>
           <EditorPreview
@@ -141,29 +184,55 @@ export default function EnhancedEditorScreen() {
           />
         </View>
 
+        {/* TOOLBAR WRAPPER */}
         <View style={styles.toolbarsWrapper}>
-          {activeTool === 'crop' ? (
-            <CropToolbar 
-              activeRatio={settings.cropAspectRatio || 'original'} 
-              onAspectRatioSelect={(ratio) => { updateSettings({ cropAspectRatio: ratio }); addSnapshotToHistory(); }} 
-              onRotate={() => { updateSettings({ photoRotation: ((settings.photoRotation || 0) + 90) % 360 }); addSnapshotToHistory(); }} 
-              onReset={resetCropAndRotation} 
-              onDone={() => handleToolChange('adjust')} 
-              onCancel={() => { undo(); handleToolChange('adjust'); }} 
-            />
-          ) : activeTool === 'export' ? (
-             <ExportToolbar 
+          
+          {/* CROP TOOLBAR - SADECE UYGULA BUTONU */}
+          {activeTool === 'crop' && (
+            <View style={styles.cropToolbarContainer}>
+              <View style={styles.debugBanner}>
+                <Text style={styles.debugText}>🎭 CROP MODE - {settings.cropAspectRatio}</Text>
+              </View>
+              <CropToolbar 
+                activeRatio={settings.cropAspectRatio || 'original'} 
+                onAspectRatioSelect={handleAspectRatioSelect}
+                onRotate={() => { 
+                  updateSettings({ photoRotation: ((settings.photoRotation || 0) + 90) % 360 }); 
+                  addSnapshotToHistory(); 
+                }} 
+                onReset={resetCropAndRotation} 
+                onApplyCrop={handleApplyCrop}
+              />
+            </View>
+          )}
+          
+          {/* EXPORT TOOLBAR - ORİJİNAL SEÇENEKLER */}
+          {activeTool === 'export' && (
+            <View style={styles.exportToolbarContainer}>
+              <View style={styles.debugBanner}>
+                <Text style={styles.debugText}>📤 EXPORT TOOLBAR ACTIVE</Text>
+              </View>
+              <ExportToolbar 
                 activeTool={activeTool} 
                 selectedPreset={selectedPreset}
                 isExporting={isExporting} 
                 setSelectedPreset={setSelectedPreset}
-                shareWithOption={async (option: ShareOption) => { if(selectedPreset) await shareWithOption(option, selectedPreset) }}
+                shareWithOption={shareWithOption}
               />
-          ) : (
-            <>
+            </View>
+          )}
+          
+          {/* NORMAL TOOLBARS (Adjust, Filter, Background) */}
+          {activeTool !== 'crop' && activeTool !== 'export' && (
+            <View style={styles.normalToolbarsContainer}>
               {(activeTool === 'adjust' || activeTool === 'filter') && !isSliderActive && (
-                <TargetSelector activeTarget={activeTarget} onTargetChange={(t) => { animateLayout(); setActiveTarget(t); }} activeTool={activeTool} />
+                <TargetSelector 
+                  activeTarget={activeTarget} 
+                  onTargetChange={(t) => { animateLayout(); setActiveTarget(t); }} 
+                  activeTool={activeTool} 
+                />
               )}
+              
               {activeTool === 'adjust' && currentFeatureConfig && (
                 <CustomSlider 
                   feature={currentFeatureConfig} 
@@ -177,25 +246,58 @@ export default function EnhancedEditorScreen() {
                   backgroundValue={(settings as any)[`background_${activeFeature}`] ?? 0} 
                 />
               )}
+              
               <View style={styles.scrollToolbarContainer}>
                 {!isSliderActive && activeTool === 'adjust' && (
                   <ScrollView ref={currentScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                    {featuresForCurrentTarget.map(f => <FeatureButton key={f.key} icon={f.icon} label={f.label} value={getSliderValue(f.key)} isActive={activeFeature === f.key} onPress={() => handleFeaturePress(f.key)} />)}
+                    {featuresForCurrentTarget.map(f => 
+                      <FeatureButton 
+                        key={f.key} 
+                        icon={f.icon} 
+                        label={f.label} 
+                        value={getSliderValue(f.key)} 
+                        isActive={activeFeature === f.key} 
+                        onPress={() => handleFeaturePress(f.key)} 
+                      />
+                    )}
                   </ScrollView>
                 )}
+                
                 {!isSliderActive && activeTool === 'filter' && (
                   <ScrollView ref={currentScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                    {ALL_FILTERS.map(f => <FilterPreview key={f.key} filter={f} imageUri={activePhoto.processedImageUrl!} backgroundUri={staticBackgrounds.find(bg => bg.id === settings.backgroundId)?.fullUrl!} isSelected={activeFilterKey === f.key} onPress={() => applyFilter(f.key, activeTarget)} />)}
+                    {ALL_FILTERS.map(f => 
+                      <FilterPreview 
+                        key={f.key} 
+                        filter={f} 
+                        imageUri={activePhoto.processedImageUrl!} 
+                        backgroundUri={staticBackgrounds.find(bg => bg.id === settings.backgroundId)?.fullUrl!} 
+                        isSelected={activeFilterKey === f.key} 
+                        onPress={() => applyFilter(f.key, activeTarget)} 
+                      />
+                    )}
                   </ScrollView>
                 )}
+                
                 {!isSliderActive && activeTool === 'background' && (
                   <ScrollView ref={currentScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                    {staticBackgrounds.map(bg => <BackgroundButton key={bg.id} background={bg} isSelected={settings.backgroundId === bg.id} onPress={() => { updateSettings({backgroundId: bg.id}); addSnapshotToHistory();}} />)}
+                    {staticBackgrounds.map(bg => 
+                      <BackgroundButton 
+                        key={bg.id} 
+                        background={bg} 
+                        isSelected={settings.backgroundId === bg.id} 
+                        onPress={() => { 
+                          updateSettings({backgroundId: bg.id}); 
+                          addSnapshotToHistory();
+                        }} 
+                      />
+                    )}
                   </ScrollView>
                 )}
               </View>
-            </>
+            </View>
           )}
+          
+          {/* MAIN TOOLBAR - Her zaman en altta */}
           <MainToolbar activeTool={activeTool} onToolChange={handleToolChange} />
         </View>
       </SafeAreaView>
@@ -204,10 +306,63 @@ export default function EnhancedEditorScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  mainContent: { flex: 1 },
-  toolbarsWrapper: { backgroundColor: Colors.card, borderTopWidth: 1, borderTopColor: Colors.border },
-  scrollToolbarContainer: { minHeight: 120, justifyContent: 'center' },
-  scrollContent: { paddingHorizontal: Spacing.lg, alignItems: 'center', gap: Spacing.lg, paddingVertical: Spacing.md },
+  container: { 
+    flex: 1, 
+    backgroundColor: Colors.background 
+  },
+  loadingContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: Colors.background 
+  },
+  mainContent: { 
+    flex: 1 
+  },
+  toolbarsWrapper: { 
+    backgroundColor: Colors.card, 
+    borderTopWidth: 1, 
+    borderTopColor: Colors.border 
+  },
+  
+  // Crop toolbar container
+  cropToolbarContainer: {
+    backgroundColor: Colors.card,
+  },
+  
+  // Export toolbar container
+  exportToolbarContainer: {
+    backgroundColor: Colors.background,
+    minHeight: 400,
+    maxHeight: 500,
+  },
+  
+  // Normal toolbars container
+  normalToolbarsContainer: {
+    backgroundColor: Colors.card,
+  },
+  
+  scrollToolbarContainer: { 
+    minHeight: 120, 
+    justifyContent: 'center' 
+  },
+  scrollContent: { 
+    paddingHorizontal: Spacing.lg, 
+    alignItems: 'center', 
+    gap: Spacing.lg, 
+    paddingVertical: Spacing.md 
+  },
+  
+  // Debug banner
+  debugBanner: {
+    backgroundColor: '#FFD700',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  debugText: { 
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#000',
+  },
 });

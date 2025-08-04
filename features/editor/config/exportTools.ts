@@ -1,4 +1,4 @@
-// kodlar/app/(tabs)/editor/config/exportTools.ts
+// features/editor/config/exportTools.ts - HIZLI EXPORT EKLENMİŞ VERSİYON
 
 export interface ExportPreset {
   id: string;
@@ -12,10 +12,10 @@ export interface ExportPreset {
 }
 
 export interface ShareOption {
-  id:string;
+  id: string;
   name: string;
   icon: string;
-  type: 'gallery' | 'generic';
+  type: 'gallery' | 'generic' | 'quick_custom'; // Yeni type eklendi
 }
 
 export const EXPORT_PRESETS: ExportPreset[] = [
@@ -63,7 +63,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
 
 export const SHARE_OPTIONS: ShareOption[] = [
   { id: 'gallery', name: 'Galeriye Kaydet', icon: 'download', type: 'gallery' },
-  { id: 'share', name: 'Paylaş...', icon: 'share-2', type: 'generic' }
+  { id: 'share', name: 'Paylaş...', icon: 'share-2', type: 'generic' },
+  { id: 'quick_custom', name: 'Hızlı Boyut', icon: 'zap', type: 'quick_custom' } // YENİ SEÇENEK
 ];
 
 export const EXPORT_CATEGORIES = [

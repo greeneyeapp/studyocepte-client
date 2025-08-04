@@ -1,9 +1,9 @@
-// kodlar/app/(tabs)/editor/components/ExportComponents.tsx
+// features/editor/components/ExportComponents.tsx - HIZLI EXPORT DESTEKLİ VERSİYON
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
-// Gerekli olan 'ShareOption' tipi import edildi.
 import { ExportPreset, ShareOption } from '../config/exportTools';
 
 interface ExportPresetCardProps {
@@ -23,6 +23,7 @@ export const ExportPresetCard: React.FC<ExportPresetCardProps> = ({
       case 'marketplace': return '#4ECDC4';
       case 'print': return '#45B7D1';
       case 'custom': return '#96CEB4';
+      case 'web': return '#FFA726';
       default: return Colors.primary;
     }
   };
@@ -75,12 +76,19 @@ export const ShareOptionButton: React.FC<ShareOptionButtonProps> = ({
 }) => {
   const getOptionColor = (type: string) => {
     switch (type) {
-      case 'whatsapp': return '#25D366';
-      case 'instagram': return '#E4405F';
-      case 'facebook': return '#1877F2';
       case 'gallery': return '#34C759';
-      case 'email': return '#FF9500';
+      case 'generic': return Colors.primary;
+      case 'quick_custom': return '#FF9500'; // Turuncu renk
       default: return Colors.primary;
+    }
+  };
+
+  const getOptionDescription = (type: string) => {
+    switch (type) {
+      case 'gallery': return 'Seçili format ile kaydet';
+      case 'generic': return 'Seçili format ile paylaş';
+      case 'quick_custom': return 'Hızlı boyut belirle';
+      default: return '';
     }
   };
 
@@ -95,9 +103,21 @@ export const ShareOptionButton: React.FC<ShareOptionButtonProps> = ({
     >
       <View style={[styles.shareIconContainer, { backgroundColor: optionColor }]}>
         <Feather name={option.icon as any} size={20} color={Colors.card} />
+        
+        {/* Hızlı export için özel işaret */}
+        {option.type === 'quick_custom' && (
+          <View style={styles.quickBadge}>
+            <Feather name="zap" size={10} color={Colors.card} />
+          </View>
+        )}
       </View>
+      
       <Text style={[styles.shareText, disabled && styles.shareTextDisabled]}>
         {option.name}
+      </Text>
+      
+      <Text style={[styles.shareDescription, disabled && styles.shareTextDisabled]}>
+        {getOptionDescription(option.type)}
       </Text>
     </TouchableOpacity>
   );
@@ -169,6 +189,7 @@ const styles = StyleSheet.create({
   selected: {
     borderColor: Colors.primary,
     borderWidth: 2,
+    borderLeftWidth: 4, // Sol kenardaki renkli çizgiyi koru
   },
   header: {
     flexDirection: 'row',
@@ -224,16 +245,16 @@ const styles = StyleSheet.create({
   // ShareOptionButton styles
   shareButton: {
     alignItems: 'center',
-    minWidth: 80,
+    minWidth: 90,
     marginHorizontal: Spacing.xs,
   },
   shareButtonDisabled: {
     opacity: 0.5,
   },
   shareIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.sm,
@@ -242,12 +263,34 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
+    position: 'relative',
+  },
+  quickBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FF6B35',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.card,
   },
   shareText: {
-    ...Typography.caption,
+    ...Typography.captionMedium,
     color: Colors.textPrimary,
     textAlign: 'center',
-    fontWeight: '500',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  shareDescription: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    fontSize: 10,
+    lineHeight: 12,
   },
   shareTextDisabled: {
     color: Colors.textSecondary,

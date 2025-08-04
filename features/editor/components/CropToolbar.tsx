@@ -1,4 +1,5 @@
-// features/editor/components/CropToolbar.tsx (TAM VE GÜNCELLENMİŞ KOD)
+// features/editor/components/CropToolbar.tsx - SADECE UYGULA BUTONU
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -8,8 +9,7 @@ interface CropToolbarProps {
   onAspectRatioSelect: (ratio: string) => void;
   onRotate: () => void;
   onReset: () => void;
-  onDone: () => void;
-  onCancel: () => void;
+  onApplyCrop: () => void; // Crop'u uygula ve çık
   activeRatio: string;
 }
 
@@ -26,8 +26,7 @@ export const CropToolbar: React.FC<CropToolbarProps> = ({
   onAspectRatioSelect,
   onRotate,
   onReset,
-  onDone,
-  onCancel,
+  onApplyCrop,
   activeRatio,
 }) => {
   return (
@@ -49,19 +48,21 @@ export const CropToolbar: React.FC<CropToolbarProps> = ({
         </ScrollView>
       </View>
       
-      {/* Alt Kısım: İşlem butonları */}
+      {/* Alt Kısım: İşlem butonları - SADECE 3 BUTON */}
       <View style={styles.actionContainer}>
-        <TouchableOpacity onPress={onCancel} style={styles.actionButton}>
-          <Feather name="x" size={24} color={Colors.textPrimary} />
-        </TouchableOpacity>
         <TouchableOpacity onPress={onRotate} style={styles.actionButton}>
-          <Feather name="rotate-cw" size={22} color={Colors.textPrimary} />
+          <Feather name="rotate-cw" size={20} color={Colors.textPrimary} />
+          <Text style={styles.actionText}>Döndür</Text>
         </TouchableOpacity>
+        
         <TouchableOpacity onPress={onReset} style={styles.actionButton}>
-          <Feather name="refresh-ccw" size={22} color={Colors.textPrimary} />
+          <Feather name="refresh-ccw" size={20} color={Colors.textPrimary} />
+          <Text style={styles.actionText}>Sıfırla</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={onDone} style={styles.actionButton}>
-          <Feather name="check" size={24} color={Colors.primary} />
+        
+        <TouchableOpacity onPress={onApplyCrop} style={[styles.actionButton, styles.applyButton]}>
+          <Feather name="check" size={24} color={Colors.card} />
+          <Text style={[styles.actionText, styles.applyText]}>Uygula</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -77,38 +78,67 @@ const styles = StyleSheet.create({
   ratioContainer: {
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    paddingVertical: Spacing.md,
   },
   ratioScrollContent: {
-    paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     alignItems: 'center',
+    gap: Spacing.md,
   },
   ratioButton: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
-    marginRight: Spacing.md,
     backgroundColor: Colors.gray100,
+    minWidth: 60,
+    alignItems: 'center',
   },
   ratioButtonActive: {
-    backgroundColor: Colors.primary + '20',
+    backgroundColor: Colors.primary,
   },
   ratioText: {
     ...Typography.body,
     color: Colors.textSecondary,
-    fontWeight: '500'
+    fontWeight: '500',
+    fontSize: 14,
   },
   ratioTextActive: {
-    color: Colors.primary,
+    color: Colors.card,
     fontWeight: '600',
   },
   actionContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: Spacing.sm, // Boşluğu azaltmak için padding ayarlandı
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
   },
   actionButton: {
+    alignItems: 'center',
     padding: Spacing.md,
+    minWidth: 80,
+    borderRadius: BorderRadius.lg,
+  },
+  applyButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  actionText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
+    fontWeight: '500',
+  },
+  applyText: {
+    ...Typography.bodyMedium,
+    color: Colors.card,
+    fontWeight: '700',
+    marginTop: Spacing.xs,
   },
 });
