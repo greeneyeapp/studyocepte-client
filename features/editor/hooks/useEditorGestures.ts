@@ -1,4 +1,4 @@
-// features/editor/hooks/useEditorGestures.ts - Final Düzeltilmiş Versiyon
+// features/editor/hooks/useEditorGestures.ts - NO SKIA VERSION
 import { useSharedValue, runOnJS, withSpring } from 'react-native-reanimated';
 import { Gesture } from 'react-native-gesture-handler';
 import { useEffect } from 'react';

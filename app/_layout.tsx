@@ -10,21 +10,6 @@ import { GlobalUIProvider } from '@/context/GlobalUIProvider';
 
 SplashScreen.preventAutoHideAsync();
 
-// Reanimated logger konfigürasyonu - sadece development modunda
-if (__DEV__) {
-  try {
-    const { configureReanimatedLogger } = require('react-native-reanimated');
-    if (configureReanimatedLogger) {
-      configureReanimatedLogger({
-        strict: false, // strict mode'u kapat
-        level: 'error', // sadece error'ları göster
-      });
-    }
-  } catch (error) {
-    console.warn('Reanimated logger configuration failed:', error);
-  }
-}
-
 // Bu kök layout, her şey yüklendikten sonra yönlendirmeyi yapar.
 // Asıl layout mantığı AuthStateBasedLayout içindedir.
 export default function RootLayout() {

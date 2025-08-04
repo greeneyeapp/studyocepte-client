@@ -1,10 +1,9 @@
-// client/app/(tabs)/editor/[photoId].tsx (TAMAMEN DÜZELTİLMİŞ VERSİYON)
+// client/app/(tabs)/editor/[photoId].tsx (NO SKIA VERSION)
 import React, { useEffect, useState, useCallback } from 'react';
-import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, Dimensions, LayoutAnimation, UIManager, Platform, TouchableOpacity } from 'react-native';
+import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Feather } from '@expo/vector-icons';
 
 import { useEnhancedEditorStore } from '@/stores/useEnhancedEditorStore';
 import { useExportManager } from '@/features/editor/hooks/useExportManager';
@@ -23,7 +22,7 @@ import { ToolType, TargetType } from '@/features/editor/config/tools';
 import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/features';
 import { ALL_FILTERS } from '@/features/editor/config/filters';
 import { api, Background, ProductPhoto } from '@/services/api';
-import { Colors, Spacing, Typography } from '@/constants';
+import { Colors, Spacing } from '@/constants';
 import { ShareOption, ExportPreset } from '@/features/editor/config/exportTools';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -66,6 +65,7 @@ export default function EnhancedEditorScreen() {
   const animateLayout = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
   const handleToolChange = (tool: ToolType) => {
+    console.log('🔧 Tool changed from', activeTool, 'to', tool);
     animateLayout();
     if (tool !== 'adjust' && activeFeature) addSnapshotToHistory();
     setActiveFeature(null);
@@ -73,47 +73,87 @@ export default function EnhancedEditorScreen() {
   };
   
   const handleFeaturePress = (featureKey: string) => {
+    console.log('🎛️ Feature pressed:', featureKey, 'Current active:', activeFeature);
     if (activeFeature && activeFeature !== featureKey) addSnapshotToHistory();
     animateLayout();
     setActiveFeature(prev => (prev === featureKey ? null : featureKey));
   };
   
-  // ÇÖZÜM: Value change handler'ı düzelt - debouncing ekle
   const handleValueChange = useCallback((featureKey: string, value: number) => {
+    console.log(`🎯 Value Change: ${featureKey} = ${value}, Target: ${activeTarget}`);
+    
     if (activeFilterKey !== 'custom') {
       setActiveFilterKey('custom');
     }
     
-    const changes: any = {};
-    if (activeTarget === 'all') {
-      const pVal = (settings as any)[`product_${featureKey}`] ?? 0;
-      const bVal = (settings as any)[`background_${featureKey}`] ?? 0;
-      changes[`product_${featureKey}`] = value;
-      changes[`background_${featureKey}`] = bVal + (value - pVal);
-    } else {
-      changes[`${activeTarget}_${featureKey}`] = value;
+    const changes: Record<string, number> = {};
+    
+    switch (activeTarget) {
+      case 'product':
+        changes[`product_${featureKey}`] = value;
+        console.log(`📝 Setting product_${featureKey} = ${value}`);
+        break;
+        
+      case 'background':
+        changes[`background_${featureKey}`] = value;
+        console.log(`📝 Setting background_${featureKey} = ${value}`);
+        break;
+        
+      case 'all':
+        changes[`product_${featureKey}`] = value;
+        changes[`background_${featureKey}`] = value;
+        console.log(`📝 Setting both product_${featureKey} and background_${featureKey} = ${value}`);
+        break;
+        
+      default:
+        console.warn(`❌ Unknown target: ${activeTarget}`);
+        return;
     }
+    
+    console.log('📦 Changes to apply:', changes);
     updateSettings(changes);
-  }, [activeTarget, settings, activeFilterKey, setActiveFilterKey, updateSettings]);
+  }, [activeTarget, activeFilterKey, setActiveFilterKey, updateSettings]);
 
-  // ÇÖZÜM: Slider value'yu memoize et
   const getSliderValue = useCallback((featureKey: string | null): number => {
     if (!featureKey) return 0;
-    if (activeTarget !== 'background') return (settings as any)[`product_${featureKey}`] ?? 0;
-    return (settings as any)[`background_${featureKey}`] ?? 0;
+    
+    let settingKey: string;
+    
+    switch (activeTarget) {
+      case 'product':
+        settingKey = `product_${featureKey}`;
+        break;
+      case 'background':
+        settingKey = `background_${featureKey}`;
+        break;
+      case 'all':
+        settingKey = `product_${featureKey}`;
+        break;
+      default:
+        settingKey = `product_${featureKey}`;
+    }
+    
+    const value = (settings as any)[settingKey] ?? 0;
+    console.log(`🎚️ Slider Value: ${settingKey} = ${value}`);
+    return value;
   }, [settings, activeTarget]);
 
   const handlePreviewLayout = (event: any) => {
     const { width, height } = event.nativeEvent.layout;
     if (width > 0 && height > 0 && (width !== previewSize.width || height !== previewSize.height)) {
+        console.log('📐 Preview size changed:', { width, height });
         setPreviewSize({ width, height });
     }
   };
 
-  const handleSave = async () => { /* ... Değişiklik Yok ... */ };
+  const handleSave = async () => { /* ... Kaydet işlemi ... */ };
   
   if (!activePhoto) {
-    return ( <SafeAreaView style={styles.loadingContainer}><ActivityIndicator size="large" color={Colors.primary} /></SafeAreaView> );
+    return ( 
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </SafeAreaView> 
+    );
   }
 
   const featuresForCurrentTarget = activeTarget === 'background' ? BACKGROUND_FEATURES : ADJUST_FEATURES;
@@ -185,6 +225,7 @@ export default function EnhancedEditorScreen() {
             <TargetSelector 
               activeTarget={activeTarget} 
               onTargetChange={(t) => {
+                console.log('🎯 Target changed from', activeTarget, 'to', t);
                 animateLayout(); 
                 setActiveTarget(t);
               }} 

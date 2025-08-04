@@ -1,4 +1,4 @@
-// app/(tabs)/editor/components/TargetSelector.tsx
+// features/editor/components/TargetSelector.tsx - DÜZELTILMIŞ VERSİYON
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -21,6 +21,11 @@ export const TargetSelector: React.FC<TargetSelectorProps> = ({
     return null;
   }
 
+  const handleTargetChange = (target: TargetType) => {
+    console.log('🎯 Target changed from', activeTarget, 'to', target);
+    onTargetChange(target);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.segmentedControl}>
@@ -31,7 +36,7 @@ export const TargetSelector: React.FC<TargetSelectorProps> = ({
               styles.segment,
               activeTarget === target.key && styles.activeSegment,
             ]}
-            onPress={() => onTargetChange(target.key)}
+            onPress={() => handleTargetChange(target.key)}
           >
             <Text
               style={[

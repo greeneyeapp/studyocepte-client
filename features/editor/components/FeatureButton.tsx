@@ -1,4 +1,4 @@
-// app/(tabs)/editor/components/FeatureButton.tsx - Stil Sorunu Düzeltilmiş Versiyon
+// features/editor/components/FeatureButton.tsx - DÜZELTILMIŞ VERSİYON
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -27,6 +27,12 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
   productValue = 0,
   backgroundValue = 0,
 }) => {
+  // ✅ DÜZELTILMIŞ handlePress
+  const handlePress = () => {
+    console.log('🔘 Feature button pressed:', label, 'Current value:', value, 'Active:', isActive);
+    onPress();
+  };
+
   // Doğru hasValue hesaplaması - aktif target'a göre
   const hasAnyValue = hasMixedValues 
     ? (productValue !== 0 || backgroundValue !== 0)
@@ -83,7 +89,7 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
   return (
     <TouchableOpacity 
       style={getContainerStyle()} 
-      onPress={onPress}
+      onPress={handlePress}
       activeOpacity={0.7}
     >
       <View style={getIconContainerStyle()}>
@@ -160,13 +166,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.sm,
     position: 'relative',
-    // Aktif durumda sadece hafif glow
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
     elevation: 3,
-    // KARIŞIK DURUM STİLLERİNİ AÇKÇA OVERRIDE ET
     borderWidth: 0,
     borderColor: 'transparent',
   },
@@ -179,10 +183,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.sm,
     position: 'relative',
-    // Düz border kullan, shadow karışıklığı önlemek için
     borderWidth: 2,
     borderColor: Colors.error,
-    // Shadow'ları sıfırla
     shadowColor: 'transparent',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0,
@@ -226,7 +228,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.error,
     justifyContent: 'center',
     alignItems: 'center',
-    // Beyaz border ekle
     borderWidth: 2,
     borderColor: Colors.card,
   },

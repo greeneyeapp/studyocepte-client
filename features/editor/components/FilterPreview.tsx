@@ -1,4 +1,4 @@
-// app/(tabs)/editor/components/FilterPreview.tsx
+// features/editor/components/FilterPreview.tsx - NO SKIA VERSION
 
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
@@ -13,6 +13,39 @@ interface FilterPreviewProps {
   onPress: () => void;
 }
 
+// CSS Filter generator for filter preview
+const generateFilterStyle = (settings: Record<string, number>) => {
+  const filters = [];
+  
+  if (settings.brightness) {
+    const brightness = 1 + (settings.brightness / 100);
+    filters.push(`brightness(${brightness})`);
+  }
+  
+  if (settings.contrast) {
+    const contrast = 1 + (settings.contrast / 100);
+    filters.push(`contrast(${contrast})`);
+  }
+  
+  if (settings.saturation) {
+    const saturation = Math.max(0, 1 + (settings.saturation / 100));
+    filters.push(`saturate(${saturation})`);
+  }
+  
+  if (settings.warmth) {
+    // Warmth'i hue-rotate ile simüle et
+    const hue = settings.warmth * 0.5;
+    filters.push(`hue-rotate(${hue}deg)`);
+  }
+  
+  if (settings.sepia) {
+    const sepia = Math.max(0, Math.min(1, settings.sepia / 100));
+    filters.push(`sepia(${sepia})`);
+  }
+  
+  return filters.length > 0 ? { filter: filters.join(' ') } : {};
+};
+
 export const FilterPreview: React.FC<FilterPreviewProps> = ({
   filter,
   imageUri,
@@ -20,6 +53,8 @@ export const FilterPreview: React.FC<FilterPreviewProps> = ({
   isSelected,
   onPress,
 }) => {
+  const filterStyle = generateFilterStyle(filter.settings);
+  
   return (
     <TouchableOpacity
       style={[styles.container, isSelected && styles.containerSelected]}
@@ -31,18 +66,17 @@ export const FilterPreview: React.FC<FilterPreviewProps> = ({
         <Image
           source={{ uri: backgroundUri }}
           style={styles.backgroundImage}
+          resizeMode="cover"
         />
 
-        {/* Photo layer */}
+        {/* Photo layer with filter */}
         <View style={styles.photoContainer}>
           <Image
             source={{ uri: imageUri }}
-            style={[styles.photoImage, getFilterImageStyle(filter.settings)]}
+            style={[styles.photoImage, filterStyle]}
+            resizeMode="contain"
           />
         </View>
-
-        {/* Filter overlays */}
-        {renderFilterOverlays(filter.settings)}
       </View>
 
       <Text style={[styles.label, isSelected && styles.labelSelected]}>
@@ -52,98 +86,7 @@ export const FilterPreview: React.FC<FilterPreviewProps> = ({
   );
 };
 
-// Filtre stilini hesaplayan yardımcı fonksiyon
-const getFilterImageStyle = (settings: Record<string, number>) => {
-  if (!settings) return {};
-
-  const style: any = {};
-
-  // Brightness
-  if (settings.brightness) {
-    style.opacity = Math.max(0.3, Math.min(2, 1 + settings.brightness / 100));
-  }
-
-  return style;
-};
-
-// Filtre overlay'lerini render eden fonksiyon
-const renderFilterOverlays = (settings: Record<string, number>) => {
-  const overlays = [];
-
-  // Warmth overlay
-  if (settings?.warmth > 0) {
-    overlays.push(
-      <View
-        key="warm"
-        style={[
-          styles.warmOverlay,
-          { opacity: Math.min(0.3, settings.warmth / 200) }
-        ]}
-      />
-    );
-  }
-
-  if (settings?.warmth < 0) {
-    overlays.push(
-      <View
-        key="cool"
-        style={[
-          styles.coolOverlay,
-          { opacity: Math.min(0.3, Math.abs(settings.warmth) / 200) }
-        ]}
-      />
-    );
-  }
-
-  // Saturation overlay (mono effect)
-  if (settings?.saturation < -50) {
-    overlays.push(
-      <View
-        key="mono"
-        style={[
-          styles.monoOverlay,
-          { opacity: Math.abs(settings.saturation + 50) / 100 }
-        ]}
-      />
-    );
-  }
-
-  // Vignette overlay
-  if (settings?.vignette > 0) {
-    overlays.push(
-      <View
-        key="vignette"
-        style={[
-          styles.vignetteOverlay,
-          {
-            opacity: Math.min(0.8, settings.vignette / 100),
-            borderWidth: Math.max(3, Math.min(8, settings.vignette * 0.1)),
-          }
-        ]}
-      />
-    );
-  }
-
-  return overlays;
-};
-
 const styles = StyleSheet.create({
-  backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
-    resizeMode: 'cover',
-  },
-  photoContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 6,
-  },
-  photoImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-  },
-
   container: {
     alignItems: 'center',
     marginRight: Spacing.lg,
@@ -162,27 +105,21 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
   },
-
-  // Filter overlays
-  warmOverlay: {
+  backgroundImage: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 180, 80, 0.4)',
+    resizeMode: 'cover',
   },
-  coolOverlay: {
+  photoContainer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(80, 140, 255, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 6,
   },
-  monoOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(128, 128, 128, 0.6)',
+  photoImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
-  vignetteOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
-    borderColor: 'rgba(0, 0, 0, 0.8)',
-    borderRadius: BorderRadius.sm,
-  },
-
   label: {
     ...Typography.caption,
     color: Colors.textSecondary,

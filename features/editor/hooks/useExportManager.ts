@@ -1,15 +1,16 @@
-// client/features/editor/hooks/useExportManager.ts (DÜZELTİLMİŞ VERSİYON)
+// features/editor/hooks/useExportManager.ts - NO SKIA VERSION
 import { useState, createRef } from 'react';
-import { type SkiaView } from '@shopify/react-native-skia';
+import { View } from 'react-native';
+import { captureRef } from 'react-native-view-shot';
 import { ExportService } from '@/services/exportService';
 import { ExportPreset, ShareOption } from '../config/exportTools';
 import { ToastService } from '@/components/Toast/ToastService';
-import { LoadingService } from '@/components/Loading/LoadingService'; // EKSIK IMPORT EKLENDİ
+import { LoadingService } from '@/components/Loading/LoadingService';
 import { useEnhancedEditorStore } from '@/stores/useEnhancedEditorStore';
 
 export const useExportManager = () => {
   const [isExporting, setIsExporting] = useState(false);
-  const skiaViewRef = createRef<SkiaView>();
+  const viewRef = createRef<View>();
   const settings = useEnhancedEditorStore(state => state.settings);
 
   const shareWithOption = async (shareOption: ShareOption, preset: ExportPreset) => {
@@ -17,7 +18,7 @@ export const useExportManager = () => {
       ToastService.show({ type: 'error', text1: 'Hata', text2: 'Lütfen bir format seçin' });
       return;
     }
-    if (!skiaViewRef.current) {
+    if (!viewRef.current) {
       ToastService.show({ type: 'error', text1: 'Hata', text2: 'Önizleme hazır değil.' });
       return;
     }
@@ -26,23 +27,23 @@ export const useExportManager = () => {
     LoadingService.show("Görüntü İşleniyor..."); 
 
     try {
-      const snapshot = await skiaViewRef.current.makeImageSnapshot({
-        x: 0,
-        y: 0,
+      // React Native View Shot kullanarak capture et
+      const uri = await captureRef(viewRef, {
+        format: preset.format === 'png' ? 'png' : 'jpg', 
+        quality: preset.quality,
         width: preset.dimensions.width,
         height: preset.dimensions.height,
+        result: 'base64',
       });
 
-      if (!snapshot) throw new Error("Görüntü oluşturulamadı.");
-      
-      const base64 = snapshot.encodeToBase64(preset.format === 'png' ? 0 : 1, preset.quality * 100);
-
-      if (!base64) throw new Error("Görüntü kodlanamadı.");
+      if (!uri) {
+        throw new Error("Görüntü oluşturulamadı.");
+      }
       
       await ExportService.shareWithOption({
         shareOption,
         preset,
-        base64Data: base64,
+        base64Data: uri,
         filename: `studyo-cepte-${preset.id}-${Date.now()}.${preset.format}`,
       });
       
@@ -57,5 +58,9 @@ export const useExportManager = () => {
     }
   };
 
-  return { isExporting, skiaViewRef, shareWithOption };
+  return { 
+    isExporting, 
+    skiaViewRef: viewRef, // Eski isimlendirmeyi koruyalım compatibility için
+    shareWithOption 
+  };
 };
