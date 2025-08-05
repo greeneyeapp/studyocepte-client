@@ -1,4 +1,4 @@
-// components/BackgroundRemovalAnimation.tsx - SLIDER GEÇİŞİ DÜZELTİLMİŞ VERSİYON
+// components/BackgroundRemovalAnimation.tsx - SMOOTH TRANSITION VERSION
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, Image, Animated, Text, Dimensions } from 'react-native';
 import { Colors, BorderRadius, Typography, Spacing } from '@/constants';
@@ -171,7 +171,7 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
 
     // Sadece processed URI geldiğinde ve henüz sliding'e geçmediysek
     if (processedUri && isAnimating && animationPhase === 'waiting') {
-      console.log('🎬 STARTING SLIDE ANIMATION');
+      console.log('🎬 STARTING SMOOTH WIPE ANIMATION');
       console.log('📂 Original URI:', originalUri);
       console.log('📂 Processed URI:', processedUri);
       
@@ -185,7 +185,7 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
           useNativeDriver: false,
         }).start((finished) => {
           if (finished) {
-            console.log('✅ SLIDE ANIMATION COMPLETED');
+            console.log('✅ SMOOTH WIPE ANIMATION COMPLETED');
             setAnimationPhase('completed');
             setTimeout(() => {
               onAnimationComplete();
@@ -218,85 +218,86 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
           <Feather name="zap" size={20} color={Colors.primary} />
           <Text style={styles.label}>
             {animationPhase === 'waiting' ? 'Arka Plan Temizleniyor...' : 
-             animationPhase === 'sliding' ? 'İşlem Tamamlandı!' :
-             'Hazır!'}
+             animationPhase === 'sliding' ? 'Arka Plan Temizleniyor...' :
+             'İşlem Tamamlandı!'}
           </Text>
         </View>
       )}
       
-      <View style={[styles.imageContainer, { height: imageContainerHeight }]}>
+      <View style={[styles.imageContainer, { height: imageContainerHeight, width: modalWidth }]}>
         
-        {/* Phase 1: WAITING - Orijinal görsel + floating iconlar */}
+        {/* BASE LAYER: İşlenmiş görsel (her zaman altta, başta görünmez) */}
+        <Image 
+          source={{ uri: processedUri || originalUri }} // Fallback olarak original kullan
+          style={[
+            styles.processedImageBase,
+            { 
+              opacity: processedUri ? 1 : 0 // ProcessedUri yoksa görünmez
+            }
+          ]}
+          resizeMode="contain"
+          onLoad={() => processedUri && console.log('✅ Processed image loaded as base layer')}
+          onError={(error) => console.error('❌ Processed image error:', error)}
+        />
+        
+        {/* OVERLAY LAYER: Orijinal görsel (her zaman üstte, duruma göre davranır) */}
+        <Animated.View 
+          style={[
+            styles.originalImageOverlay,
+            {
+              width: animationPhase === 'waiting' ? '100%' : 
+                slideAnim.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: ['100%', '0%'],
+                  extrapolate: 'clamp',
+                }),
+            }
+          ]}
+        >
+          <Image 
+            source={{ uri: originalUri }} 
+            style={[styles.originalImageInOverlay, { 
+              width: modalWidth, // ANA CONTAINER genişliği (sabit!)
+              height: imageContainerHeight // ANA CONTAINER yüksekliği (sabit!)
+            }]}
+            resizeMode="contain"
+          />
+        </Animated.View>
+
+        {/* FLOATING ICONS: Sadece waiting sırasında */}
         {animationPhase === 'waiting' && (
-          <>
-            <Image 
-              source={{ uri: originalUri }} 
-              style={styles.baseImage}
-              resizeMode="contain"
-            />
-            <View style={styles.floatingIconsContainer}>
-              {FLOATING_ICONS.slice(0, 6).map((icon, index) => (
-                <FloatingIcon
-                  key={`${icon}-${index}`}
-                  icon={icon}
-                  index={index}
-                  delay={index * 300}
-                  isActive={animationPhase === 'waiting' && isAnimating}
-                />
-              ))}
-            </View>
-            <View style={styles.loadingOverlay} />
-          </>
+          <View style={styles.floatingIconsContainer}>
+            {FLOATING_ICONS.slice(0, 6).map((icon, index) => (
+              <FloatingIcon
+                key={`${icon}-${index}`}
+                icon={icon}
+                index={index}
+                delay={index * 300}
+                isActive={animationPhase === 'waiting' && isAnimating}
+              />
+            ))}
+          </View>
         )}
 
-        {/* Phase 2: SLIDING - Processed görsel slide ile açılıyor */}
-        {(animationPhase === 'sliding' || animationPhase === 'completed') && processedUri && (
-          <>
-            {console.log('🖼️ RENDERING SLIDE PHASE')}
-            
-            {/* KATMAN 1: Processed image (en altta) - Temizlenmiş görsel */}
-            <Image 
-              source={{ uri: processedUri }} 
-              style={styles.processedImage}
-              resizeMode="contain"
-              onLoad={() => console.log('✅ Processed image loaded for slide')}
-              onError={(error) => console.error('❌ Processed image error:', error)}
-            />
-            
-            {/* KATMAN 2: Original image - Tam boyutta, slider ile cliplenecek */}
-            <Animated.View 
-              style={[
-                styles.originalImageOverlay,
-                {
-                  right: slideAnim.interpolate({
-                    inputRange: [0, 100],
-                    outputRange: ['0%', '100%'],
-                    extrapolate: 'clamp',
-                  }),
-                }
-              ]}
-            >
-              <Image 
-                source={{ uri: originalUri }} 
-                style={styles.originalImageInOverlay}
-                resizeMode="contain"
-              />
-            </Animated.View>
+        {/* LOADING OVERLAY: Sadece waiting sırasında */}
+        {animationPhase === 'waiting' && (
+          <View style={styles.loadingOverlay} />
+        )}
 
-            {/* KATMAN 3: Slider line (en üstte) */}
-            <Animated.View 
-              style={[
-                styles.sliderLine,
-                {
-                  right: slideAnim.interpolate({
-                    inputRange: [0, 100],
-                    outputRange: ['0%', '100%'],
-                    extrapolate: 'clamp',
-                  }),
-                }
-              ]}
-            />
-          </>
+        {/* WIPE INDICATOR LINE: Sadece sliding sırasında */}
+        {(animationPhase === 'sliding' || animationPhase === 'completed') && (
+          <Animated.View 
+            style={[
+              styles.wipeIndicatorLine,
+              {
+                left: slideAnim.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: ['100%', '0%'],
+                  extrapolate: 'clamp',
+                }),
+              }
+            ]}
+          />
         )}
       </View>
 
@@ -355,8 +356,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   
-  // Base image (waiting phase)
-  baseImage: {
+  // UNIFIED LAYER SYSTEM - Smooth transitions
+  processedImageBase: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -364,6 +365,24 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
+    zIndex: 1, // Alt katman - işlenmiş görsel (her zaman altta)
+  },
+  
+  originalImageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0, // Sol kenara sabitlendi
+    bottom: 0,
+    overflow: 'hidden', // Wipe için kritik
+    zIndex: 2, // Üst katman - orijinal görsel
+  },
+  
+  originalImageInOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    // Genişlik ve yükseklik dinamik olarak ana container'dan alınacak
+    // Böylece container küçülse de görsel boyutu sabit kalır
   },
   
   // Floating Icons (waiting phase)
@@ -373,6 +392,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 4, // Floating iconlar en üstte
   },
   floatingIcon: {
     position: 'absolute',
@@ -399,52 +419,21 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
-  },
-
-  // Slide animation (sliding phase) - DÜZELTİLMİŞ KATMANLAR
-  processedImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    height: '100%',
-    zIndex: 1, // En altta - temizlenmiş görsel
+    zIndex: 3, // Overlay iconların altında, görsellerin üstünde
   },
   
-  // Original image overlay - Sağdan sola hareket edecek (pozisyon değişimi)
-  originalImageOverlay: {
+  wipeIndicatorLine: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    width: '100%', // Tam genişlik - küçülmeyecek
-    overflow: 'hidden',
-    zIndex: 2, // Ortada - orijinal görsel overlay
-  },
-  
-  originalImageInOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0, // Sol baştan başla
-    bottom: 0,
-    width: '100%', // Tam genişlik
-    height: '100%',
-  },
-  
-  sliderLine: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 4,
+    width: 3,
     backgroundColor: Colors.primary,
-    marginRight: -2,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 20,
-    zIndex: 3, // En üstte - slider çizgisi
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    elevation: 15,
+    zIndex: 5, // En üstte - wipe sınır çizgisi
   },
   
   // Progress (sliding phase)
