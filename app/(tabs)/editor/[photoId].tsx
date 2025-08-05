@@ -194,14 +194,14 @@ export default function EnhancedEditorScreen() {
 
     const handleCancel = () => {
         if (activeTool === 'crop' || activeTool === 'export' || activeFeature) {
-            setActiveFeature(null);
-            handleToolChange('adjust');
+          setActiveFeature(null);
+          handleToolChange('adjust');
         } else {
-            // YENİ: Draft'ı kaydet before leaving
-            if (hasDraftChanges) {
-              saveDraft();
-            }
-            router.back();
+          // YENİ: Draft'ı kaydet before leaving
+          if (hasDraftChanges) {
+            saveDraft();
+          }
+          router.back();
         }
     };
 
@@ -260,114 +260,113 @@ export default function EnhancedEditorScreen() {
             )}
 
             <View style={styles.bottomToolbarContainer}>
-            <View style={styles.bottomToolbarContainer}>
-                {activeTool === 'crop' && (
-                    <CropToolbar 
-                      activeRatio={settings.cropAspectRatio || 'original'} 
-                      onAspectRatioSelect={(ratio) => { 
-                        updateSettings({ cropAspectRatio: ratio }); 
-                        addSnapshotToHistory(); 
-                      }} 
-                      onRotate={() => { 
-                        updateSettings({ photoRotation: ((settings.photoRotation || 0) + 90) % 360 }); 
-                        addSnapshotToHistory(); 
-                      }} 
-                      onReset={resetCropAndRotation} 
-                      onApplyCrop={handleApplyCrop}
-                    />
-                )}
-                
-                {activeTool === 'export' && (
-                    <View style={styles.fullScreenTool}>
-                        <ExportToolbar 
-                          activeTool={activeTool} 
-                          selectedPreset={selectedPreset} 
-                          isExporting={isExporting} 
-                          setSelectedPreset={setSelectedPreset} 
-                          shareWithOption={shareWithOption} 
-                        />
-                    </View>
-                )}
-
-                {activeTool !== 'export' && activeTool !== 'crop' && (
-                    <>
-                        {(activeTool === 'adjust' || activeTool === 'filter') && !activeFeature && (
-                            <TargetSelector 
-                              activeTarget={activeTarget} 
-                              onTargetChange={(t) => { 
-                                animateLayout(); 
-                                setActiveTarget(t); 
-                              }} 
-                              activeTool={activeTool} 
-                            />
-                        )}
-                        
-                        <View style={styles.dynamicToolContainer}>
-                            {activeTool === 'adjust' && currentFeatureConfig ? (
-                                <CustomSlider 
-                                  feature={currentFeatureConfig} 
-                                  value={currentSliderValue} 
-                                  onValueChange={(v) => handleValueChange(activeFeature!, v)} 
-                                  onSlidingStart={() => setIsSliderActive(true)} 
-                                  onSlidingComplete={() => { 
-                                    addSnapshotToHistory(); 
-                                    setIsSliderActive(false); 
-                                    setActiveFeature(null); 
-                                  }} 
-                                  isActive={!!activeFeature} 
-                                />
-                            ) : (
-                                <ScrollView 
-                                  ref={currentScrollRef} 
-                                  horizontal 
-                                  showsHorizontalScrollIndicator={false} 
-                                  contentContainerStyle={styles.scrollContent}
-                                >
-                                    {activeTool === 'adjust' && featuresForCurrentTarget.map(f => 
-                                      <FeatureButton 
-                                        key={f.key} 
-                                        icon={f.icon} 
-                                        label={f.label} 
-                                        value={getSliderValue(f.key)} 
-                                        isActive={activeFeature === f.key} 
-                                        onPress={() => handleFeaturePress(f.key)} 
-                                      />
-                                    )}
-                                    
-                                    {activeTool === 'filter' && ALL_FILTERS.map(f => 
-                                      <FilterPreview 
-                                        key={f.key} 
-                                        filter={f} 
-                                        imageUri={activePhoto.processedUri!} 
-                                        backgroundUri={staticBackgrounds.find(bg => bg.id === settings.backgroundId)?.fullUrl!} 
-                                        isSelected={activeFilterKey === f.key} 
-                                        onPress={() => applyFilter(f.key, activeTarget)} 
-                                      />
-                                    )}
-                                    
-                                    {activeTool === 'background' && staticBackgrounds.map(bg => 
-                                      <BackgroundButton 
-                                        key={bg.id} 
-                                        background={bg} 
-                                        isSelected={settings.backgroundId === bg.id} 
-                                        onPress={() => { 
-                                          updateSettings({backgroundId: bg.id}); 
-                                          addSnapshotToHistory();
-                                        }} 
-                                      />
-                                    )}
-                                </ScrollView>
-                            )}
-                        </View>
-                    </>
-                )}
-                
-                {activeTool !== 'crop' && (
-                  <MainToolbar 
-                    activeTool={activeTool} 
-                    onToolChange={handleToolChange} 
+              {activeTool === 'crop' && (
+                  <CropToolbar 
+                    activeRatio={settings.cropAspectRatio || 'original'} 
+                    onAspectRatioSelect={(ratio) => { 
+                      updateSettings({ cropAspectRatio: ratio }); 
+                      addSnapshotToHistory(); 
+                    }} 
+                    onRotate={() => { 
+                      updateSettings({ photoRotation: ((settings.photoRotation || 0) + 90) % 360 }); 
+                      addSnapshotToHistory(); 
+                    }} 
+                    onReset={resetCropAndRotation} 
+                    onApplyCrop={handleApplyCrop}
                   />
-                )}
+              )}
+              
+              {activeTool === 'export' && (
+                  <View style={styles.fullScreenTool}>
+                    <ExportToolbar 
+                      activeTool={activeTool} 
+                      selectedPreset={selectedPreset} 
+                      isExporting={isExporting} 
+                      setSelectedPreset={setSelectedPreset} 
+                      shareWithOption={shareWithOption} 
+                    />
+                  </View>
+              )}
+
+              {activeTool !== 'export' && activeTool !== 'crop' && (
+                  <>
+                    {(activeTool === 'adjust' || activeTool === 'filter') && !activeFeature && (
+                        <TargetSelector 
+                          activeTarget={activeTarget} 
+                          onTargetChange={(t) => { 
+                            animateLayout(); 
+                            setActiveTarget(t); 
+                          }} 
+                          activeTool={activeTool} 
+                        />
+                    )}
+                    
+                    <View style={styles.dynamicToolContainer}>
+                        {activeTool === 'adjust' && currentFeatureConfig ? (
+                            <CustomSlider 
+                              feature={currentFeatureConfig} 
+                              value={currentSliderValue} 
+                              onValueChange={(v) => handleValueChange(activeFeature!, v)} 
+                              onSlidingStart={() => setIsSliderActive(true)} 
+                              onSlidingComplete={() => { 
+                                addSnapshotToHistory(); 
+                                setIsSliderActive(false); 
+                                setActiveFeature(null); 
+                              }} 
+                              isActive={!!activeFeature} 
+                            />
+                        ) : (
+                            <ScrollView 
+                              ref={currentScrollRef} 
+                              horizontal 
+                              showsHorizontalScrollIndicator={false} 
+                              contentContainerStyle={styles.scrollContent}
+                            >
+                                {activeTool === 'adjust' && featuresForCurrentTarget.map(f => 
+                                  <FeatureButton 
+                                    key={f.key} 
+                                    icon={f.icon} 
+                                    label={f.label} 
+                                    value={getSliderValue(f.key)} 
+                                    isActive={activeFeature === f.key} 
+                                    onPress={() => handleFeaturePress(f.key)} 
+                                  />
+                                )}
+                                
+                                {activeTool === 'filter' && ALL_FILTERS.map(f => 
+                                  <FilterPreview 
+                                    key={f.key} 
+                                    filter={f} 
+                                    imageUri={activePhoto.processedUri!} 
+                                    backgroundUri={staticBackgrounds.find(bg => bg.id === settings.backgroundId)?.fullUrl!} 
+                                    isSelected={activeFilterKey === f.key} 
+                                    onPress={() => applyFilter(f.key, activeTarget)} 
+                                  />
+                                )}
+                                
+                                {activeTool === 'background' && staticBackgrounds.map(bg => 
+                                  <BackgroundButton 
+                                    key={bg.id} 
+                                    background={bg} 
+                                    isSelected={settings.backgroundId === bg.id} 
+                                    onPress={() => { 
+                                      updateSettings({backgroundId: bg.id}); 
+                                      addSnapshotToHistory();
+                                    }} 
+                                  />
+                                )}
+                            </ScrollView>
+                        )}
+                    </View>
+                  </>
+              )}
+              
+              {activeTool !== 'crop' && (
+                <MainToolbar 
+                  activeTool={activeTool} 
+                  onToolChange={handleToolChange} 
+                />
+              )}
             </View>
         </View>
       </SafeAreaView>
@@ -394,7 +393,7 @@ const styles = StyleSheet.create({
   
   previewContainer: { 
     flex: 1, 
-    width: '100%' 
+    width: '100' 
   },
   
   bottomToolbarContainer: { 
