@@ -1,4 +1,4 @@
-// client/app/(auth)/login.tsx - TAM KOD
+// client/app/(auth)/login.tsx - DİREKT LOADİNG SERVİCE
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, KeyboardAvoidingView, Platform,
@@ -27,17 +27,44 @@ export default function LoginScreen() {
       ToastService.show({ type: 'error', text1: t('auth.emptyFieldsTitle'), text2: t('auth.emptyFieldsMessage') });
       return;
     }
+    
+    console.log('🎬 LoadingService.show() - Login');
     LoadingService.show();
-    try { await login(email, password); } 
-    catch (error: any) { ToastService.show({ type: 'error', text1: t('auth.loginFailed'), text2: error.message || t('auth.tryAgain') }); } 
-    finally { LoadingService.hide(); }
+    
+    try { 
+      await login(email, password);
+      
+      // Başarılı login - 2 saniye sonra gizle
+      setTimeout(() => {
+        console.log('🎬 LoadingService.hide() - Login başarılı');
+        LoadingService.hide();
+      }, 2000);
+      
+    } catch (error: any) { 
+      console.log('🎬 LoadingService.hide() - Login hatası');
+      LoadingService.hide();
+      ToastService.show({ type: 'error', text1: t('auth.loginFailed'), text2: error.message || t('auth.tryAgain') }); 
+    }
   };
 
   const handleGuestLogin = async () => {
+    console.log('🎬 LoadingService.show() - Guest Login');
     LoadingService.show();
-    try { await guestLogin(); } 
-    catch (error: any) { ToastService.show({ type: 'error', text1: 'Misafir Girişi Başarısız', text2: error.message || t('auth.tryAgain') }); } 
-    finally { LoadingService.hide(); }
+    
+    try { 
+      await guestLogin();
+      
+      // Başarılı guest login - 2 saniye sonra gizle
+      setTimeout(() => {
+        console.log('🎬 LoadingService.hide() - Guest login başarılı');
+        LoadingService.hide();
+      }, 2000);
+      
+    } catch (error: any) { 
+      console.log('🎬 LoadingService.hide() - Guest login hatası');
+      LoadingService.hide();
+      ToastService.show({ type: 'error', text1: 'Misafir Girişi Başarısız', text2: error.message || t('auth.tryAgain') }); 
+    }
   };
 
   return (

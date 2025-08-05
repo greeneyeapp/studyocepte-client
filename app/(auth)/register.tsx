@@ -1,3 +1,4 @@
+// app/(auth)/register.tsx - BASİT VE TEMİZ
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, KeyboardAvoidingView, Platform,
@@ -29,7 +30,6 @@ const validateName = (name: string): { isValid: boolean; message: string } => {
 };
 
 const validatePassword = (password: string): { isValid: boolean; message: string } => {
-  // En az 8 karakter, 1 büyük harf, 1 küçük harf, 1 rakam, 1 özel karakter
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(password)) {
     return { isValid: false, message: 'Şifre; en az 8 karakter, 1 büyük, 1 küçük harf, 1 rakam ve 1 özel karakter içermelidir.' };
@@ -50,37 +50,35 @@ export default function RegisterScreen() {
   const isLoading = useAuthStore((state) => state.isLoading);
 
   const handleRegister = async () => {
-    // 1. İsim Validasyonu
+    // Validasyonlar
     const nameValidation = validateName(name);
     if (!nameValidation.isValid) {
       ToastService.show({ type: 'error', text1: 'Geçersiz Ad Soyad', text2: nameValidation.message });
       return;
     }
-    // 2. Email Boşluk Kontrolü
     if (!email.trim()) {
       ToastService.show({ type: 'error', text1: t('auth.emptyFieldsTitle'), text2: 'E-posta alanı boş bırakılamaz.' });
       return;
     }
-    // 3. Şifre Validasyonu
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
       ToastService.show({ type: 'error', text1: 'Güçsüz Şifre', text2: passwordValidation.message });
       return;
     }
-    // 4. Şifre Tekrar Kontrolü
     if (password !== confirmPassword) {
       ToastService.show({ type: 'error', text1: t('auth.passwordMismatchTitle'), text2: t('auth.passwordMismatchMessage') });
       return;
     }
 
-    LoadingService.show(); // Merkezi yükleme animasyonunu göster
+    LoadingService.show();
+
     try {
       await register(name.trim(), email.trim(), password);
-      ToastService.show({ type: 'success', text1: 'Kayıt Başarılı!', text2: 'Giriş sayfasına yönlendiriliyorsunuz.' });
+      // Başarılı - LoadingService otomatik gizlenecek
+      ToastService.show({ type: 'success', text1: 'Kayıt Başarılı!', text2: 'Ana sayfaya yönlendiriliyorsunuz.' });
     } catch (error: any) {
+      LoadingService.hide();
       ToastService.show({ type: 'error', text1: t('auth.registerFailed'), text2: error.message || t('auth.tryAgain') });
-    } finally {
-      LoadingService.hide(); // Animasyonu gizle
     }
   };
 
@@ -105,7 +103,7 @@ export default function RegisterScreen() {
                   title={t('auth.registerButton')} 
                   onPress={handleRegister} 
                   disabled={isLoading} 
-                  size="medium" // Buton boyutu güncellendi
+                  size="medium"
                 />
               </View>
 
@@ -123,7 +121,6 @@ export default function RegisterScreen() {
   );
 }
 
-// Stiller login ekranı ile birebir aynıdır.
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
   gradient: { flex: 1 },

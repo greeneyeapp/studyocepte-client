@@ -1,4 +1,4 @@
-// client/components/Loading/LoadingService.ts - GÜNCELLENDİ
+// client/components/Loading/LoadingService.ts - TEMİZLENMİŞ VERSİYON
 import { AppLoadingRef } from './AppLoading';
 
 let appLoadingRef: AppLoadingRef | null = null;
@@ -7,12 +7,13 @@ export const LoadingService = {
   setRef: (ref: AppLoadingRef | null) => {
     appLoadingRef = ref;
   },
-  // show fonksiyonu artık opsiyonel bir metin alabilir
-  show: (text?: string) => {
+  
+  show: () => {
     if (appLoadingRef) {
-      appLoadingRef.show(text);
+      appLoadingRef.show();
     }
   },
+  
   hide: () => {
     if (appLoadingRef) {
       appLoadingRef.hide();

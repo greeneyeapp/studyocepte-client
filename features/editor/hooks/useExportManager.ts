@@ -1,4 +1,4 @@
-// client/features/editor/hooks/useExportManager.ts - TAM VE YENİLENMİŞ KOD
+// client/features/editor/hooks/useExportManager.ts - DÜZELTİLMİŞ
 import { useState, createRef } from 'react';
 import { View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
@@ -32,7 +32,7 @@ export const useExportManager = () => {
     };
 
     setIsExporting(true);
-    LoadingService.show(`${exportPreset.name} formatında işleniyor...`);
+    LoadingService.show(); // Text parametresi kaldırıldı
 
     try {
       console.log('🖼️ Capturing view with settings:', {
@@ -48,7 +48,7 @@ export const useExportManager = () => {
         quality: exportPreset.quality,
         width: exportPreset.dimensions.width,
         height: exportPreset.dimensions.height,
-        result: 'tmpfile', // base64 yerine tmpfile kullan
+        result: 'tmpfile',
       });
 
       if (!uri) {

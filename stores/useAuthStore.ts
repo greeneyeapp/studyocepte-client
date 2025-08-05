@@ -23,7 +23,10 @@ const USER_STORAGE_KEY = 'user';
 const GUEST_USER_STORAGE_KEY = 'guest_user';
 
 export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
-  user: null, isAuthenticated: false, isLoading: false, error: null,
+  user: null, 
+  isAuthenticated: false, 
+  isLoading: false, 
+  error: null,
 
   handleUnauthorized: () => {
     AsyncStorage.removeItem(USER_STORAGE_KEY);
@@ -93,7 +96,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
       if (storedGuestJson) {
         const storedGuest = JSON.parse(storedGuestJson);
-        // DEĞİŞİKLİK: Artık `storedGuest.uid` kullanılıyor.
         tokenResponse = await api.loginAsGuest(storedGuest.uid);
       } else {
         tokenResponse = await api.createGuestUser();

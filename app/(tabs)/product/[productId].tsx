@@ -78,18 +78,28 @@ const ModernPhotoCard = ({ photo, isSelected, showRemoveBgIcon, onPress, onLongP
   );
 };
 
+// DÜZELTİLMİŞ HEADER BİLEŞENİ
 const ModernHeader: React.FC<{
   productName: string; photoCount: number; onBack: () => void;
 }> = ({ productName, photoCount, onBack }) => (
   <View style={styles.header}>
-    <TouchableOpacity onPress={onBack} style={styles.backButton}>
-      <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
-    </TouchableOpacity>
-    <View style={styles.headerContent}>
-      <Text style={styles.productName} numberOfLines={1}>{productName}</Text>
+    {/* Sol - Geri Butonu */}
+    <View style={styles.leftSection}>
+      <TouchableOpacity onPress={onBack} style={styles.backButton}>
+        <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
+      </TouchableOpacity>
+    </View>
+    
+    {/* Orta - Başlık ve Fotoğraf Sayısı */}
+    <View style={styles.centerSection}>
+      <Text style={styles.productName} numberOfLines={1} ellipsizeMode="tail">
+        {productName}
+      </Text>
       <Text style={styles.photoCount}>{photoCount} fotoğraf</Text>
     </View>
-    <View style={styles.headerRightPlaceholder} />
+    
+    {/* Sağ - Boş Alan (Simetri için) */}
+    <View style={styles.rightSection} />
   </View>
 );
 
@@ -153,7 +163,7 @@ export default function ProductDetailScreen() {
         mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 1, allowsMultipleSelection: true,
       });
       if (!result.canceled && result.assets) {
-        LoadingService.show();
+        LoadingService.show(); // Text parametresi kaldırıldı
         const uris = result.assets.map(asset => asset.uri);
         const success = await addMultiplePhotos(productId, uris);
         LoadingService.hide();
@@ -293,18 +303,59 @@ export default function ProductDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  // DÜZELTİLMİŞ HEADER STİLLERİ
   header: {
-    backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.border,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
+    backgroundColor: Colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    minHeight: 64, // Sabit yükseklik
   },
-  backButton: { position: 'absolute', left: Spacing.lg, zIndex: 1, padding: Spacing.sm },
-  headerContent: { flex: 1, alignItems: 'center' },
-  productName: { ...Typography.h2, color: Colors.textPrimary, fontWeight: '700' },
-  photoCount: { ...Typography.body, color: Colors.textSecondary, fontSize: 14, marginTop: 2 },
-  headerRightPlaceholder: { width: 24 + Spacing.sm * 2 },
+  
+  leftSection: {
+    width: 48, // Sabit genişlik
+    alignItems: 'flex-start',
+  },
+  
+  centerSection: {
+    flex: 1, // Kalan alanı kapla
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm, // Yan taraflardan biraz boşluk
+  },
+  
+  rightSection: {
+    width: 48, // Sol ile aynı genişlik (simetri için)
+  },
+  
+  backButton: {
+    padding: Spacing.sm,
+    marginLeft: -Spacing.sm, // Hizalama için
+  },
+  
+  productName: {
+    ...Typography.h2,
+    color: Colors.textPrimary,
+    fontWeight: '700',
+    textAlign: 'center',
+    maxWidth: '100%', // Taşmayı önle
+  },
+  
+  photoCount: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    fontSize: 14,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.xl, },
   emptyIcon: { marginBottom: Spacing.xl, },
   emptyTitle: { ...Typography.h2, color: Colors.textPrimary, marginBottom: Spacing.sm, textAlign: 'center', },
