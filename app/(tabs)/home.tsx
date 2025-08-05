@@ -8,15 +8,47 @@ import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { useProductStore, Product } from '@/stores/useProductStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { Colors, Spacing, Typography, BorderRadius, Layout } from '@/constants';
 import { ToastService } from '@/components/Toast/ToastService';
 import { InputDialogService } from '@/components/Dialog/InputDialogService';
-import { EnhancedSearchBar } from '@/components/EnhancedSearchBar';
 import { Card } from '@/components/Card';
 import { ErrorMessage } from '@/components/ErrorMessage';
 
 const GRID_SPACING = Spacing.sm;
 const numColumns = Layout.isTablet ? 4 : 3;
+
+// Profil avatarı bileşeni
+const ProfileAvatar: React.FC<{ name: string; onPress: () => void }> = ({ name, onPress }) => {
+  const getInitials = () => {
+    const words = name.trim().split(' ');
+    if (words.length > 1) {
+      return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+  
+  const stringToColor = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    let color = '#';
+    for (let i = 0; i < 3; i++) {
+      const value = (hash >> (i * 8)) & 0xFF;
+      color += ('00' + value.toString(16)).substr(-2);
+    }
+    return color;
+  };
+
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.profileButton} activeOpacity={0.7}>
+      <View style={[styles.avatarContainer, { backgroundColor: stringToColor(name) }]}>
+        <Text style={styles.avatarText}>{getInitials()}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 /**
  * Grid'deki her bir ürün kartını render eden, memoize edilmiş bileşen.
@@ -32,7 +64,7 @@ const ProductGridItem: React.FC<{ product: Product; onPress: () => void; }> = Re
                 <Card padding="none">
                     <View style={itemStyles.imageContainer}>
                     {coverImageUri ? (
-                        <Image source={{ uri: coverImageUri }} style={itemStyles.productImage} />
+                        <Image source={{ uri: coverImageUri }} style={itemStyles.productImage} resizeMode="cover" />
                     ) : (
                         // Fotoğraf yoksa bir placeholder göster
                         <View style={itemStyles.placeholder}>
@@ -54,10 +86,9 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { products, createProduct, isLoading, loadProducts } = useProductStore();
+  const { user } = useAuthStore();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'name' | 'createdAt'>('createdAt');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     // Uygulama açıldığında veya ekrana odaklanıldığında yerel depodan verileri yükle
@@ -101,41 +132,33 @@ export default function HomeScreen() {
     });
   };
 
-  // Performans için filtreleme ve sıralama mantığını memoize et
-  const filteredAndSortedProducts = useMemo(() => {
-    let filtered = products;
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = products.filter(product => product.name.toLowerCase().includes(query));
-    }
-    return filtered.sort((a, b) => {
-      let comparison = 0;
-      if (sortBy === 'name') {
-        comparison = a.name.localeCompare(b.name);
-      } else { // createdAt
-        comparison = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }
-      return sortOrder === 'asc' ? -comparison : comparison;
-    });
-  }, [products, searchQuery, sortBy, sortOrder]);
+  const handleProfilePress = () => {
+    router.push('/(tabs)/settings');
+  };
 
+  // Basit filtreleme - sadece arama
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return products;
+    const query = searchQuery.toLowerCase();
+    return products.filter(product => product.name.toLowerCase().includes(query));
+  }, [products, searchQuery]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Stack.Screen options={{ title: t('home.title'), headerShown: true }} />
+      <Stack.Screen options={{ title: t('home.title'), headerShown: false }} />
 
-      <EnhancedSearchBar
-        onSearch={(query, filters) => {
-          setSearchQuery(query);
-          setSortBy(filters.sortBy as 'name' | 'createdAt');
-          setSortOrder(filters.sortOrder);
-        }}
-      />
+      {/* COMPACT HEADER - Sadece başlık + profil */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Ürünlerim</Text>
+        {user && (
+          <ProfileAvatar name={user.name || 'Kullanıcı'} onPress={handleProfilePress} />
+        )}
+      </View>
 
       <View style={styles.gridContainer}>
         {isLoading && products.length === 0 ? (
             <ActivityIndicator style={{marginTop: 50}} size="large" color={Colors.primary}/>
-        ) : filteredAndSortedProducts.length === 0 ? (
+        ) : filteredProducts.length === 0 ? (
             <ErrorMessage 
               message={searchQuery ? `"${searchQuery}" için sonuç bulunamadı.` : "Henüz hiç ürün oluşturmadınız. Yeni bir tane eklemek için '+' butonuna dokunun."} 
               onRetry={loadProducts}
@@ -143,7 +166,7 @@ export default function HomeScreen() {
             />
         ) : (
             <FlatList
-                data={filteredAndSortedProducts}
+                data={filteredProducts}
                 renderItem={({ item }) => <ProductGridItem product={item} onPress={() => handleProductPress(item)} />}
                 keyExtractor={(item) => item.id}
                 numColumns={numColumns}
@@ -167,6 +190,55 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
+  
+  // HEADER STYLES
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  headerTitle: {
+    ...Typography.h2,
+    color: Colors.textPrimary,
+    fontWeight: '700',
+  },
+  headerSubtitle: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  
+  // PROFILE AVATAR STYLES
+  profileButton: {
+    padding: Spacing.xs,
+  },
+  avatarContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  avatarText: {
+    ...Typography.bodyMedium,
+    color: Colors.card,
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  
   gridContainer: { flex: 1 },
   fab: { position: 'absolute', right: Spacing.lg, bottom: Spacing.lg, width: 60, height: 60, borderRadius: 30, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
 });

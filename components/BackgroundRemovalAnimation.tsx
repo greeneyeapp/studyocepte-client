@@ -1,4 +1,4 @@
-// components/BackgroundRemovalAnimation.tsx - SMOOTH TRANSITION VERSION
+// components/BackgroundRemovalAnimation.tsx - ORIGINAL WORKING VERSION
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, Image, Animated, Text, Dimensions } from 'react-native';
 import { Colors, BorderRadius, Typography, Spacing } from '@/constants';
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   originalImageOverlay: {
     position: 'absolute',
     top: 0,
-    left: 0, // Sol kenara sabitlendi
+    left: 0,
     bottom: 0,
     overflow: 'hidden', // Wipe için kritik
     zIndex: 2, // Üst katman - orijinal görsel
