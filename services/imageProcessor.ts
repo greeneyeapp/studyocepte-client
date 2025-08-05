@@ -1,6 +1,8 @@
-// services/imageProcessor.ts - GÜNCELLENMİŞ VERSİYON
+// services/imageProcessor.ts - Filtered thumbnail desteği ile güncellenmiş
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
+import { captureRef } from 'react-native-view-shot';
+import { EditorSettings } from '@/stores/useEnhancedEditorStore';
 
 export const imageProcessor = {
   /**
@@ -23,6 +25,131 @@ export const imageProcessor = {
     } catch (error) {
       console.error('Thumbnail oluşturma hatası:', error);
       throw new Error('Thumbnail oluşturulamadı');
+    }
+  },
+
+  /**
+   * YENİ: Editor ayarları uygulanmış filtered thumbnail oluşturur
+   * @param originalUri Orijinal fotoğraf URI'si
+   * @param editorSettings Editor'da yapılan ayarlar
+   * @param backgroundUri Arka plan URI'si (opsiyonel)
+   * @returns Filtered thumbnail URI'si
+   */
+  createFilteredThumbnail: async (
+    originalUri: string,
+    editorSettings: EditorSettings,
+    backgroundUri?: string
+  ): Promise<string> => {
+    try {
+      console.log('🖼️ Creating filtered thumbnail:', {
+        hasBackground: !!backgroundUri,
+        settingsKeys: Object.keys(editorSettings)
+      });
+
+      // Temel resize işlemi - thumbnail boyutunda
+      const resizedResult = await ImageManipulator.manipulateAsync(
+        originalUri,
+        [{ resize: { width: 300, height: 300 } }], // Kare thumbnail
+        { 
+          compress: 0.8, 
+          format: ImageManipulator.SaveFormat.PNG // Alpha channel için PNG
+        }
+      );
+
+      // CSS filter benzeri manipulasyonlar uygula
+      const filteredResult = await this.applyBasicFilters(
+        resizedResult.uri,
+        editorSettings
+      );
+
+      console.log('✅ Filtered thumbnail created successfully');
+      return filteredResult;
+
+    } catch (error) {
+      console.error('❌ Filtered thumbnail creation failed:', error);
+      // Fallback: normal thumbnail oluştur
+      return await this.createThumbnail(originalUri, 'png');
+    }
+  },
+
+  /**
+   * YENİ: Temel filter'ları ImageManipulator ile uygula
+   * @param imageUri Görüntü URI'si
+   * @param settings Editor ayarları
+   * @returns Filtered görüntü URI'si
+   */
+  applyBasicFilters: async (
+    imageUri: string,
+    settings: EditorSettings
+  ): Promise<string> => {
+    try {
+      const manipulations: ImageManipulator.Action[] = [];
+
+      // Rotation uygula
+      if (settings.photoRotation && settings.photoRotation !== 0) {
+        manipulations.push({
+          rotate: settings.photoRotation
+        });
+      }
+
+      // Temel renk ayarları - ImageManipulator'ın desteklediği kadarıyla
+      let finalUri = imageUri;
+
+      // Manipülasyonlar varsa uygula
+      if (manipulations.length > 0) {
+        const result = await ImageManipulator.manipulateAsync(
+          imageUri,
+          manipulations,
+          { 
+            compress: 0.8, 
+            format: ImageManipulator.SaveFormat.PNG 
+          }
+        );
+        finalUri = result.uri;
+      }
+
+      // Daha gelişmiş filter'lar için view-shot kullanabiliriz
+      // (bunun için preview component'inden capture almak gerekir)
+      
+      return finalUri;
+
+    } catch (error) {
+      console.error('Filter application failed:', error);
+      return imageUri; // Fallback: orijinal URI döndür
+    }
+  },
+
+  /**
+   * YENİ: View component'inden filtered thumbnail capture
+   * @param viewRef React ref to the preview component
+   * @param targetSize Thumbnail boyutu
+   * @returns Captured thumbnail URI
+   */
+  captureFilteredThumbnail: async (
+    viewRef: any,
+    targetSize: { width: number; height: number } = { width: 300, height: 300 }
+  ): Promise<string> => {
+    try {
+      if (!viewRef?.current) {
+        throw new Error('View ref is not available');
+      }
+
+      console.log('📸 Capturing filtered thumbnail from view...');
+
+      const capturedUri = await captureRef(viewRef, {
+        format: 'png',
+        quality: 0.8,
+        width: targetSize.width,
+        height: targetSize.height,
+        result: 'tmpfile',
+      });
+
+      console.log('✅ View captured successfully:', capturedUri);
+      return capturedUri;
+
+    } catch (error) {
+      console.error('❌ View capture failed:', error);
+      throw new Error('Filtered thumbnail capture başarısız');
     }
   },
 
@@ -50,6 +177,45 @@ export const imageProcessor = {
     } catch (error) {
       console.error('Base64 dosya dönüştürme hatası:', error);
       throw new Error('Base64 verisi dosyaya dönüştürülemedi');
+    }
+  },
+
+  /**
+   * YENİ: Kalıcı thumbnail dosyası oluştur ve kaydet
+   * @param productId Ürün ID'si
+   * @param photoId Fotoğraf ID'si
+   * @param sourceUri Kaynak URI (geçici veya kalıcı)
+   * @returns Kalıcı thumbnail URI'si
+   */
+  saveFilteredThumbnail: async (
+    productId: string,
+    photoId: string,
+    sourceUri: string
+  ): Promise<string> => {
+    try {
+      const { fileSystemManager } = await import('@/services/fileSystemManager');
+      
+      // Filtered thumbnail için özel dosya adı
+      const thumbnailFilename = `thumb_filtered_${photoId}.png`;
+      
+      // Kalıcı konuma kaydet
+      const permanentUri = await fileSystemManager.saveImage(
+        productId,
+        sourceUri,
+        thumbnailFilename
+      );
+
+      console.log('💾 Filtered thumbnail saved:', {
+        photoId,
+        filename: thumbnailFilename,
+        uri: permanentUri
+      });
+
+      return permanentUri;
+
+    } catch (error) {
+      console.error('❌ Filtered thumbnail save failed:', error);
+      throw new Error('Filtered thumbnail kaydedilemedi');
     }
   },
 
@@ -143,7 +309,11 @@ export const imageProcessor = {
       if (!cacheDir) return;
 
       const files = await FileSystem.readDirectoryAsync(cacheDir);
-      const tempFiles = files.filter(file => file.startsWith('temp_'));
+      const tempFiles = files.filter(file => 
+        file.startsWith('temp_') || 
+        file.startsWith('captured_') ||
+        file.startsWith('filtered_')
+      );
 
       await Promise.all(
         tempFiles.map(file =>
@@ -151,9 +321,27 @@ export const imageProcessor = {
         )
       );
 
-      console.log(`${tempFiles.length} geçici dosya temizlendi`);
+      console.log(`🧹 ${tempFiles.length} geçici dosya temizlendi`);
     } catch (error) {
-      console.warn('Geçici dosya temizleme hatası:', error);
+      console.warn('⚠️ Geçici dosya temizleme hatası:', error);
+    }
+  },
+
+  /**
+   * YENİ: Memory usage optimization
+   */
+  optimizeMemoryUsage: async (): Promise<void> => {
+    try {
+      // Geçici dosyaları temizle
+      await this.cleanupTempFiles();
+      
+      // JavaScript garbage collection'ı tetikle (sadece debug için)
+      if (__DEV__ && global.gc) {
+        global.gc();
+        console.log('🗑️ Garbage collection triggered');
+      }
+    } catch (error) {
+      console.warn('Memory optimization failed:', error);
     }
   },
 };

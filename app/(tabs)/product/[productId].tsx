@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+// client/app/(tabs)/product/[productId].tsx - TAM VE DÜZELTİLMİŞ KOD
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
   TouchableOpacity, Image, ActivityIndicator, LayoutAnimation,
@@ -78,27 +79,21 @@ const ModernPhotoCard = ({ photo, isSelected, showRemoveBgIcon, onPress, onLongP
   );
 };
 
-// DÜZELTİLMİŞ HEADER BİLEŞENİ
 const ModernHeader: React.FC<{
   productName: string; photoCount: number; onBack: () => void;
 }> = ({ productName, photoCount, onBack }) => (
   <View style={styles.header}>
-    {/* Sol - Geri Butonu */}
     <View style={styles.leftSection}>
       <TouchableOpacity onPress={onBack} style={styles.backButton}>
         <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
       </TouchableOpacity>
     </View>
-
-    {/* Orta - Başlık ve Fotoğraf Sayısı */}
     <View style={styles.centerSection}>
       <Text style={styles.productName} numberOfLines={1} ellipsizeMode="tail">
         {productName}
       </Text>
       <Text style={styles.photoCount}>{photoCount} fotoğraf</Text>
     </View>
-
-    {/* Sağ - Boş Alan (Simetri için) */}
     <View style={styles.rightSection} />
   </View>
 );
@@ -131,8 +126,13 @@ const ModernFAB: React.FC<{ onPress: () => void; isVisible: boolean }> = ({ onPr
   useEffect(() => {
     Animated.spring(scaleValue, { toValue: isVisible ? 1 : 0, useNativeDriver: true, tension: 100, friction: 8 }).start();
   }, [isVisible]);
+
   return (
-    <Animated.View style={[styles.fabContainer, { transform: [{ scale: scaleValue }] }]}>
+    <Animated.View
+      style={[styles.fabContainer, { transform: [{ scale: scaleValue }] }]}
+      // ÇÖZÜM: Buton görünmezken dokunma olaylarını devre dışı bırak.
+      pointerEvents={isVisible ? 'auto' : 'none'}
+    >
       <TouchableOpacity style={styles.fab} onPress={onPress} activeOpacity={0.8}>
         <Feather name="plus" size={24} color={Colors.card} />
       </TouchableOpacity>
@@ -143,7 +143,7 @@ const ModernFAB: React.FC<{ onPress: () => void; isVisible: boolean }> = ({ onPr
 export default function ProductDetailScreen() {
   const { productId } = useLocalSearchParams<{ productId: string }>();
   const router = useRouter();
-  const { addMultiplePhotos, deletePhoto, removeMultipleBackgrounds } = useProductStore();
+  const { addMultiplePhotos, deleteMultiplePhotos, removeMultipleBackgrounds } = useProductStore();
   const activeProduct = useProductStore(state => state.products.find(p => p.id === productId));
   const isProcessing = useProductStore(state => state.isProcessing);
   const storeError = useProductStore(state => state.error);
@@ -158,41 +158,25 @@ export default function ProductDetailScreen() {
     if (!productId) return;
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        ToastService.show({ type: 'error', text1: 'İzin Gerekli' });
-        return;
-      }
+      if (status !== 'granted') { ToastService.show({ type: 'error', text1: 'İzin Gerekli' }); return; }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 1,
-        allowsMultipleSelection: true,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 1, allowsMultipleSelection: true,
       });
       if (!result.canceled && result.assets) {
         LoadingService.show();
-
-        // GÜNCELLEME:
-        // Animasyonun ekranda belirmesi için UI thread'ine küçük bir mola veriyoruz.
-        // Bu, yoğun dosya işlemleri başlamadan önce animasyonun render edilmesini garantiler.
         setTimeout(async () => {
           try {
             const uris = result.assets.map(asset => asset.uri);
             const success = await addMultiplePhotos(productId, uris);
-            if (!success) {
-              ToastService.show({ type: 'error', text1: 'Hata', text2: storeError || 'Fotoğraflar eklenemedi.' });
-            }
+            if (!success) ToastService.show({ type: 'error', text1: 'Hata', text2: storeError || 'Fotoğraflar eklenemedi.' });
           } catch (e) {
-            ToastService.show({ type: 'error', text1: 'İşlem Hatası', text2: 'Fotoğraflar eklenirken bir sorun oluştu.' });
+            ToastService.show({ type: 'error', text1: 'Hata', text2: 'Fotoğraflar eklenemedi.' });
           } finally {
-            // İşlem bitince veya hata alınca animasyonu gizle.
             LoadingService.hide();
           }
-        }, 50); // 50ms genellikle yeterlidir.
+        }, 50)
       }
-    } catch (error) {
-      ToastService.show({ type: 'error', text1: 'Hata', text2: 'Fotoğraf seçilemedi.' });
-      // Hata durumunda yükleme ekranı gösteriliyorsa gizle
-      LoadingService.hide();
-    }
+    } catch (error) { ToastService.show({ type: 'error', text1: 'Hata', text2: 'Fotoğraf seçilemedi.' }); LoadingService.hide() }
   };
 
   const toggleSelectionMode = (photoId?: string) => {
@@ -260,13 +244,23 @@ export default function ProductDetailScreen() {
   const handleBatchDelete = () => {
     if (selectedPhotos.size === 0) return;
     DialogService.show({
-      title: 'Fotoğrafları Sil', message: `${selectedPhotos.size} fotoğraf kalıcı olarak silinecek. Emin misiniz?`,
-      buttons: [{ text: 'İptal', style: 'cancel' }, {
-        text: 'Sil', style: 'destructive', onPress: async () => {
-          await Promise.all(Array.from(selectedPhotos).map(photoId => deletePhoto(productId!, photoId)));
-          toggleSelectionMode();
+      title: 'Fotoğrafları Sil',
+      message: `${selectedPhotos.size} fotoğraf kalıcı olarak silinecek. Emin misiniz?`,
+      buttons: [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            if (productId) {
+              // Döngü yerine, yeni fonksiyonu tek seferde çağırıyoruz.
+              const photoIdsToDelete = Array.from(selectedPhotos);
+              await deleteMultiplePhotos(productId, photoIdsToDelete);
+              toggleSelectionMode(); // Seçim modunu kapat
+            }
+          }
         }
-      }]
+      ]
     });
   };
 
@@ -328,7 +322,6 @@ export default function ProductDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  // DÜZELTİLMİŞ HEADER STİLLERİ
   header: {
     backgroundColor: Colors.card,
     borderBottomWidth: 1,
@@ -342,27 +335,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    minHeight: 64, // Sabit yükseklik
+    minHeight: 64,
   },
 
   leftSection: {
-    width: 48, // Sabit genişlik
+    width: 48,
     alignItems: 'flex-start',
   },
 
   centerSection: {
-    flex: 1, // Kalan alanı kapla
+    flex: 1,
     alignItems: 'center',
-    paddingHorizontal: Spacing.sm, // Yan taraflardan biraz boşluk
+    paddingHorizontal: Spacing.sm,
   },
 
   rightSection: {
-    width: 48, // Sol ile aynı genişlik (simetri için)
+    width: 48,
   },
 
   backButton: {
     padding: Spacing.sm,
-    marginLeft: -Spacing.sm, // Hizalama için
+    marginLeft: -Spacing.sm,
   },
 
   productName: {
@@ -370,7 +363,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontWeight: '700',
     textAlign: 'center',
-    maxWidth: '100%', // Taşmayı önle
+    maxWidth: '100%',
   },
 
   photoCount: {

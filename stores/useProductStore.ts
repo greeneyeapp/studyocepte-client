@@ -1,8 +1,10 @@
+// stores/useProductStore.ts - API dil desteği ile güncellenmiş
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '@/services/api';
+import { api, apiUtils } from '@/services/api';
 import { fileSystemManager } from '@/services/fileSystemManager';
 import { imageProcessor } from '@/services/imageProcessor';
+import i18n from '@/i18n';
 
 export interface ProductPhoto {
   id: string;
@@ -30,6 +32,11 @@ interface ProductStore {
   isProcessing: boolean;
   processingMessage: string;
   error: string | null;
+  // YENİ: Network ve dil durumu
+  isOnline: boolean;
+  currentLanguage: string;
+  
+  // Mevcut fonksiyonlar
   loadProducts: () => Promise<void>;
   createProduct: (name: string) => Promise<Product>;
   deleteProduct: (productId: string) => Promise<void>;
@@ -39,6 +46,15 @@ interface ProductStore {
   removeMultipleBackgrounds: (productId: string, photoIds: string[]) => Promise<boolean>;
   getProductById: (productId: string) => Product | undefined;
   updatePhotoSettings: (productId: string, photoId: string, settings: any) => void;
+  
+  // YENİ: Tek photo background removal
+  removeSingleBackground: (productId: string, photoId: string) => Promise<boolean>;
+  // YENİ: Thumbnail güncelleme
+  updatePhotoThumbnail: (productId: string, photoId: string, newThumbnailUri: string) => void;
+  // YENİ: Network durumu kontrolü
+  checkNetworkStatus: () => Promise<void>;
+  // YENİ: Dil değiştirme
+  changeLanguage: (lang: string) => void;
 }
 
 const STORAGE_KEY = 'studyo_products';
@@ -49,6 +65,8 @@ export const useProductStore = create<ProductStore>((set, get) => ({
   isProcessing: false,
   processingMessage: '',
   error: null,
+  isOnline: true,
+  currentLanguage: i18n.language || 'tr',
 
   loadProducts: async () => {
     set({ isLoading: true, error: null });
@@ -57,15 +75,20 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       const products = stored ? JSON.parse(stored) : [];
       set({ products, isLoading: false });
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      const errorMessage = apiUtils.extractErrorMessage(error);
+      set({ error: errorMessage, isLoading: false });
     }
   },
 
   createProduct: async (name: string): Promise<Product> => {
     const newProduct: Product = {
-      id: `product_${Date.now()}`, name, photos: [],
-      createdAt: new Date().toISOString(), modifiedAt: new Date().toISOString(),
+      id: `product_${Date.now()}`, 
+      name, 
+      photos: [],
+      createdAt: new Date().toISOString(), 
+      modifiedAt: new Date().toISOString(),
     };
+    
     await fileSystemManager.createProductDirectory(newProduct.id);
     const updatedProducts = [...get().products, newProduct];
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
@@ -102,19 +125,30 @@ export const useProductStore = create<ProductStore>((set, get) => ({
         const thumbnailUri = await imageProcessor.createThumbnail(originalUri, 'jpeg');
         
         newPhotos.push({
-          id: photoId, productId, originalUri, thumbnailUri,
-          status: 'raw', createdAt: new Date().toISOString(), modifiedAt: new Date().toISOString(),
+          id: photoId, 
+          productId, 
+          originalUri, 
+          thumbnailUri,
+          status: 'raw', 
+          createdAt: new Date().toISOString(), 
+          modifiedAt: new Date().toISOString(),
         });
       }
       
       const updatedProducts = get().products.map(p => 
-        p.id === productId ? { ...p, photos: [...p.photos, ...newPhotos], modifiedAt: new Date().toISOString() } : p
+        p.id === productId ? { 
+          ...p, 
+          photos: [...p.photos, ...newPhotos], 
+          modifiedAt: new Date().toISOString() 
+        } : p
       );
+      
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
       set({ products: updatedProducts, isProcessing: false });
       return true;
     } catch (error: any) {
-      set({ error: error.message, isProcessing: false });
+      const errorMessage = apiUtils.extractErrorMessage(error);
+      set({ error: errorMessage, isProcessing: false });
       return false;
     }
   },
@@ -122,22 +156,46 @@ export const useProductStore = create<ProductStore>((set, get) => ({
   deletePhoto: async (productId, photoId) => {
     const product = get().products.find(p => p.id === productId);
     const photo = product?.photos.find(p => p.id === photoId);
+    
     if (photo) {
       await fileSystemManager.deleteImage(photo.originalUri);
       if (photo.processedUri) await fileSystemManager.deleteImage(photo.processedUri);
       await fileSystemManager.deleteImage(photo.thumbnailUri);
     }
+    
     const updatedProducts = get().products.map(p => 
-      p.id === productId ? { ...p, photos: p.photos.filter(ph => ph.id !== photoId), modifiedAt: new Date().toISOString() } : p
+      p.id === productId ? { 
+        ...p, 
+        photos: p.photos.filter(ph => ph.id !== photoId), 
+        modifiedAt: new Date().toISOString() 
+      } : p
     );
+    
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
     set({ products: updatedProducts });
   },
-  
+
+  // GÜNCELLEME: Dil desteği ile background removal
   removeMultipleBackgrounds: async (productId, photoIds) => {
     if (get().isProcessing) return false;
 
-    set({ isProcessing: true, processingMessage: 'Arka plan temizleniyor...', error: null });
+    // Network kontrolü
+    const isOnline = await apiUtils.checkNetworkConnection();
+    if (!isOnline) {
+      set({ 
+        error: 'İnternet bağlantısı gerekli. Lütfen bağlantınızı kontrol edin.',
+        isOnline: false 
+      });
+      return false;
+    }
+
+    set({ 
+      isProcessing: true, 
+      processingMessage: 'Arka plan temizleniyor...', 
+      error: null,
+      isOnline: true 
+    });
+    
     const originalProductsState = JSON.parse(JSON.stringify(get().products));
     
     try {
@@ -145,23 +203,36 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       const product = tempProducts.find(p => p.id === productId);
       if (!product) throw new Error('Ürün bulunamadı.');
 
-      const photosToProcess = product.photos.filter(p => photoIds.includes(p.id) && p.status === 'raw');
+      const photosToProcess = product.photos.filter(p => 
+        photoIds.includes(p.id) && p.status === 'raw'
+      );
+      
       if (photosToProcess.length === 0) {
         set({ isProcessing: false });
         return true;
       }
       
+      // UI'da processing durumunu göster
       photosToProcess.forEach(p => { p.status = 'processing'; });
       set({ products: tempProducts });
 
-      const apiPayload = photosToProcess.map(p => ({ filename: `${p.id}.jpg`, uri: p.originalUri }));
-      const result = await api.removeMultipleBackgrounds(apiPayload);
+      // API çağrısı - dil parametresi ile
+      const currentLang = get().currentLanguage;
+      const apiPayload = photosToProcess.map(p => ({ 
+        filename: `${p.id}.jpg`, 
+        uri: p.originalUri 
+      }));
+      
+      const result = await api.removeMultipleBackgrounds(apiPayload, currentLang);
 
+      // Sonuçları işle
       const finalProducts = JSON.parse(JSON.stringify(get().products));
       const targetProduct = finalProducts.find(p => p.id === productId);
-      if(!targetProduct) throw new Error("İşlem sonrası ürün bulunamadı");
+      if (!targetProduct) throw new Error("İşlem sonrası ürün bulunamadı");
       
       let successCount = 0;
+      
+      // Başarılı sonuçları işle
       for (const [id, base64Data] of Object.entries(result.success)) {
         const photoId = id.replace('.jpg', '');
         const photo = targetProduct.photos.find(p => p.id === photoId);
@@ -169,17 +240,24 @@ export const useProductStore = create<ProductStore>((set, get) => ({
           const oldOriginalUri = photo.originalUri;
           const oldThumbnailUri = photo.thumbnailUri;
           const processedFilename = `processed_${photoId}.png`;
-          photo.processedUri = await fileSystemManager.saveBase64Image(productId, base64Data, processedFilename);
+          
+          photo.processedUri = await fileSystemManager.saveBase64Image(
+            productId, 
+            base64Data, 
+            processedFilename
+          );
           photo.originalUri = photo.processedUri;
           photo.thumbnailUri = await imageProcessor.createThumbnail(photo.processedUri, 'png');
           photo.status = 'processed';
           photo.modifiedAt = new Date().toISOString();
+          
           await fileSystemManager.deleteImage(oldOriginalUri);
           await fileSystemManager.deleteImage(oldThumbnailUri);
           successCount++;
         }
       }
 
+      // Hatalı sonuçları işle
       for (const [id] of Object.entries(result.errors)) {
         const photoId = id.replace('.jpg', '');
         const photo = targetProduct.photos.find(p => p.id === photoId);
@@ -187,15 +265,156 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       }
 
       targetProduct.modifiedAt = new Date().toISOString();
-      set({ products: finalProducts, isProcessing: false });
+      set({ products: finalProducts, isProcessing: false, isOnline: true });
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(finalProducts));
       
       return successCount > 0;
 
     } catch (error: any) {
       console.error("removeMultipleBackgrounds CATCH_BLOCK:", error);
-      set({ error: error.message, isProcessing: false, products: originalProductsState });
+      const errorMessage = apiUtils.extractErrorMessage(error);
+      
+      // Network hatası kontrolü
+      const isNetworkError = errorMessage.includes('ağ') || 
+                            errorMessage.includes('network') || 
+                            errorMessage.includes('timeout');
+      
+      set({ 
+        error: errorMessage, 
+        isProcessing: false, 
+        products: originalProductsState,
+        isOnline: !isNetworkError 
+      });
+      
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(originalProductsState));
+      return false;
+    }
+  },
+
+  // YENİ: Tek photo background removal
+  removeSingleBackground: async (productId: string, photoId: string) => {
+    if (get().isProcessing) return false;
+
+    // Network kontrolü
+    const isOnline = await apiUtils.checkNetworkConnection();
+    if (!isOnline) {
+      set({ 
+        error: 'İnternet bağlantısı gerekli. Lütfen bağlantınızı kontrol edin.',
+        isOnline: false 
+      });
+      return false;
+    }
+
+    set({ 
+      isProcessing: true, 
+      processingMessage: 'Arka plan temizleniyor...', 
+      error: null,
+      isOnline: true 
+    });
+
+    try {
+      const product = get().products.find(p => p.id === productId);
+      const photo = product?.photos.find(p => p.id === photoId);
+      
+      if (!product || !photo) {
+        throw new Error('Ürün veya fotoğraf bulunamadı');
+      }
+
+      if (photo.status !== 'raw') {
+        set({ isProcessing: false });
+        return true; // Zaten işlenmiş
+      }
+
+      // UI'da processing durumunu göster
+      const tempProducts = get().products.map(p => 
+        p.id === productId ? {
+          ...p,
+          photos: p.photos.map(ph => 
+            ph.id === photoId ? { ...ph, status: 'processing' as const } : ph
+          )
+        } : p
+      );
+      set({ products: tempProducts });
+
+      // API çağrısı
+      const currentLang = get().currentLanguage;
+      const base64Data = await api.removeSingleBackground({
+        filename: `${photoId}.jpg`,
+        uri: photo.originalUri
+      }, currentLang);
+
+      // Sonucu işle
+      const finalProducts = get().products.map(p => 
+        p.id === productId ? {
+          ...p,
+          photos: p.photos.map(ph => {
+            if (ph.id === photoId) {
+              return {
+                ...ph,
+                status: 'processed' as const,
+                modifiedAt: new Date().toISOString()
+              };
+            }
+            return ph;
+          }),
+          modifiedAt: new Date().toISOString()
+        } : p
+      );
+
+      // Processed dosyayı kaydet
+      const updatedProduct = finalProducts.find(p => p.id === productId);
+      const updatedPhoto = updatedProduct?.photos.find(p => p.id === photoId);
+      
+      if (updatedPhoto) {
+        const oldOriginalUri = updatedPhoto.originalUri;
+        const oldThumbnailUri = updatedPhoto.thumbnailUri;
+        const processedFilename = `processed_${photoId}.png`;
+        
+        updatedPhoto.processedUri = await fileSystemManager.saveBase64Image(
+          productId, 
+          base64Data, 
+          processedFilename
+        );
+        updatedPhoto.originalUri = updatedPhoto.processedUri;
+        updatedPhoto.thumbnailUri = await imageProcessor.createThumbnail(
+          updatedPhoto.processedUri, 
+          'png'
+        );
+        
+        await fileSystemManager.deleteImage(oldOriginalUri);
+        await fileSystemManager.deleteImage(oldThumbnailUri);
+      }
+
+      set({ products: finalProducts, isProcessing: false, isOnline: true });
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(finalProducts));
+      
+      return true;
+
+    } catch (error: any) {
+      console.error("removeSingleBackground CATCH_BLOCK:", error);
+      const errorMessage = apiUtils.extractErrorMessage(error);
+      
+      const isNetworkError = errorMessage.includes('ağ') || 
+                            errorMessage.includes('network') || 
+                            errorMessage.includes('timeout');
+
+      // Photo'nun durumunu raw'a geri döndür
+      const revertedProducts = get().products.map(p => 
+        p.id === productId ? {
+          ...p,
+          photos: p.photos.map(ph => 
+            ph.id === photoId ? { ...ph, status: 'raw' as const } : ph
+          )
+        } : p
+      );
+
+      set({ 
+        error: errorMessage, 
+        isProcessing: false,
+        products: revertedProducts,
+        isOnline: !isNetworkError 
+      });
+      
       return false;
     }
   },
@@ -206,7 +425,11 @@ export const useProductStore = create<ProductStore>((set, get) => ({
         return { 
           ...p,
           photos: p.photos.map(photo => 
-            photo.id === photoId ? { ...photo, editorSettings: settings, modifiedAt: new Date().toISOString() } : photo
+            photo.id === photoId ? { 
+              ...photo, 
+              editorSettings: settings, 
+              modifiedAt: new Date().toISOString() 
+            } : photo
           ),
           modifiedAt: new Date().toISOString() 
         };
@@ -216,6 +439,56 @@ export const useProductStore = create<ProductStore>((set, get) => ({
     set({ products: updatedProducts });
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
   },
+
+  // YENİ: Photo thumbnail güncelleme
+  updatePhotoThumbnail: (productId: string, photoId: string, newThumbnailUri: string) => {
+    const updatedProducts = get().products.map(p => {
+      if (p.id === productId) {
+        return {
+          ...p,
+          photos: p.photos.map(photo => 
+            photo.id === photoId ? {
+              ...photo,
+              thumbnailUri: newThumbnailUri,
+              modifiedAt: new Date().toISOString()
+            } : photo
+          ),
+          modifiedAt: new Date().toISOString()
+        };
+      }
+      return p;
+    });
+
+    set({ products: updatedProducts });
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
+    
+    console.log('🖼️ Photo thumbnail updated:', {
+      productId,
+      photoId,
+      newThumbnailUri
+    });
+  },
   
   getProductById: (productId) => get().products.find(p => p.id === productId),
+
+  // YENİ: Network durumu kontrolü
+  checkNetworkStatus: async () => {
+    try {
+      const isOnline = await apiUtils.checkNetworkConnection();
+      set({ isOnline });
+      
+      if (!isOnline && get().error === null) {
+        set({ error: 'İnternet bağlantısı kesildi' });
+      } else if (isOnline && get().error?.includes('İnternet')) {
+        set({ error: null }); // Network error'ını temizle
+      }
+    } catch (error) {
+      set({ isOnline: false });
+    }
+  },
+
+  // YENİ: Dil değiştirme
+  changeLanguage: (lang: string) => {
+    set({ currentLanguage: lang });
+  },
 }));

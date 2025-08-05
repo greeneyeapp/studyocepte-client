@@ -1,6 +1,8 @@
+// services/api.ts - Dil desteği ile güncellenmiş API servisleri
 import axios from 'axios';
 import { config } from '@/config/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import i18n from '@/i18n';
 
 // DEĞİŞİKLİK: 'id' alanı 'uid' olarak güncellendi.
 export interface User {
@@ -23,13 +25,36 @@ export interface BatchBackgroundRemovalResponse {
   errors: { [filename: string]: string };
 }
 
+// YENİ: API Error Response interface
+export interface APIErrorResponse {
+  success: false;
+  error: {
+    message: string;
+    code: string;
+    language: string;
+    timestamp: string;
+    error_id: string;
+  };
+}
+
+// YENİ: API Success Response interface  
+export interface APISuccessResponse<T = any> {
+  success: true;
+  message: string;
+  language: string;
+  timestamp: string;
+  data?: T;
+}
+
 const apiClient = axios.create({
   baseURL: config.api.baseUrl,
   timeout: 60000, 
 });
 
+// YENİ: Dil parametresi ekleme interceptor'u
 apiClient.interceptors.request.use(
   async (config) => {
+    // Auth token ekle
     const userJson = await AsyncStorage.getItem('user');
     if (userJson) {
       const storedData = JSON.parse(userJson);
@@ -37,11 +62,20 @@ apiClient.interceptors.request.use(
         config.headers.Authorization = `Bearer ${storedData.access_token}`;
       }
     }
+
+    // Dil parametresi ekle
+    const currentLang = i18n.language || 'tr';
+    if (!config.params) {
+      config.params = {};
+    }
+    config.params.lang = currentLang;
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
+// GÜNCELLEME: Gelişmiş error handling
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -49,42 +83,243 @@ apiClient.interceptors.response.use(
       if (error.response.status === 401) {
         await AsyncStorage.removeItem('user');
       }
-      const errorMessage = error.response.data.detail || 'Bir sunucu hatası oluştu.';
-      throw new Error(errorMessage);
+      
+      // API'den dönen hata formatını kontrol et
+      const errorData = error.response.data as APIErrorResponse;
+      if (errorData && !errorData.success && errorData.error) {
+        // Structured API error
+        throw new Error(errorData.error.message);
+      } else {
+        // Fallback error message
+        const errorMessage = error.response.data?.detail || 'Bir sunucu hatası oluştu.';
+        throw new Error(errorMessage);
+      }
     }
     throw new Error('Bir ağ hatası oluştu veya sunucuya ulaşılamıyor.');
   }
 );
 
+// YENİ: Dil parametresi ile API çağrı helper'ı
+const makeAPICall = async <T>(
+  apiCall: () => Promise<T>,
+  options?: { lang?: string }
+): Promise<T> => {
+  try {
+    return await apiCall();
+  } catch (error: any) {
+    // Hata mesajını logla ve yeniden fırlat
+    console.error('API Call Error:', {
+      message: error.message,
+      lang: options?.lang || i18n.language,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
+};
+
 export const api = {
-  login: async (email: string, password: string): Promise<TokenResponse> => {
-    const response = await apiClient.post<TokenResponse>('/auth/login', { email, password });
-    return response.data;
+  // GÜNCELLEME: Dil parametresi desteği eklendi
+  login: async (email: string, password: string, lang?: string): Promise<TokenResponse> => {
+    return makeAPICall(async () => {
+      const response = await apiClient.post<TokenResponse>('/auth/login', 
+        { email, password },
+        { params: { lang: lang || i18n.language } }
+      );
+      return response.data;
+    }, { lang });
   },
-  register: async (name: string, email: string, password: string): Promise<TokenResponse> => {
-    const response = await apiClient.post<TokenResponse>('/auth/register', { name, email, password });
-    return response.data;
+
+  register: async (name: string, email: string, password: string, lang?: string): Promise<TokenResponse> => {
+    return makeAPICall(async () => {
+      const response = await apiClient.post<TokenResponse>('/auth/register', 
+        { name, email, password },
+        { params: { lang: lang || i18n.language } }
+      );
+      return response.data;
+    }, { lang });
   },
-  createGuestUser: async (): Promise<TokenResponse> => {
-    const response = await apiClient.post<TokenResponse>('/auth/guest');
-    return response.data;
+
+  createGuestUser: async (lang?: string): Promise<TokenResponse> => {
+    return makeAPICall(async () => {
+      const response = await apiClient.post<TokenResponse>('/auth/guest',
+        {},
+        { params: { lang: lang || i18n.language } }
+      );
+      return response.data;
+    }, { lang });
   },
-  loginAsGuest: async (guestId: string): Promise<TokenResponse> => {
-    const response = await apiClient.post<TokenResponse>('/auth/guest/login', { guest_id: guestId });
-    return response.data;
+
+  loginAsGuest: async (guestId: string, lang?: string): Promise<TokenResponse> => {
+    return makeAPICall(async () => {
+      const response = await apiClient.post<TokenResponse>('/auth/guest/login', 
+        { guest_id: guestId },
+        { params: { lang: lang || i18n.language } }
+      );
+      return response.data;
+    }, { lang });
   },
-  logout: async (): Promise<void> => {},
-  removeMultipleBackgrounds: async (photos: { filename: string, uri: string }[]): Promise<BatchBackgroundRemovalResponse> => {
-    const formData = new FormData();
-    photos.forEach(photo => {
-      formData.append('files', {
-        uri: photo.uri, name: photo.filename,
+
+  logout: async (): Promise<void> => {
+    // Local logout - API'de logout endpoint'i yok
+  },
+
+  // GÜNCELLEME: Dil desteği ve gelişmiş error handling
+  removeMultipleBackgrounds: async (
+    photos: { filename: string, uri: string }[],
+    lang?: string
+  ): Promise<BatchBackgroundRemovalResponse> => {
+    return makeAPICall(async () => {
+      const formData = new FormData();
+      
+      photos.forEach(photo => {
+        formData.append('files', {
+          uri: photo.uri, 
+          name: photo.filename,
+          type: photo.filename.endsWith('.png') ? 'image/png' : 'image/jpeg',
+        } as any);
+      });
+
+      const response = await apiClient.post<APISuccessResponse<BatchBackgroundRemovalResponse>>(
+        '/image/remove-background/batch/', 
+        formData, 
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          params: { lang: lang || i18n.language },
+          timeout: 120000, // 2 dakika timeout (toplu işlem için)
+        }
+      );
+
+      // API v2 response format'ına göre data'yı çıkar
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      } else {
+        throw new Error('Unexpected API response format');
+      }
+    }, { lang });
+  },
+
+  // YENİ: Tek dosya background removal
+  removeSingleBackground: async (
+    photo: { filename: string, uri: string },
+    lang?: string
+  ): Promise<string> => {
+    return makeAPICall(async () => {
+      const formData = new FormData();
+      formData.append('file', {
+        uri: photo.uri,
+        name: photo.filename,
         type: photo.filename.endsWith('.png') ? 'image/png' : 'image/jpeg',
       } as any);
-    });
-    const response = await apiClient.post('/image/remove-background/batch/', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
+
+      const response = await apiClient.post<APISuccessResponse<{ processed_image: string }>>(
+        '/image/remove-background/single/',
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          params: { lang: lang || i18n.language },
+          timeout: 60000, // 1 dakika timeout
+        }
+      );
+
+      if (response.data.success && response.data.data?.processed_image) {
+        return response.data.data.processed_image;
+      } else {
+        throw new Error('Unexpected API response format');
+      }
+    }, { lang });
   },
+
+  // YENİ: Profil bilgilerini getir
+  getProfile: async (lang?: string): Promise<User> => {
+    return makeAPICall(async () => {
+      const response = await apiClient.get<User>('/auth/profile', {
+        params: { lang: lang || i18n.language }
+      });
+      return response.data;
+    }, { lang });
+  },
+
+  // YENİ: Profil güncelle
+  updateProfile: async (
+    updates: { name?: string },
+    lang?: string
+  ): Promise<User> => {
+    return makeAPICall(async () => {
+      const response = await apiClient.put<User>('/auth/profile', updates, {
+        params: { lang: lang || i18n.language }
+      });
+      return response.data;
+    }, { lang });
+  },
+
+  // YENİ: Health check
+  healthCheck: async (lang?: string): Promise<any> => {
+    return makeAPICall(async () => {
+      const response = await apiClient.get('/health', {
+        params: { lang: lang || i18n.language }
+      });
+      return response.data;
+    }, { lang });
+  },
+
+  // YENİ: Image processing health check
+  imageHealthCheck: async (lang?: string): Promise<any> => {
+    return makeAPICall(async () => {
+      const response = await apiClient.get('/image/health', {
+        params: { lang: lang || i18n.language }
+      });
+      return response.data;
+    }, { lang });
+  },
+};
+
+// YENİ: API utility functions
+export const apiUtils = {
+  /**
+   * Mevcut dili döndürür
+   */
+  getCurrentLanguage: (): string => {
+    return i18n.language || 'tr';
+  },
+
+  /**
+   * Dil değiştirme utility'si
+   */
+  changeLanguage: async (newLang: string): Promise<void> => {
+    await i18n.changeLanguage(newLang);
+  },
+
+  /**
+   * API error'dan kullanıcı dostu mesaj çıkarır
+   */
+  extractErrorMessage: (error: any): string => {
+    if (error?.response?.data?.error?.message) {
+      return error.response.data.error.message;
+    }
+    if (error?.message) {
+      return error.message;
+    }
+    return 'Bilinmeyen bir hata oluştu';
+  },
+
+  /**
+   * Network durumu kontrolü
+   */
+  checkNetworkConnection: async (): Promise<boolean> => {
+    try {
+      const response = await apiClient.get('/health', { timeout: 5000 });
+      return response.status === 200;
+    } catch {
+      return false;
+    }
+  },
+};
+
+// YENİ: Type guards
+export const isAPIError = (response: any): response is APIErrorResponse => {
+  return response && !response.success && response.error;
+};
+
+export const isAPISuccess = (response: any): response is APISuccessResponse => {
+  return response && response.success === true;
 };
