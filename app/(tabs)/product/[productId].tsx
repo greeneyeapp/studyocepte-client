@@ -89,7 +89,7 @@ const ModernHeader: React.FC<{
         <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
       </TouchableOpacity>
     </View>
-    
+
     {/* Orta - Başlık ve Fotoğraf Sayısı */}
     <View style={styles.centerSection}>
       <Text style={styles.productName} numberOfLines={1} ellipsizeMode="tail">
@@ -97,7 +97,7 @@ const ModernHeader: React.FC<{
       </Text>
       <Text style={styles.photoCount}>{photoCount} fotoğraf</Text>
     </View>
-    
+
     {/* Sağ - Boş Alan (Simetri için) */}
     <View style={styles.rightSection} />
   </View>
@@ -127,17 +127,17 @@ const SelectionActionBar: React.FC<{
 );
 
 const ModernFAB: React.FC<{ onPress: () => void; isVisible: boolean }> = ({ onPress, isVisible }) => {
-    const scaleValue = new Animated.Value(isVisible ? 1 : 0);
-    useEffect(() => {
-      Animated.spring(scaleValue, { toValue: isVisible ? 1 : 0, useNativeDriver: true, tension: 100, friction: 8 }).start();
-    }, [isVisible]);
-    return (
-      <Animated.View style={[styles.fabContainer, { transform: [{ scale: scaleValue }] }]}>
-        <TouchableOpacity style={styles.fab} onPress={onPress} activeOpacity={0.8}>
-          <Feather name="plus" size={24} color={Colors.card} />
-        </TouchableOpacity>
-      </Animated.View>
-    );
+  const scaleValue = new Animated.Value(isVisible ? 1 : 0);
+  useEffect(() => {
+    Animated.spring(scaleValue, { toValue: isVisible ? 1 : 0, useNativeDriver: true, tension: 100, friction: 8 }).start();
+  }, [isVisible]);
+  return (
+    <Animated.View style={[styles.fabContainer, { transform: [{ scale: scaleValue }] }]}>
+      <TouchableOpacity style={styles.fab} onPress={onPress} activeOpacity={0.8}>
+        <Feather name="plus" size={24} color={Colors.card} />
+      </TouchableOpacity>
+    </Animated.View>
+  );
 };
 
 export default function ProductDetailScreen() {
@@ -158,18 +158,41 @@ export default function ProductDetailScreen() {
     if (!productId) return;
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') { ToastService.show({ type: 'error', text1: 'İzin Gerekli' }); return; }
+      if (status !== 'granted') {
+        ToastService.show({ type: 'error', text1: 'İzin Gerekli' });
+        return;
+      }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 1, allowsMultipleSelection: true,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
+        allowsMultipleSelection: true,
       });
       if (!result.canceled && result.assets) {
-        LoadingService.show(); // Text parametresi kaldırıldı
-        const uris = result.assets.map(asset => asset.uri);
-        const success = await addMultiplePhotos(productId, uris);
-        LoadingService.hide();
-        if (!success) ToastService.show({ type: 'error', text1: 'Hata', text2: storeError || 'Fotoğraflar eklenemedi.' });
+        LoadingService.show();
+
+        // GÜNCELLEME:
+        // Animasyonun ekranda belirmesi için UI thread'ine küçük bir mola veriyoruz.
+        // Bu, yoğun dosya işlemleri başlamadan önce animasyonun render edilmesini garantiler.
+        setTimeout(async () => {
+          try {
+            const uris = result.assets.map(asset => asset.uri);
+            const success = await addMultiplePhotos(productId, uris);
+            if (!success) {
+              ToastService.show({ type: 'error', text1: 'Hata', text2: storeError || 'Fotoğraflar eklenemedi.' });
+            }
+          } catch (e) {
+            ToastService.show({ type: 'error', text1: 'İşlem Hatası', text2: 'Fotoğraflar eklenirken bir sorun oluştu.' });
+          } finally {
+            // İşlem bitince veya hata alınca animasyonu gizle.
+            LoadingService.hide();
+          }
+        }, 50); // 50ms genellikle yeterlidir.
       }
-    } catch (error) { ToastService.show({ type: 'error', text1: 'Hata', text2: 'Fotoğraf seçilemedi.' }); }
+    } catch (error) {
+      ToastService.show({ type: 'error', text1: 'Hata', text2: 'Fotoğraf seçilemedi.' });
+      // Hata durumunda yükleme ekranı gösteriliyorsa gizle
+      LoadingService.hide();
+    }
   };
 
   const toggleSelectionMode = (photoId?: string) => {
@@ -188,8 +211,8 @@ export default function ProductDetailScreen() {
 
   const handlePhotoPress = (photo: ProductPhoto) => {
     if (isProcessing) {
-        ToastService.show({type: 'info', text1: 'Lütfen bekleyin', text2: 'Mevcut işlem devam ediyor.'});
-        return;
+      ToastService.show({ type: 'info', text1: 'Lütfen bekleyin', text2: 'Mevcut işlem devam ediyor.' });
+      return;
     }
     if (isSelectionMode) {
       const newSelection = new Set(selectedPhotos);
@@ -203,9 +226,9 @@ export default function ProductDetailScreen() {
         router.push({ pathname: '/(tabs)/editor/[photoId]', params: { photoId: photo.id, productId: photo.productId } });
       } else if (photo.status === 'raw') {
         DialogService.show({
-            title: 'Arka Planı Temizle',
-            message: 'Bu fotoğrafı düzenlemeden önce arka planını temizlemek ister misiniz?',
-            buttons: [ { text: 'İptal', style: 'cancel' }, { text: 'Evet', style: 'default', onPress: () => handleSingleRemoveBackground(photo) }]
+          title: 'Arka Planı Temizle',
+          message: 'Bu fotoğrafı düzenlemeden önce arka planını temizlemek ister misiniz?',
+          buttons: [{ text: 'İptal', style: 'cancel' }, { text: 'Evet', style: 'default', onPress: () => handleSingleRemoveBackground(photo) }]
         });
       } else {
         ToastService.show({ type: 'info', text1: 'Lütfen Bekleyin', text2: 'Fotoğraf şu anda işleniyor.' });
@@ -233,24 +256,26 @@ export default function ProductDetailScreen() {
       ToastService.show({ type: 'error', text1: 'Hata', text2: storeError || 'Arka plan temizlenemedi.' });
     }
   };
-  
+
   const handleBatchDelete = () => {
     if (selectedPhotos.size === 0) return;
     DialogService.show({
       title: 'Fotoğrafları Sil', message: `${selectedPhotos.size} fotoğraf kalıcı olarak silinecek. Emin misiniz?`,
-      buttons: [ { text: 'İptal', style: 'cancel' }, { text: 'Sil', style: 'destructive', onPress: async () => {
-            await Promise.all(Array.from(selectedPhotos).map(photoId => deletePhoto(productId!, photoId)));
-            toggleSelectionMode();
-      }}]
+      buttons: [{ text: 'İptal', style: 'cancel' }, {
+        text: 'Sil', style: 'destructive', onPress: async () => {
+          await Promise.all(Array.from(selectedPhotos).map(photoId => deletePhoto(productId!, photoId)));
+          toggleSelectionMode();
+        }
+      }]
     });
   };
 
   if (!activeProduct) {
     return (
-        <SafeAreaView style={styles.container}>
-            <ModernHeader productName={productId || ''} photoCount={0} onBack={() => router.back()} />
-            <ActivityIndicator size="large" color={Colors.primary} style={{flex: 1}} />
-        </SafeAreaView>
+      <SafeAreaView style={styles.container}>
+        <ModernHeader productName={productId || ''} photoCount={0} onBack={() => router.back()} />
+        <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1 }} />
+      </SafeAreaView>
     );
   }
 
@@ -319,27 +344,27 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     minHeight: 64, // Sabit yükseklik
   },
-  
+
   leftSection: {
     width: 48, // Sabit genişlik
     alignItems: 'flex-start',
   },
-  
+
   centerSection: {
     flex: 1, // Kalan alanı kapla
     alignItems: 'center',
     paddingHorizontal: Spacing.sm, // Yan taraflardan biraz boşluk
   },
-  
+
   rightSection: {
     width: 48, // Sol ile aynı genişlik (simetri için)
   },
-  
+
   backButton: {
     padding: Spacing.sm,
     marginLeft: -Spacing.sm, // Hizalama için
   },
-  
+
   productName: {
     ...Typography.h2,
     color: Colors.textPrimary,
@@ -347,7 +372,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: '100%', // Taşmayı önle
   },
-  
+
   photoCount: {
     ...Typography.body,
     color: Colors.textSecondary,
@@ -355,7 +380,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'center',
   },
-  
+
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.xl, },
   emptyIcon: { marginBottom: Spacing.xl, },
   emptyTitle: { ...Typography.h2, color: Colors.textPrimary, marginBottom: Spacing.sm, textAlign: 'center', },

@@ -1,4 +1,4 @@
-// app/(auth)/register.tsx - BASİT VE TEMİZ
+// client/app/(auth)/register.tsx - TAM VE DOĞRU ÇÖZÜM
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, KeyboardAvoidingView, Platform,
@@ -12,7 +12,6 @@ import { Colors, Spacing, Typography, Layout } from '@/constants';
 import { TextInput } from '@/components/TextInput';
 import { Button } from '@/components/Button';
 import { ToastService } from '@/components/Toast/ToastService';
-import { LoadingService } from '@/components/Loading/LoadingService';
 
 // --- Validasyon Yardımcı Fonksiyonları ---
 const validateName = (name: string): { isValid: boolean; message: string } => {
@@ -46,10 +45,15 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const register = useAuthStore((state) => state.register);
-  const isLoading = useAuthStore((state) => state.isLoading);
+  const { register } = useAuthStore();
+  
+  // YENİ: Butonun yüklenme durumunu yönetmek için LOKAL state.
+  const [isRegistering, setRegistering] = useState(false);
 
   const handleRegister = async () => {
+    // Zaten bir kayıt işlemi devam ediyorsa tekrar tıklamayı engelle
+    if (isRegistering) return;
+
     // Validasyonlar
     const nameValidation = validateName(name);
     if (!nameValidation.isValid) {
@@ -70,16 +74,18 @@ export default function RegisterScreen() {
       return;
     }
 
-    LoadingService.show();
+    // Butonu loading durumuna getir
+    setRegistering(true);
 
-    try {
-      await register(name.trim(), email.trim(), password);
-      // Başarılı - LoadingService otomatik gizlenecek
-      ToastService.show({ type: 'success', text1: 'Kayıt Başarılı!', text2: 'Ana sayfaya yönlendiriliyorsunuz.' });
-    } catch (error: any) {
-      LoadingService.hide();
-      ToastService.show({ type: 'error', text1: t('auth.registerFailed'), text2: error.message || t('auth.tryAgain') });
+    const success = await register(name.trim(), email.trim(), password);
+    
+    // Eğer işlem BAŞARISIZ olursa, toast göster ve butonu tekrar aktif hale getir.
+    if (!success) {
+      const error = useAuthStore.getState().error;
+      ToastService.show({ type: 'error', text1: t('auth.registerFailed'), text2: error || t('auth.tryAgain') });
+      setRegistering(false); // Butonu tekrar kullanılabilir yap
     }
+    // Başarılı olursa hiçbir şey yapma. _layout.tsx geçişi yönetecek.
   };
 
   return (
@@ -99,10 +105,12 @@ export default function RegisterScreen() {
                 <TextInput placeholder={t('auth.passwordPlaceholder')} value={password} onChangeText={setPassword} secureTextEntry />
                 <TextInput placeholder={t('auth.confirmPasswordPlaceholder')} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
                 
+                {/* Buton artık kendi LOKAL durumunu kontrol ediyor */}
                 <Button 
                   title={t('auth.registerButton')} 
                   onPress={handleRegister} 
-                  disabled={isLoading} 
+                  loading={isRegistering}
+                  disabled={isRegistering} 
                   size="medium"
                 />
               </View>
@@ -121,6 +129,7 @@ export default function RegisterScreen() {
   );
 }
 
+// Stillerde değişiklik yok.
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
   gradient: { flex: 1 },

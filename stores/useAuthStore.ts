@@ -1,3 +1,4 @@
+// client/stores/useAuthStore.ts - TAM VE NİHAİ KOD
 import { create } from 'zustand';
 import { api, User, TokenResponse } from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -5,114 +6,90 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface AuthState {
   user: (User & { access_token?: string }) | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
+  isLoading: boolean; // Sadece butonların kendi spinner'ı için
   error: string | null;
 }
 
 interface AuthActions {
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   checkAuthStatus: () => Promise<void>;
-  guestLogin: () => Promise<void>;
-  clearError: () => void;
-  handleUnauthorized: () => void;
+  guestLogin: () => Promise<boolean>;
 }
 
-const USER_STORAGE_KEY = 'user';
-const GUEST_USER_STORAGE_KEY = 'guest_user';
-
-export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
-  user: null, 
-  isAuthenticated: false, 
-  isLoading: false, 
+export const useAuthStore = create<AuthState & AuthActions>((set) => ({
+  user: null,
+  isAuthenticated: false,
+  isLoading: false, // Başlangıçta false
   error: null,
 
-  handleUnauthorized: () => {
-    AsyncStorage.removeItem(USER_STORAGE_KEY);
-    set({ user: null, isAuthenticated: false, isLoading: false, error: 'Oturumunuz sonlandırıldı.' });
+  checkAuthStatus: async () => {
+    const userJson = await AsyncStorage.getItem('user');
+    if (userJson) {
+      set({ user: JSON.parse(userJson), isAuthenticated: true });
+    } else {
+      set({ user: null, isAuthenticated: false });
+    }
   },
 
   login: async (email, password) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true });
     try {
       const { user, access_token } = await api.login(email, password);
-      const userDataToStore = { ...user, access_token };
-      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userDataToStore));
-      await AsyncStorage.removeItem(GUEST_USER_STORAGE_KEY);
-      set({ user: userDataToStore, isAuthenticated: true, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message || 'Giriş başarısız.', isLoading: false });
-      throw error;
+      await AsyncStorage.setItem('user', JSON.stringify({ ...user, access_token }));
+      set({ user, isAuthenticated: true, error: null });
+      return true;
+    } catch (e: any) {
+      set({ error: e.message });
+      return false;
+    } finally {
+      set({ isLoading: false });
     }
   },
 
   register: async (name, email, password) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true });
     try {
       const { user, access_token } = await api.register(name, email, password);
-      const userDataToStore = { ...user, access_token };
-      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userDataToStore));
-      await AsyncStorage.removeItem(GUEST_USER_STORAGE_KEY);
-      set({ user: userDataToStore, isAuthenticated: true, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message || 'Kayıt başarısız.', isLoading: false });
-      throw error;
-    }
-  },
-
-  logout: async () => {
-    set({ isLoading: true });
-    try {
-      await api.logout();
-      await AsyncStorage.removeItem(USER_STORAGE_KEY);
-      set({ user: null, isAuthenticated: false, error: null });
-    } catch (error: any) {
-      await AsyncStorage.removeItem(USER_STORAGE_KEY);
-      set({ user: null, isAuthenticated: false, error: null });
+      await AsyncStorage.setItem('user', JSON.stringify({ ...user, access_token }));
+      set({ user, isAuthenticated: true, error: null });
+      return true;
+    } catch (e: any) {
+      set({ error: e.message });
+      return false;
     } finally {
       set({ isLoading: false });
     }
   },
 
-  checkAuthStatus: async () => {
-    set({ isLoading: true });
-    try {
-      const userJson = await AsyncStorage.getItem(USER_STORAGE_KEY);
-      if (userJson) set({ user: JSON.parse(userJson), isAuthenticated: true });
-      else set({ user: null, isAuthenticated: false });
-    } catch (error: any) {
-      get().handleUnauthorized();
-    } finally {
-      set({ isLoading: false });
-    }
-  },
-  
   guestLogin: async () => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true });
     try {
-      const storedGuestJson = await AsyncStorage.getItem(GUEST_USER_STORAGE_KEY);
+      const storedGuestJson = await AsyncStorage.getItem('guest_user');
       let tokenResponse: TokenResponse;
-
       if (storedGuestJson) {
         const storedGuest = JSON.parse(storedGuestJson);
         tokenResponse = await api.loginAsGuest(storedGuest.uid);
       } else {
         tokenResponse = await api.createGuestUser();
       }
-      
       const { user, access_token } = tokenResponse;
-      const userDataToStore = { ...user, access_token };
-      
-      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userDataToStore));
-      await AsyncStorage.setItem(GUEST_USER_STORAGE_KEY, JSON.stringify(user));
-      
-      set({ user: userDataToStore, isAuthenticated: true, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message || 'Misafir girişi başarısız.', isLoading: false });
-      throw error;
+      await AsyncStorage.setItem('user', JSON.stringify({ ...user, access_token }));
+      await AsyncStorage.setItem('guest_user', JSON.stringify(user));
+      set({ user, isAuthenticated: true, error: null });
+      return true;
+    } catch (e: any) {
+      set({ error: e.message });
+      return false;
+    } finally {
+      set({ isLoading: false });
     }
   },
 
-  clearError: () => set({ error: null }),
+  logout: async () => {
+    // Çıkış yaparken animasyonu _layout yönetecek, burada sadece state'i temizle.
+    await AsyncStorage.removeItem('user');
+    set({ user: null, isAuthenticated: false });
+  },
 }));

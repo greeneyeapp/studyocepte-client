@@ -1,4 +1,4 @@
-// client/app/(auth)/login.tsx - DİREKT LOADİNG SERVİCE
+// client/app/(auth)/login.tsx - TAM VE DOĞRU ÇÖZÜM
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, KeyboardAvoidingView, Platform,
@@ -13,58 +13,44 @@ import { Colors, Spacing, Typography, Layout } from '@/constants';
 import { TextInput } from '@/components/TextInput';
 import { Button } from '@/components/Button';
 import { ToastService } from '@/components/Toast/ToastService';
-import { LoadingService } from '@/components/Loading/LoadingService';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, guestLogin, isLoading } = useAuthStore();
+  const { login, guestLogin } = useAuthStore();
 
-  const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) {
+  // YENİ: Hangi eylemin aktif olduğunu tutan LOKAL state.
+  // Bu state, butonların görünümünü yönetecek.
+  const [activeAction, setActiveAction] = useState<'login' | 'guest' | null>(null);
+
+  const handleAction = async (actionType: 'login' | 'guest') => {
+    // Zaten bir işlem devam ediyorsa tekrar tıklamayı engelle
+    if (activeAction) return;
+
+    // Giriş yapma eylemi için validasyon
+    if (actionType === 'login' && (!email.trim() || !password.trim())) {
       ToastService.show({ type: 'error', text1: t('auth.emptyFieldsTitle'), text2: t('auth.emptyFieldsMessage') });
       return;
     }
     
-    console.log('🎬 LoadingService.show() - Login');
-    LoadingService.show();
-    
-    try { 
-      await login(email, password);
-      
-      // Başarılı login - 2 saniye sonra gizle
-      setTimeout(() => {
-        console.log('🎬 LoadingService.hide() - Login başarılı');
-        LoadingService.hide();
-      }, 2000);
-      
-    } catch (error: any) { 
-      console.log('🎬 LoadingService.hide() - Login hatası');
-      LoadingService.hide();
-      ToastService.show({ type: 'error', text1: t('auth.loginFailed'), text2: error.message || t('auth.tryAgain') }); 
-    }
-  };
+    // Doğru butonu loading durumuna getir
+    setActiveAction(actionType);
 
-  const handleGuestLogin = async () => {
-    console.log('🎬 LoadingService.show() - Guest Login');
-    LoadingService.show();
+    // Store'daki ilgili fonksiyonu çağır
+    const success = actionType === 'login'
+      ? await login(email, password)
+      : await guestLogin();
     
-    try { 
-      await guestLogin();
-      
-      // Başarılı guest login - 2 saniye sonra gizle
-      setTimeout(() => {
-        console.log('🎬 LoadingService.hide() - Guest login başarılı');
-        LoadingService.hide();
-      }, 2000);
-      
-    } catch (error: any) { 
-      console.log('🎬 LoadingService.hide() - Guest login hatası');
-      LoadingService.hide();
-      ToastService.show({ type: 'error', text1: 'Misafir Girişi Başarısız', text2: error.message || t('auth.tryAgain') }); 
+    // Eğer işlem BAŞARISIZ olursa, toast göster ve butonları tekrar aktif hale getir.
+    if (!success) {
+      const error = useAuthStore.getState().error;
+      const defaultMessage = actionType === 'login' ? t('auth.loginFailed') : 'Misafir Girişi Başarısız';
+      ToastService.show({ type: 'error', text1: defaultMessage, text2: error || t('auth.tryAgain') });
+      setActiveAction(null); // Butonları tekrar kullanılabilir yap
     }
+    // Başarılı olursa hiçbir şey yapma. _layout.tsx geçişi yönetecek ve bu component zaten yok olacak.
   };
 
   return (
@@ -80,8 +66,24 @@ export default function LoginScreen() {
               <View style={styles.formContainer}>
                 <TextInput placeholder={t('auth.emailPlaceholder')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
                 <TextInput placeholder={t('auth.passwordPlaceholder')} value={password} onChangeText={setPassword} secureTextEntry />
-                <Button title="Giriş Yap" onPress={handleLogin} disabled={isLoading} size="medium" />
-                <Button title="Misafir Olarak Devam Et" onPress={handleGuestLogin} variant="outline" disabled={isLoading} size="medium" icon={<Feather name="user" size={18} color={Colors.primary} />} />
+                
+                {/* Her buton artık kendi LOKAL durumunu kontrol ediyor */}
+                <Button 
+                  title="Giriş Yap" 
+                  onPress={() => handleAction('login')} 
+                  loading={activeAction === 'login'} // Sadece bu butonun eylemi aktifse loading olur
+                  disabled={activeAction !== null}  // Herhangi bir eylem aktifse ikisi de disabled olur
+                  size="medium" 
+                />
+                <Button 
+                  title="Misafir Olarak Devam Et" 
+                  onPress={() => handleAction('guest')} 
+                  variant="outline" 
+                  loading={activeAction === 'guest'} // Sadece bu butonun eylemi aktifse loading olur
+                  disabled={activeAction !== null}   // Herhangi bir eylem aktifse ikisi de disabled olur
+                  size="medium" 
+                  icon={<Feather name="user" size={18} color={Colors.primary} />} 
+                />
               </View>
               <TouchableOpacity style={styles.registerLinkContainer} onPress={() => router.push('/(auth)/register')}>
                 <Text style={styles.registerText}>Hesabın yok mu? <Text style={styles.registerLink}>Kayıt Ol</Text></Text>
@@ -94,6 +96,7 @@ export default function LoginScreen() {
   );
 }
 
+// Stillerde değişiklik yok.
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
   gradient: { flex: 1 },

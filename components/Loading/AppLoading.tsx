@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+// client/components/Loading/AppLoading.tsx - DÖNME ANİMASYONU KALDIRILDI
+import React, { useState, useImperativeHandle, forwardRef } from 'react';
 import { StyleSheet, View, Image } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -7,55 +8,77 @@ import Animated, {
   withSequence,
   withTiming,
   Easing,
+  runOnJS,
 } from 'react-native-reanimated';
 import { Colors } from '@/constants';
 
-const AnimatedImage = Animated.createAnimatedComponent(Image);
-
-interface AppLoadingProps {
-  ref?: any; // Kullanmıyoruz artık
+export interface AppLoadingRef {
+  show: () => void;
+  hide: () => void;
 }
 
-const AppLoading: React.FC<AppLoadingProps> = () => {
-  const logoScale = useSharedValue(1);
+const AppLoading = forwardRef<AppLoadingRef, {}>((props, ref) => {
+  const [visible, setVisible] = useState(false);
 
-  useEffect(() => {
-    // Logo sürekli ölçeklendirme animasyonu
-    logoScale.value = withRepeat(
-      withSequence(
-        withTiming(1.1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-  }, []);
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.9);
 
-  const logoAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: logoScale.value }],
+  useImperativeHandle(ref, () => ({
+    show: () => runOnJS(setVisible)(true),
+    hide: () => {
+      opacity.value = withTiming(0, { duration: 250 }, (isFinished) => {
+        if (isFinished) runOnJS(setVisible)(false);
+      });
+    },
   }));
+
+  React.useEffect(() => {
+    if (visible) {
+      opacity.value = withTiming(1, { duration: 250 });
+      // Sadece ölçeklenme animasyonunu çalıştır
+      scale.value = withRepeat(
+        withSequence(
+          withTiming(1.05, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.95, { duration: 800, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+    }
+  }, [visible]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }], // rotate kaldırıldı
+  }));
+
+  if (!visible) {
+    return null;
+  }
 
   return (
     <View style={styles.overlay}>
-      <AnimatedImage
-        source={require('@/assets/images/icon-transparant.png')}
-        style={[styles.logo, logoAnimatedStyle]}
-      />
+      <Animated.View style={animatedStyle}>
+        <Image
+          source={require('@/assets/images/icon-transparant.png')}
+          style={styles.logo}
+        />
+      </Animated.View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(247, 247, 247, 0.95)',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10000, // Çok yüksek z-index
+    zIndex: 10000,
   },
   logo: {
-    width: 200,
-    height: 200,
+    width: 130,
+    height: 130,
   },
 });
 
