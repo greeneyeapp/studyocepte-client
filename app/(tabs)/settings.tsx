@@ -7,49 +7,61 @@ import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { Colors, Typography, Spacing, BorderRadius, Layout } from '@/constants';
+import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { Card } from '@/components/Card';
-import { Button } from '@/components/Button';
 import { ToastService } from '@/components/Toast/ToastService';
-import { DialogService } from '@/components/Dialog/DialogService';
+import { DialogService } from '@/components/Dialog/DialogService'; // Bu import önemli
 
-// Profil avatarı bileşeni (Home'daki ile aynı)
+// Akıllı Renk Seçen Profil Avatarı Bileşeni
 const ProfileAvatar: React.FC<{ name: string }> = ({ name }) => {
+  const PALETTE = [ Colors.primary, Colors.secondary, Colors.accent, '#7D9A81', '#A288A6', '#E29578' ];
   const getInitials = () => {
     const words = name.trim().split(' ');
-    if (words.length > 1) {
-      return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
-    }
+    if (words.length > 1 && words[words.length - 1]) return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
     return name.substring(0, 2).toUpperCase();
   };
-  
   const stringToColor = (str: string) => {
     let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    let color = '#';
-    for (let i = 0; i < 3; i++) {
-      const value = (hash >> (i * 8)) & 0xFF;
-      color += ('00' + value.toString(16)).substr(-2);
-    }
-    return color;
+    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    const index = Math.abs(hash) % PALETTE.length;
+    return PALETTE[index];
   };
-
   return (
-    <View style={[styles.avatarContainer, { backgroundColor: stringToColor(name) }]}>
-      <Text style={styles.avatarText}>{getInitials()}</Text>
+    <View style={avatarStyles.avatarContainer}>
+        <View style={[avatarStyles.avatar, { backgroundColor: stringToColor(name) }]}>
+            <Text style={avatarStyles.avatarText}>{getInitials()}</Text>
+        </View>
     </View>
   );
 };
 
-// Ayar Bölümü Bileşeni
-const SettingsSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <View style={styles.sectionContainer}>
-    <Text style={styles.sectionTitle}>{title}</Text>
-    <Card style={styles.settingsCard}>
-      {children}
-    </Card>
+// Modern ayar kartı bileşeni
+const ModernSettingCard: React.FC<{
+  icon: string; title: string; subtitle?: string; value?: string; onPress: () => void;
+  iconColor?: string; showChevron?: boolean; isLast?: boolean; titleColor?: string;
+}> = ({ icon, title, subtitle, value, onPress, iconColor = Colors.primary, showChevron = true, isLast = false, titleColor = Colors.textPrimary }) => (
+  <TouchableOpacity style={[styles.modernCard, !isLast && styles.modernCardBorder]} onPress={onPress} activeOpacity={0.6}>
+    <View style={styles.modernCardContent}>
+      <View style={[styles.modernIcon, { backgroundColor: iconColor + '15' }]}>
+        <Feather name={icon as any} size={22} color={iconColor} />
+      </View>
+      <View style={styles.modernTextContainer}>
+        <Text style={[styles.modernTitle, { color: titleColor }]}>{title}</Text>
+        {subtitle && <Text style={styles.modernSubtitle}>{subtitle}</Text>}
+      </View>
+      <View style={styles.modernRightSection}>
+        {value && <Text style={styles.modernValue}>{value}</Text>}
+        {showChevron && <Feather name="chevron-right" size={20} color={Colors.gray400} />}
+      </View>
+    </View>
+  </TouchableOpacity>
+);
+
+// Ayar grubu başlığı
+const SectionHeader: React.FC<{ title: string; icon?: string }> = ({ title, icon }) => (
+  <View style={styles.sectionHeader}>
+    {icon && <Feather name={icon as any} size={16} color={Colors.primary} />}
+    <Text style={styles.sectionHeaderText}>{title}</Text>
   </View>
 );
 
@@ -58,35 +70,28 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { user, logout, isLoading } = useAuthStore();
 
-  const handleBackPress = () => {
-    router.push('/(tabs)/home');
-  };
+  const handleBackPress = () => router.back();
 
+  // GÜNCELLEME: Çıkış onayı artık tasarıma uygun DialogService kullanıyor.
   const handleLogout = () => {
     DialogService.show({
-      title: t('settings.logoutTitle'),
-      message: t('settings.logoutMessage'),
+      title: "Çıkış Yap",
+      message: "Oturumu sonlandırmak istediğinizden emin misiniz?",
       buttons: [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('auth.logout'), style: 'destructive', onPress: async () => { await logout(); } },
+        { text: "İptal", style: 'cancel' },
+        { text: "Çıkış Yap", style: 'destructive', onPress: async () => await logout() },
       ],
     });
   };
 
-  const settingsItems = {
-    app: [
-      { id: 'language', title: t('settings.language'), icon: 'globe', value: i18n.language === 'en' ? 'English' : 'Türkçe', onPress: () => i18n.changeLanguage(i18n.language === 'en' ? 'tr' : 'en') },
-      { id: 'subscription', title: t('settings.subscription'), icon: 'credit-card', onPress: () => ToastService.show({ type: 'info', text1: t('common.comingSoon') }) },
-    ],
-    support: [
-      { id: 'help', title: t('settings.support'), icon: 'help-circle', onPress: () => ToastService.show({ type: 'info', text1: 'Destek' }) },
-      { id: 'about', title: t('settings.about'), icon: 'info', onPress: () => ToastService.show({ type: 'info', text1: 'Stüdyo Cepte v2.0' }) },
-    ]
-  };
+  const getCurrentLanguageLabel = () => i18n.language === 'en' ? 'English' : 'Türkçe';
+
+  if (!user) return <SafeAreaView style={styles.container} />;
+  
+  const isGuest = user.isGuest;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* COMPACT HEADER - Home ile tutarlı */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
           <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
@@ -95,184 +100,123 @@ export default function SettingsScreen() {
         <View style={styles.headerRight} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* PROFILE SECTION */}
-        {user && (
-          <View style={styles.profileSection}>
-            <ProfileAvatar name={user.name || 'Kullanıcı'} />
-            <Text style={styles.userName}>{user.name}</Text>
-            <Text style={styles.userEmail}>{user.email}</Text>
-          </View>
-        )}
+      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        {/* Profil Kartı (Sadeleştirildi) */}
+        <Card style={styles.profileCard}>
+            <View style={styles.profileCardContent}>
+                <ProfileAvatar name={user.name || 'Misafir'} />
+                <Text style={styles.userName}>{user.name}</Text>
+                {!isGuest && (
+                <Text style={styles.userEmail} numberOfLines={1} ellipsizeMode="tail">
+                    {user.email}
+                </Text>
+                )}
+                {/* "Profili Düzenle" butonu kaldırıldı */}
+            </View>
+        </Card>
 
-        {/* SETTINGS SECTIONS */}
-        <SettingsSection title="Uygulama Ayarları">
-          {settingsItems.app.map((item, index) => (
-            <TouchableOpacity key={item.id} style={[styles.settingItem, index < settingsItems.app.length - 1 && styles.settingItemBorder]} onPress={item.onPress} activeOpacity={0.6}>
-              <Feather name={item.icon as any} size={20} color={Colors.textSecondary} />
-              <Text style={styles.settingTitle}>{item.title}</Text>
-              <View style={styles.settingRight}>
-                {item.value && <Text style={styles.settingValue}>{item.value}</Text>}
-                <Feather name="chevron-right" size={20} color={Colors.textSecondary} />
-              </View>
-            </TouchableOpacity>
-          ))}
-        </SettingsSection>
-
-        <SettingsSection title="Destek ve Hakkında">
-          {settingsItems.support.map((item, index) => (
-             <TouchableOpacity key={item.id} style={[styles.settingItem, index < settingsItems.support.length - 1 && styles.settingItemBorder]} onPress={item.onPress} activeOpacity={0.6}>
-                <Feather name={item.icon as any} size={20} color={Colors.textSecondary} />
-                <Text style={styles.settingTitle}>{item.title}</Text>
-                <Feather name="chevron-right" size={20} color={Colors.textSecondary} />
-             </TouchableOpacity>
-          ))}
-        </SettingsSection>
-
-        {/* LOGOUT BUTTON */}
-        <View style={styles.logoutButtonContainer}>
-          <Button 
-            title={t('auth.logout')} 
-            onPress={handleLogout} 
-            variant="outline" 
-            disabled={isLoading} 
-            loading={isLoading} 
-            style={styles.logoutButton} 
-            icon={<Feather name="log-out" size={18} color={Colors.error} />} 
-            textStyle={{ color: Colors.error }} 
-          />
+        {/* Uygulama Ayarları */}
+        <View style={styles.sectionContainer}>
+          <SectionHeader title="Uygulama Ayarları" icon="settings" />
+          <Card padding="none" style={styles.settingsCard}>
+            <ModernSettingCard icon="globe" title="Dil" subtitle="Uygulama dilini değiştirin" value={getCurrentLanguageLabel()} onPress={() => {}} iconColor={Colors.primary} />
+            <ModernSettingCard
+              icon="credit-card" title="Abonelik"
+              subtitle={isGuest ? "Abone olmak için hesap oluşturun" : "Premium özelliklere erişin"}
+              onPress={() => ToastService.show({ type: 'info', text1: isGuest ? 'Lütfen önce kayıt olun.' : 'Yakında gelecek!' })}
+              iconColor={Colors.accent} isLast
+            />
+          </Card>
         </View>
+
+        {/* Destek ve Hakkında */}
+        <View style={styles.sectionContainer}>
+          <SectionHeader title="Destek ve Bilgi" icon="help-circle" />
+          <Card padding="none" style={styles.settingsCard}>
+            <ModernSettingCard icon="message-circle" title="Destek" subtitle="Yardım alın ve geri bildirimde bulunun" onPress={() => {}} iconColor="#10B981" />
+            <ModernSettingCard icon="info" title="Hakkında" subtitle="Uygulama bilgileri ve sürüm" value="v1.0.0" onPress={() => {}} iconColor="#8B5CF6" />
+            <ModernSettingCard icon="star" title="Uygulamayı Değerlendirin" subtitle="App Store'da bizi değerlendirin" onPress={() => {}} iconColor="#F59E0B" showChevron={false} isLast />
+          </Card>
+        </View>
+
+        {/* GÜNCELLEME: Yeni Çıkış Yap Butonu */}
+        <View style={styles.sectionContainer}>
+             <SectionHeader title="Hesap" icon="user" />
+             <Card padding="none" style={styles.settingsCard}>
+                <ModernSettingCard
+                    icon="log-out"
+                    title="Çıkış Yap"
+                    onPress={handleLogout}
+                    iconColor={Colors.error}
+                    titleColor={Colors.error}
+                    showChevron={false}
+                    isLast
+                />
+             </Card>
+        </View>
+        
+        <View style={{ height: 60 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+const avatarStyles = StyleSheet.create({
+    avatarContainer: { marginBottom: Spacing.md },
+    avatar: {
+        width: 80, height: 80, borderRadius: 40,
+        justifyContent: 'center', alignItems: 'center',
+        borderWidth: 4, borderColor: Colors.card,
+    },
+    avatarText: { ...Typography.h1, color: Colors.card, fontWeight: '700' },
+});
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  
-  // COMPACT HEADER - Home ile tutarlı
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    minHeight: 56,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
+    backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  backButton: {
-    padding: Spacing.xs,
-    marginLeft: -Spacing.xs, // Hizalama için
-  },
-  headerTitle: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-    fontWeight: '600',
-  },
-  headerRight: {
-    width: 40, // Back button ile balance için
-  },
+  backButton: { padding: Spacing.xs, marginLeft: -Spacing.xs },
+  headerTitle: { ...Typography.h2, color: Colors.textPrimary, fontWeight: '700' },
+  headerRight: { width: 40 },
+  scrollContainer: { paddingVertical: Spacing.lg, paddingHorizontal: Spacing.md },
   
-  scrollContainer: { 
-    paddingVertical: Spacing.lg, 
-    paddingHorizontal: Spacing.md 
+  profileCard: {
+    marginBottom: Spacing.xl, borderRadius: BorderRadius.xl,
+    padding: Spacing.xl, // İçerik için padding eklendi
   },
-  
-  // ENHANCED PROFILE SECTION
-  profileSection: { 
-    alignItems: 'center', 
-    marginBottom: Spacing.xl,
-    paddingVertical: Spacing.lg,
-  },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
+  profileCardContent: { // İçeriği ortalamak için yeni stil
     alignItems: 'center',
-    marginBottom: Spacing.md,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
-    borderWidth: 3,
-    borderColor: Colors.card,
-  },
-  avatarText: { 
-    ...Typography.h1, 
-    color: Colors.card, 
-    fontSize: 32,
-    fontWeight: '700',
   },
   userName: { 
-    ...Typography.h2, 
-    color: Colors.textPrimary,
-    marginBottom: Spacing.xs,
+    ...Typography.h2, color: Colors.textPrimary, 
+    fontWeight: '700', marginBottom: Spacing.xs / 2,
   },
-  userEmail: { 
-    ...Typography.body, 
-    color: Colors.textSecondary,
-  },
+  userEmail: { ...Typography.body, color: Colors.textSecondary },
   
-  // SETTINGS SECTIONS
-  sectionContainer: { 
-    marginBottom: Spacing.xl 
+  sectionContainer: { marginBottom: Spacing.xl },
+  sectionHeader: {
+    flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.sm, gap: Spacing.sm,
   },
-  sectionTitle: { 
-    ...Typography.bodyMedium, 
-    color: Colors.textSecondary, 
-    marginBottom: Spacing.sm, 
-    paddingHorizontal: Spacing.sm,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    fontSize: 12,
+  sectionHeaderText: {
+    ...Typography.bodyMedium, color: Colors.textSecondary, fontWeight: '600',
+    textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 13,
   },
-  settingsCard: { 
-    paddingHorizontal: 0 
-  },
+  settingsCard: { backgroundColor: Colors.card, borderRadius: BorderRadius.xl },
   
-  settingItem: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    padding: Spacing.lg 
+  modernCard: { paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg },
+  modernCardBorder: { borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
+  modernCardContent: { flexDirection: 'row', alignItems: 'center' },
+  modernIcon: {
+    width: 44, height: 44, borderRadius: BorderRadius.lg,
+    justifyContent: 'center', alignItems: 'center', marginRight: Spacing.md,
   },
-  settingItemBorder: { 
-    borderBottomWidth: 1, 
-    borderBottomColor: Colors.border 
-  },
-  settingTitle: { 
-    ...Typography.body, 
-    color: Colors.textPrimary, 
-    flex: 1, 
-    marginLeft: Spacing.md,
-    fontWeight: '500',
-  },
-  settingRight: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: Spacing.sm 
-  },
-  settingValue: { 
-    ...Typography.body, 
-    color: Colors.textSecondary 
-  },
-
-  // LOGOUT SECTION
-  logoutButtonContainer: { 
-    marginTop: Spacing.lg,
-    paddingHorizontal: Spacing.md,
-  },
-  logoutButton: { 
-    borderColor: Colors.error, 
-    backgroundColor: Colors.card,
-    shadowColor: Colors.error,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
+  modernTextContainer: { flex: 1 },
+  modernTitle: { ...Typography.bodyMedium, fontWeight: '600', marginBottom: 2 },
+  modernSubtitle: { ...Typography.caption, color: Colors.textSecondary, lineHeight: 16 },
+  modernRightSection: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  modernValue: { ...Typography.body, color: Colors.primary, fontWeight: '500' },
 });

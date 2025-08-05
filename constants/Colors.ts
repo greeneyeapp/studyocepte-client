@@ -1,35 +1,39 @@
-// kodlar/constants/Colors.ts
+// client/constants/Colors.ts - YENİ RENK PALETİ
 export const Colors = {
-  primary: '#4F46E5',
-  secondary: '#10B981',
-  background: '#F9FAFB',
-  card: '#FFFFFF',
-  textPrimary: '#111827',
-  textSecondary: '#6B7280',
-  border: '#E5E7EB',
-  success: '#10B981',
-  error: '#EF4444',
-  warning: '#F59E0B',
+  // Ana Renkler (Logo Renginiz ve Tonları)
+  primary: '#758c71', // Ana Yeşil
+  primaryDark: '#5E705A', // Koyu Yeşil
+  primaryLight: '#A2B59F', // Açık Yeşil
+  
+  // İkincil ve Vurgu Renkleri
+  secondary: '#E8A87C', // Tamamlayıcı Yumuşak Turuncu/Somon
+  accent: '#C38D9E', // Vurgu için Tozlu Gül
+  
+  // Nötr Renkler
+  background: '#F7F7F7', // Çok açık, neredeyse beyaz arka plan
+  card: '#FFFFFF', // Kartlar ve ana yüzeyler
+  textPrimary: '#3C403D', // Koyu, okunabilir metin rengi
+  textSecondary: '#8A8D8B', // İkincil, daha soluk metin
+  border: '#EAEAEA', // İnce ve yumuşak sınırlar
+  
+  // Geri Bildirim Renkleri
+  success: '#28a745', // Başarı (Biraz daha yumuşak yeşil)
+  error: '#dc3545',   // Hata
+  warning: '#ffc107', // Uyarı
+  
+  // Diğer Renkler
   transparent: 'transparent',
-  
-  // Shadow color for a more subtle effect
-  shadow: '#111827',
+  shadow: '#000000', // Gölgeler için siyah (opaklık ile kullanılacak)
 
-  // Additional shades for depth
-  gray50: '#F9FAFB',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray500: '#6B7280',
-  gray600: '#4B5563',
-  gray700: '#374151',
-  gray800: '#1F2937',
-  gray900: '#111827',
-  
-  indigo50: '#EEF2FF',
-  indigo100: '#E0E7FF',
-  indigo500: '#6366F1',
-  indigo600: '#4F46E5',
-  indigo700: '#4338CA',
+  // Gri Tonları (Nötr Paletle Uyumlu)
+  gray50: '#F7F7F7',
+  gray100: '#EAEAEA',
+  gray200: '#DCDCDC',
+  gray300: '#C8C8C8',
+  gray400: '#A9A9A9',
+  gray500: '#8A8D8B',
+  gray600: '#696969',
+  gray700: '#4A4A4A',
+  gray800: '#3C403D',
+  gray900: '#1C1C1C',
 };
