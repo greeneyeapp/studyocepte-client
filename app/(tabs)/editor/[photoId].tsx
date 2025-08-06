@@ -1,13 +1,19 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, LayoutAnimation, UIManager, Platform, AppState } from 'react-native';
+// app/(tabs)/editor/[photoId].tsx - BACKGROUND SECTION ENTEGRASYONLu VERSİYON
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, LayoutAnimation, UIManager, Platform, AppState, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Feather } from '@expo/vector-icons';
 
 import { useEnhancedEditorStore } from '@/stores/useEnhancedEditorStore';
 import { useProductStore } from '@/stores/useProductStore';
 import { useExportManager } from '@/features/editor/hooks/useExportManager';
 import { useScrollManager } from '@/features/editor/hooks/useScrollManager';
+import { useEditorAutoSave } from '@/features/editor/hooks/useEditorAutoSave';
+import { useDraftRestore } from '@/features/editor/hooks/useDraftRestore';
+import { useBackgroundPreloader } from '@/features/editor/hooks/useBackgroundPreloader';
+
 import { EditorHeader } from '@/features/editor/components/EditorHeader';
 import { TargetSelector } from '@/features/editor/components/TargetSelector';
 import { EditorPreview } from '@/features/editor/components/EditorPreview';
@@ -18,10 +24,12 @@ import { FilterPreview } from '@/features/editor/components/FilterPreview';
 import { BackgroundButton } from '@/features/editor/components/BackgroundButton';
 import { CropToolbar } from '@/features/editor/components/CropToolbar';
 import { ExportToolbar } from '@/features/editor/components/ExportToolbar';
+import { DraftManager } from '@/features/editor/components/DraftManager';
+
 import { ToolType, TargetType } from '@/features/editor/config/tools';
 import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/features';
 import { ALL_FILTERS } from '@/features/editor/config/filters';
-import { Colors, Spacing } from '@/constants';
+import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
 import { ExportPreset } from '@/features/editor/config/exportTools';
 import { ToastService } from '@/components/Toast/ToastService';
 import { imageProcessor } from '@/services/imageProcessor';
@@ -35,6 +43,8 @@ interface Background { id: string; name: string; thumbnailUrl: string; fullUrl: 
 const staticBackgrounds: Background[] = [
     {id: "bg1", name: "Studio White", thumbnailUrl: "https://images.pexels.com/photos/1762851/pexels-photo-1762851.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/1762851/pexels-photo-1762851.jpeg?auto=compress&cs=tinysrgb&w=800"},
     {id: "bg2", name: "Concrete", thumbnailUrl: "https://images.pexels.com/photos/1191710/pexels-photo-1191710.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/1191710/pexels-photo-1191710.jpeg?auto=compress&cs=tinysrgb&w=800"},
+    {id: "bg3", name: "Warm Light", thumbnailUrl: "https://images.pexels.com/photos/2306281/pexels-photo-2306281.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/2306281/pexels-photo-2306281.jpeg?auto=compress&cs=tinysrgb&w=800"},
+    {id: "bg4", name: "Wooden Floor", thumbnailUrl: "https://images.pexels.com/photos/276583/pexels-photo-276583.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/276583/pexels-photo-276583.jpeg?auto=compress&cs=tinysrgb&w=800"},
 ];
 
 export default function EnhancedEditorScreen() {
@@ -59,18 +69,46 @@ export default function EnhancedEditorScreen() {
       setActivePhoto, 
       setActiveFilterKey, 
       resetCropAndRotation,
-      // YENİ: Thumbnail ve reset fonksiyonları
+      // Draft system states
       isUpdatingThumbnail,
       thumbnailError,
       hasDraftChanges,
       resetAllSettings,
       saveDraft,
-      clearDraft
+      clearDraft,
+      autoSaveEnabled,
+      performAutoSave
     } = store;
     
     const applyCrop = useEnhancedEditorStore((state) => state.applyCrop);
     const getProductById = useProductStore(state => state.getProductById);
 
+    // ===== DRAFT SYSTEM HOOKS =====
+    
+    const autoSaveStatus = useEditorAutoSave({
+      intervalMs: 30000,
+      onAppBackground: true,
+      onBeforeUnload: true,
+      debounceMs: 2000
+    });
+    
+    const draftRestore = useDraftRestore({
+      autoRestore: false,
+      showNotification: true,
+      maxDraftAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    // ===== YENİ: BACKGROUND PRELOADER HOOK =====
+    
+    const backgroundPreloader = useBackgroundPreloader(staticBackgrounds, {
+      enabled: true,
+      priority: 'low',
+      maxConcurrent: 2,
+      delayMs: 2000 // Editor yüklendikten 2 saniye sonra başla
+    });
+
+    // ===== STATE =====
+    
     const [activeTool, setActiveTool] = useState<ToolType>('adjust');
     const [activeTarget, setActiveTarget] = useState<TargetType>('product');
     const [activeFeature, setActiveFeature] = useState<string | null>(null);
@@ -78,59 +116,82 @@ export default function EnhancedEditorScreen() {
     const [showOriginal, setShowOriginal] = useState(false);
     const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
     const [selectedPreset, setSelectedPreset] = useState<ExportPreset | null>(null);
+    const [showDraftManager, setShowDraftManager] = useState(false);
+    
+    // YENİ: Cache status monitoring (dev mode)
+    const [cacheStatus, setCacheStatus] = useState<any>(null);
 
     const { isExporting, shareWithOption, skiaViewRef } = useExportManager();
     const { currentScrollRef } = useScrollManager({ activeTool, activeTarget, activeFeature, isSliderActive });
-
-    // YENİ: Preview component ref for thumbnail capture
     const previewRef = useRef<View>(null);
 
-    // YENİ: Auto-save timer
-    const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+    // ===== BACKGROUND CACHE MONITORING =====
+    
+    useEffect(() => {
+      if (__DEV__) {
+        const updateCacheStatus = () => {
+          const status = backgroundPreloader.getCacheStatus();
+          setCacheStatus(status);
+          console.log('📊 Background cache status:', status);
+        };
 
-    // Photo loading effect
+        // İlk durumu al
+        updateCacheStatus();
+        
+        // Her 10 saniyede bir güncelle
+        const interval = setInterval(updateCacheStatus, 10000);
+        return () => clearInterval(interval);
+      }
+    }, [backgroundPreloader]);
+
+    // ===== MEMORY OPTIMIZATION =====
+    
+    useEffect(() => {
+      const handleAppStateChange = (nextAppState: string) => {
+        if (nextAppState === 'background') {
+          console.log('📱 App backgrounding, optimizing background cache...');
+          backgroundPreloader.optimizeCache();
+        }
+      };
+
+      const subscription = AppState.addEventListener('change', handleAppStateChange);
+      return () => subscription?.remove();
+    }, [backgroundPreloader]);
+
+    // ===== PHOTO LOADING EFFECT =====
+    
     useEffect(() => {
         if (photoId && productId) {
           const product = getProductById(productId);
           const photo = product?.photos.find(p => p.id === photoId);
           if (photo) {
+            console.log('📸 Loading photo with systems:', {
+              photoId: photo.id,
+              draftSystem: 'enabled',
+              backgroundCache: 'enabled',
+              autoSave: 'enabled'
+            });
             setActivePhoto(photo);
           } else {
             ToastService.show({type: 'error', text1: 'Hata', text2: 'Düzenlenecek fotoğraf bulunamadı.'});
             router.back();
           }
         }
+        
         return () => {
+          const state = useEnhancedEditorStore.getState();
+          if (state.activePhoto && state.hasDraftChanges) {
+            console.log('🔄 Component unmounting, saving draft...');
+            state.saveDraft();
+          }
+          
           clearStore();
-          // Memory optimization
           imageProcessor.optimizeMemoryUsage();
         };
     }, [photoId, productId, getProductById, setActivePhoto, clearStore, router]);
 
-    // YENİ: App state change handler for auto-save
-    useEffect(() => {
-      const handleAppStateChange = (nextAppState: string) => {
-        if (nextAppState === 'background' && hasDraftChanges) {
-          console.log('📱 App going to background, saving draft...');
-          saveDraft();
-        }
-      };
-
-      const subscription = AppState.addEventListener('change', handleAppStateChange);
-      return () => subscription?.remove();
-    }, [hasDraftChanges, saveDraft]);
-
-    // YENİ: Thumbnail error handler
-    useEffect(() => {
-      if (thumbnailError) {
-        ToastService.show({
-          type: 'warning',
-          text1: 'Thumbnail Uyarısı',
-          text2: thumbnailError
-        });
-      }
-    }, [thumbnailError]);
-
+    // ===== HANDLERS =====
+    
     const animateLayout = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     
     const handleToolChange = (tool: ToolType) => {
@@ -181,15 +242,25 @@ export default function EnhancedEditorScreen() {
       setTimeout(() => handleToolChange('adjust'), 300); 
     };
 
-    // GÜNCELLEME: Save fonksiyonu thumbnail capture ile
     const handleSave = async () => { 
+      console.log('💾 Save triggered - with thumbnail update');
       await store.saveChanges(previewRef); 
     };
 
-    // YENİ: Reset all settings handler
     const handleResetAll = () => {
+      console.log('🔄 Reset all settings triggered');
       resetAllSettings();
-      clearDraft(); // Draft'ı da temizle
+      clearDraft();
+    };
+
+    const handleForceAutoSave = () => {
+      console.log('⚡ Force auto-save triggered');
+      autoSaveStatus.forceAutoSave();
+      ToastService.show({
+        type: 'success',
+        text1: 'Taslak Kaydedildi',
+        text2: 'Değişiklikler otomatik olarak kaydedildi'
+      });
     };
 
     const handleCancel = () => {
@@ -197,14 +268,108 @@ export default function EnhancedEditorScreen() {
           setActiveFeature(null);
           handleToolChange('adjust');
         } else {
-          // YENİ: Draft'ı kaydet before leaving
           if (hasDraftChanges) {
+            console.log('📂 Saving draft before leaving...');
             saveDraft();
           }
           router.back();
         }
     };
 
+    // ===== YENİ: BACKGROUND SECTION RENDER =====
+    
+    const renderBackgroundSection = () => {
+      if (activeTool !== 'background') return null;
+
+      return (
+        <View style={styles.backgroundSection}>
+          {/* YENİ: Cache status indicator (dev mode) */}
+          {__DEV__ && cacheStatus && (
+            <View style={styles.cacheStatusBar}>
+              <Text style={styles.cacheStatusText}>
+                🗂️ Cache: {cacheStatus.cachedCount}/{cacheStatus.totalBackgrounds} • 
+                {Math.round(cacheStatus.cacheSize / 1024)}KB
+                {cacheStatus.isFullyCached && ' ✅'}
+              </Text>
+              <TouchableOpacity 
+                style={styles.cacheOptimizeButton}
+                onPress={backgroundPreloader.optimizeCache}
+              >
+                <Feather name="refresh-cw" size={12} color={Colors.primary} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Background buttons */}
+          <ScrollView 
+            ref={currentScrollRef} 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            contentContainerStyle={styles.scrollContent}
+          >
+            {staticBackgrounds.map(bg => 
+              <BackgroundButton 
+                key={bg.id} 
+                background={bg} 
+                isSelected={settings.backgroundId === bg.id} 
+                onPress={() => { 
+                  console.log('🖼️ Background selected:', bg.name);
+                  updateSettings({backgroundId: bg.id}); 
+                  addSnapshotToHistory();
+                }} 
+              />
+            )}
+          </ScrollView>
+
+          {/* YENİ: Background management controls (dev mode) */}
+          {__DEV__ && (
+            <View style={styles.backgroundControls}>
+              <TouchableOpacity 
+                style={styles.controlButton}
+                onPress={() => {
+                  console.log('🚀 Manual background preload triggered');
+                  backgroundPreloader.startPreloading();
+                }}
+              >
+                <Feather name="download" size={14} color={Colors.primary} />
+                <Text style={styles.controlButtonText}>Preload</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.controlButton, styles.dangerButton]}
+                onPress={() => {
+                  console.log('🗑️ Background cache clear triggered');
+                  backgroundPreloader.clearCache();
+                  setCacheStatus(null);
+                }}
+              >
+                <Feather name="trash-2" size={14} color={Colors.error} />
+                <Text style={[styles.controlButtonText, styles.dangerText]}>Clear Cache</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.controlButton}
+                onPress={() => {
+                  const status = backgroundPreloader.getCacheStatus();
+                  console.log('📊 Background cache info:', status);
+                  ToastService.show({
+                    type: 'info',
+                    text1: 'Cache Status',
+                    text2: `${status.cachedCount}/${status.totalBackgrounds} cached • ${Math.round(status.cacheSize/1024)}KB`
+                  });
+                }}
+              >
+                <Feather name="info" size={14} color={Colors.primary} />
+                <Text style={styles.controlButtonText}>Info</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      );
+    };
+
+    // ===== LOADING STATE =====
+    
     if (!activePhoto) {
         return (
           <SafeAreaView style={styles.loadingContainer}>
@@ -220,7 +385,7 @@ export default function EnhancedEditorScreen() {
     return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        {/* GÜNCELLEME: Header'a yeni proplar eklendi */}
+        {/* Enhanced Header */}
         <EditorHeader 
           onCancel={handleCancel} 
           onSave={handleSave} 
@@ -232,10 +397,14 @@ export default function EnhancedEditorScreen() {
           onResetAll={handleResetAll}
           isUpdatingThumbnail={isUpdatingThumbnail}
           hasDraftChanges={hasDraftChanges}
+          totalDraftsCount={draftRestore.totalDraftsCount}
+          onShowDraftManager={() => setShowDraftManager(true)}
+          autoSaveEnabled={autoSaveEnabled}
+          onForceAutoSave={handleForceAutoSave}
         />
         
         <View style={styles.contentWrapper}>
-            {/* GÜNCELLEME: Preview component ref eklendi */}
+            {/* Preview */}
             <View style={styles.previewContainer} ref={skiaViewRef} collapsable={false}>
                 <EditorPreview 
                   ref={previewRef}
@@ -251,7 +420,7 @@ export default function EnhancedEditorScreen() {
                 />
             </View>
 
-            {/* YENİ: Thumbnail güncelleme durumu göstergesi */}
+            {/* Status Indicators */}
             {isUpdatingThumbnail && (
               <View style={styles.thumbnailUpdateIndicator}>
                 <ActivityIndicator size="small" color={Colors.primary} />
@@ -259,7 +428,17 @@ export default function EnhancedEditorScreen() {
               </View>
             )}
 
+            {__DEV__ && autoSaveStatus.hasPendingChanges && (
+              <View style={styles.autoSaveIndicator}>
+                <Text style={styles.autoSaveText}>
+                  Auto-save: {autoSaveStatus.isAutoSaveEnabled ? 'ON' : 'OFF'} • 
+                  Son: {new Date(autoSaveStatus.lastSaveAttempt).toLocaleTimeString()}
+                </Text>
+              </View>
+            )}
+
             <View style={styles.bottomToolbarContainer}>
+              {/* Crop Toolbar */}
               {activeTool === 'crop' && (
                   <CropToolbar 
                     activeRatio={settings.cropAspectRatio || 'original'} 
@@ -276,6 +455,7 @@ export default function EnhancedEditorScreen() {
                   />
               )}
               
+              {/* Export Toolbar */}
               {activeTool === 'export' && (
                   <View style={styles.fullScreenTool}>
                     <ExportToolbar 
@@ -288,6 +468,7 @@ export default function EnhancedEditorScreen() {
                   </View>
               )}
 
+              {/* Main Tool Content */}
               {activeTool !== 'export' && activeTool !== 'crop' && (
                   <>
                     {(activeTool === 'adjust' || activeTool === 'filter') && !activeFeature && (
@@ -302,6 +483,7 @@ export default function EnhancedEditorScreen() {
                     )}
                     
                     <View style={styles.dynamicToolContainer}>
+                        {/* Slider Mode */}
                         {activeTool === 'adjust' && currentFeatureConfig ? (
                             <CustomSlider 
                               feature={currentFeatureConfig} 
@@ -316,51 +498,58 @@ export default function EnhancedEditorScreen() {
                               isActive={!!activeFeature} 
                             />
                         ) : (
-                            <ScrollView 
-                              ref={currentScrollRef} 
-                              horizontal 
-                              showsHorizontalScrollIndicator={false} 
-                              contentContainerStyle={styles.scrollContent}
-                            >
-                                {activeTool === 'adjust' && featuresForCurrentTarget.map(f => 
-                                  <FeatureButton 
-                                    key={f.key} 
-                                    icon={f.icon} 
-                                    label={f.label} 
-                                    value={getSliderValue(f.key)} 
-                                    isActive={activeFeature === f.key} 
-                                    onPress={() => handleFeaturePress(f.key)} 
-                                  />
-                                )}
-                                
-                                {activeTool === 'filter' && ALL_FILTERS.map(f => 
-                                  <FilterPreview 
-                                    key={f.key} 
-                                    filter={f} 
-                                    imageUri={activePhoto.processedUri!} 
-                                    backgroundUri={staticBackgrounds.find(bg => bg.id === settings.backgroundId)?.fullUrl!} 
-                                    isSelected={activeFilterKey === f.key} 
-                                    onPress={() => applyFilter(f.key, activeTarget)} 
-                                  />
-                                )}
-                                
-                                {activeTool === 'background' && staticBackgrounds.map(bg => 
-                                  <BackgroundButton 
-                                    key={bg.id} 
-                                    background={bg} 
-                                    isSelected={settings.backgroundId === bg.id} 
-                                    onPress={() => { 
-                                      updateSettings({backgroundId: bg.id}); 
-                                      addSnapshotToHistory();
-                                    }} 
-                                  />
-                                )}
-                            </ScrollView>
+                            <>
+                              {/* Adjust Features */}
+                              {activeTool === 'adjust' && (
+                                <ScrollView 
+                                  ref={currentScrollRef} 
+                                  horizontal 
+                                  showsHorizontalScrollIndicator={false} 
+                                  contentContainerStyle={styles.scrollContent}
+                                >
+                                  {featuresForCurrentTarget.map(f => 
+                                    <FeatureButton 
+                                      key={f.key} 
+                                      icon={f.icon} 
+                                      label={f.label} 
+                                      value={getSliderValue(f.key)} 
+                                      isActive={activeFeature === f.key} 
+                                      onPress={() => handleFeaturePress(f.key)} 
+                                    />
+                                  )}
+                                </ScrollView>
+                              )}
+                              
+                              {/* Filter Previews */}
+                              {activeTool === 'filter' && (
+                                <ScrollView 
+                                  ref={currentScrollRef} 
+                                  horizontal 
+                                  showsHorizontalScrollIndicator={false} 
+                                  contentContainerStyle={styles.scrollContent}
+                                >
+                                  {ALL_FILTERS.map(f => 
+                                    <FilterPreview 
+                                      key={f.key} 
+                                      filter={f} 
+                                      imageUri={activePhoto.processedUri!} 
+                                      backgroundUri={staticBackgrounds.find(bg => bg.id === settings.backgroundId)?.fullUrl!} 
+                                      isSelected={activeFilterKey === f.key} 
+                                      onPress={() => applyFilter(f.key, activeTarget)} 
+                                    />
+                                  )}
+                                </ScrollView>
+                              )}
+                              
+                              {/* GÜNCELLEME: Background Section - Optimize edilmiş */}
+                              {renderBackgroundSection()}
+                            </>
                         )}
                     </View>
                   </>
               )}
               
+              {/* Main Toolbar */}
               {activeTool !== 'crop' && (
                 <MainToolbar 
                   activeTool={activeTool} 
@@ -369,77 +558,62 @@ export default function EnhancedEditorScreen() {
               )}
             </View>
         </View>
+
+        {/* Draft Manager Modal */}
+        <DraftManager 
+          visible={showDraftManager}
+          onClose={() => setShowDraftManager(false)}
+        />
       </SafeAreaView>
     </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: Colors.background 
-  },
-  
-  loadingContainer: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  },
-  
-  contentWrapper: { 
-    flex: 1, 
-    flexDirection: 'column' 
-  },
-  
-  previewContainer: { 
-    flex: 1, 
-    width: '100' 
-  },
-  
-  bottomToolbarContainer: { 
-    backgroundColor: Colors.card, 
-    borderTopWidth: 1, 
-    borderTopColor: Colors.border 
-  },
-  
-  dynamicToolContainer: { 
-    minHeight: 120, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  },
-  
-  fullScreenTool: { 
-    minHeight: 120 
-  },
-  
-  scrollContent: { 
-    paddingHorizontal: Spacing.lg, 
-    alignItems: 'center', 
-    gap: Spacing.lg, 
-    paddingVertical: Spacing.md 
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  contentWrapper: { flex: 1, flexDirection: 'column' },
+  previewContainer: { flex: 1, width: '100%' },
+  bottomToolbarContainer: { backgroundColor: Colors.card, borderTopWidth: 1, borderTopColor: Colors.border },
+  dynamicToolContainer: { minHeight: 120, justifyContent: 'center', alignItems: 'center' },
+  fullScreenTool: { minHeight: 120 },
+  scrollContent: { paddingHorizontal: Spacing.lg, alignItems: 'center', gap: Spacing.lg, paddingVertical: Spacing.md },
 
-  // YENİ: Thumbnail update indicator styles
+  // Status indicators
   thumbnailUpdateIndicator: {
-    position: 'absolute',
-    top: 80, // Header'ın altında
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.primary + '90',
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: 20,
-    marginHorizontal: Spacing.lg,
-    zIndex: 100,
+    position: 'absolute', top: 80, left: 0, right: 0, flexDirection: 'row',
+    justifyContent: 'center', alignItems: 'center', gap: Spacing.sm,
+    backgroundColor: Colors.primary + '90', paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg, borderRadius: 20, marginHorizontal: Spacing.lg, zIndex: 100,
   },
+  thumbnailUpdateText: { color: Colors.card, fontSize: 14, fontWeight: '600' },
+  autoSaveIndicator: {
+    position: 'absolute', top: 120, left: Spacing.lg, right: Spacing.lg,
+    backgroundColor: Colors.success + '90', paddingVertical: 4,
+    paddingHorizontal: Spacing.md, borderRadius: 12, zIndex: 90,
+  },
+  autoSaveText: { color: Colors.card, fontSize: 12, fontWeight: '500', textAlign: 'center' },
 
-  thumbnailUpdateText: {
-    color: Colors.card,
-    fontSize: 14,
-    fontWeight: '600',
+  // YENİ: Background section styles
+  backgroundSection: { width: '100%', paddingVertical: Spacing.md },
+  cacheStatusBar: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
+    backgroundColor: Colors.gray100, marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.sm, marginHorizontal: Spacing.md,
   },
+  cacheStatusText: { ...Typography.caption, color: Colors.textSecondary, fontSize: 11, fontWeight: '500' },
+  cacheOptimizeButton: { padding: Spacing.xs, borderRadius: BorderRadius.sm, backgroundColor: Colors.primary + '15' },
+  backgroundControls: {
+    flexDirection: 'row', justifyContent: 'center', gap: Spacing.md,
+    paddingHorizontal: Spacing.lg, paddingTop: Spacing.md,
+  },
+  controlButton: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.xs,
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
+    backgroundColor: Colors.gray100, borderRadius: BorderRadius.md,
+  },
+  dangerButton: { backgroundColor: Colors.error + '10' },
+  controlButtonText: { ...Typography.caption, color: Colors.textPrimary, fontWeight: '500', fontSize: 11 },
+  dangerText: { color: Colors.error },
 });
