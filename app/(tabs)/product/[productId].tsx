@@ -1,15 +1,16 @@
-// app/(tabs)/product/[productId].tsx - LAZY LOADING OPTIMIZED VERSION
+// app/(tabs)/product/[productId].tsx - FULL EDITOR INTEGRATION + ALL FEATURES
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ActivityIndicator, 
-  LayoutAnimation, UIManager, Platform, Animated, Modal, RefreshControl, AppState
+  LayoutAnimation, UIManager, Platform, Animated, Modal, RefreshControl, AppState, Alert
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 
 import { useProductStore, ProductPhoto } from '@/stores/useProductStore';
+import { useEnhancedEditorStore } from '@/stores/useEnhancedEditorStore';
 import { Colors, Spacing, Typography, BorderRadius, Layout } from '@/constants';
 import { Card } from '@/components/Card';
 import { ToastService } from '@/components/Toast/ToastService';
@@ -25,7 +26,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const numColumns = Layout.isTablet ? 4 : 3;
 
-// YENİ: Performance monitoring
+// Performance monitoring
 let photoRenderCount = 0;
 const MAX_PHOTO_RENDER_COUNT = 100;
 
@@ -35,28 +36,34 @@ interface AnimatingPhoto {
   processedUri?: string;
 }
 
-// YENİ: Optimized ModernPhotoCard with LazyImage
-const ModernPhotoCard = React.memo<{
+// ===== ENHANCED PHOTO CARD WITH EDITOR INTEGRATION =====
+const EnhancedPhotoCard = React.memo<{
   photo: ProductPhoto; 
   isSelected: boolean; 
   showRemoveBgIcon: boolean;
   onPress: () => void; 
   onLongPress: () => void;
+  onEditPress: () => void; // YENİ: Editor'a git
+  onRemoveBgPress: () => void; // YENİ: Background removal
   index: number;
   siblingUris: string[];
-}>(({ photo, isSelected, showRemoveBgIcon, onPress, onLongPress, index, siblingUris }) => {
+  hasDraft?: boolean; // YENİ: Draft indicator
+  isProcessing?: boolean; // Enhanced processing state
+}>(({ 
+  photo, isSelected, showRemoveBgIcon, onPress, onLongPress, onEditPress, 
+  onRemoveBgPress, index, siblingUris, hasDraft = false, isProcessing = false 
+}) => {
   const scale = useRef(new Animated.Value(1)).current;
   
   // Performance monitoring
   useEffect(() => {
     photoRenderCount++;
     if (photoRenderCount > MAX_PHOTO_RENDER_COUNT && photoRenderCount % 50 === 0) {
-      console.log(`📸 Photo render count: ${photoRenderCount}, optimizing...`);
       LazyImageUtils.optimizeMemory();
     }
   }, []);
 
-  // Optimized animation handlers
+  // Animation handlers
   const handlePressIn = useCallback(() => {
     Animated.spring(scale, { 
       toValue: 0.96, 
@@ -75,7 +82,7 @@ const ModernPhotoCard = React.memo<{
     }).start();
   }, [scale]);
 
-  // Memoized URI with cache buster
+  // Optimized URI with cache buster
   const imageUri = useMemo(() => 
     `${photo.thumbnailUri}?v=${photo.modifiedAt}`,
     [photo.thumbnailUri, photo.modifiedAt]
@@ -88,8 +95,17 @@ const ModernPhotoCard = React.memo<{
     return 'low';
   }, [index]);
 
+  // YENİ: Action button handler
+  const handleActionPress = useCallback((action: 'edit' | 'remove_bg') => {
+    if (action === 'edit') {
+      onEditPress();
+    } else {
+      onRemoveBgPress();
+    }
+  }, [onEditPress, onRemoveBgPress]);
+
   return (
-    <View style={photoStyles.cardContainer}>
+    <View style={styles.cardContainer}>
       <Animated.View style={{ transform: [{ scale }] }}>
         <TouchableOpacity
           onPress={onPress} 
@@ -99,13 +115,14 @@ const ModernPhotoCard = React.memo<{
           onPressOut={handlePressOut}
         >
           <Card padding="none" style={[
-            photoStyles.photoCard, 
-            isSelected && photoStyles.selectedCard
+            styles.photoCard, 
+            isSelected && styles.selectedCard,
+            hasDraft && styles.draftCard
           ]}>
-            <View style={photoStyles.imageContainer}>
+            <View style={styles.imageContainer}>
               <LazyImage
                 uri={imageUri}
-                style={photoStyles.photoImage}
+                style={styles.photoImage}
                 priority={priority}
                 fadeIn={true}
                 lazyLoad={true}
@@ -114,7 +131,7 @@ const ModernPhotoCard = React.memo<{
                 resizeMode="cover"
                 retryCount={3}
                 placeholder={
-                  <View style={photoStyles.placeholder}>
+                  <View style={styles.placeholder}>
                     <ActivityIndicator size="small" color={Colors.primary} />
                   </View>
                 }
@@ -123,29 +140,67 @@ const ModernPhotoCard = React.memo<{
                 }}
               />
               
-              {/* Status Overlay */}
-              {photo.status === 'processing' && (
-                <View style={photoStyles.statusOverlay}>
+              {/* YENİ: Enhanced Status Overlay */}
+              {(photo.status === 'processing' || isProcessing) && (
+                <View style={styles.statusOverlay}>
                   <ActivityIndicator size="small" color={Colors.card} />
-                  <Text style={photoStyles.statusText}>İşleniyor...</Text>
+                  <Text style={styles.statusText}>İşleniyor...</Text>
                 </View>
               )}
               
-              {/* Remove BG Button */}
-              {showRemoveBgIcon && (
-                <TouchableOpacity style={photoStyles.removeBgButton} onPress={onPress}>
-                  <Feather name="zap" size={12} color={Colors.card} />
-                </TouchableOpacity>
+              {/* YENİ: Action Buttons - Context Aware */}
+              {!isSelected && !isProcessing && (
+                <View style={styles.actionButtonsContainer}>
+                  {/* Edit Button - Always visible for processed photos */}
+                  {photo.status === 'processed' && (
+                    <TouchableOpacity 
+                      style={[styles.actionButton, styles.editButton]} 
+                      onPress={() => handleActionPress('edit')}
+                    >
+                      <Feather name="edit-3" size={12} color={Colors.card} />
+                    </TouchableOpacity>
+                  )}
+                  
+                  {/* Remove BG Button - For raw photos */}
+                  {photo.status === 'raw' && (
+                    <TouchableOpacity 
+                      style={[styles.actionButton, styles.removeBgButton]} 
+                      onPress={() => handleActionPress('remove_bg')}
+                    >
+                      <Feather name="zap" size={12} color={Colors.card} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
+              {/* YENİ: Draft Indicator */}
+              {hasDraft && (
+                <View style={styles.draftIndicator}>
+                  <View style={styles.draftDot} />
+                  <Text style={styles.draftText}>Taslak</Text>
+                </View>
               )}
               
               {/* Selection Overlay */}
               {isSelected && (
-                <View style={photoStyles.selectionOverlay}>
-                  <View style={photoStyles.selectionCheck}>
+                <View style={styles.selectionOverlay}>
+                  <View style={styles.selectionCheck}>
                     <Feather name="check" size={16} color={Colors.card} />
                   </View>
                 </View>
               )}
+
+              {/* YENİ: Status Badge */}
+              <View style={[
+                styles.statusBadge,
+                photo.status === 'processed' && styles.processedBadge,
+                photo.status === 'processing' && styles.processingBadge,
+              ]}>
+                <Text style={styles.statusBadgeText}>
+                  {photo.status === 'raw' ? 'RAW' : 
+                   photo.status === 'processing' ? '...' : '✓'}
+                </Text>
+              </View>
             </View>
           </Card>
         </TouchableOpacity>
@@ -154,104 +209,61 @@ const ModernPhotoCard = React.memo<{
   );
 });
 
-// YENİ: Optimized Header with memoization
-const ModernHeader = React.memo<{
-  productName: string; 
-  photoCount: number; 
-  onBack: () => void;
-}>(({ productName, photoCount, onBack }) => (
-  <View style={styles.header}>
-    <View style={styles.leftSection}>
-      <TouchableOpacity onPress={onBack} style={styles.backButton}>
-        <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
-      </TouchableOpacity>
-    </View>
-    <View style={styles.centerSection}>
-      <Text style={styles.productName} numberOfLines={1} ellipsizeMode="tail">
-        {productName}
-      </Text>
-      <Text style={styles.photoCount}>{photoCount} fotoğraf</Text>
-    </View>
-    <View style={styles.rightSection} />
-  </View>
-));
-
-// YENİ: Enhanced Empty State
-const EmptyPhotoState = React.memo<{ onAddPhoto: () => void }>(({ onAddPhoto }) => (
-  <View style={styles.emptyContainer}>
-    <Animated.View style={{ opacity: 1 }}>
-      <View style={styles.emptyIcon}>
-        <Feather name="camera" size={64} color={Colors.gray300} />
-      </View>
-      <Text style={styles.emptyTitle}>İlk Fotoğrafınızı Ekleyin</Text>
-      <Text style={styles.emptySubtitle}>
-        Eklemek için sağ alttaki '+' butonuna dokunun!
-      </Text>
-      <TouchableOpacity style={styles.emptyButton} onPress={onAddPhoto}>
-        <Feather name="plus" size={20} color={Colors.primary} />
-        <Text style={styles.emptyButtonText}>Fotoğraf Ekle</Text>
-      </TouchableOpacity>
-    </Animated.View>
-  </View>
-));
-
-// YENİ: Optimized Selection Action Bar
-const SelectionActionBar = React.memo<{
+// ===== ENHANCED BATCH ACTION BAR =====
+const EnhancedActionBar = React.memo<{
   selectedCount: number; 
   onDelete: () => void; 
+  onBatchRemoveBg: () => void; // YENİ: Batch background removal
   onCancel: () => void;
-}>(({ selectedCount, onDelete, onCancel }) => (
+  isProcessing: boolean;
+}>(({ selectedCount, onDelete, onBatchRemoveBg, onCancel, isProcessing }) => (
   <View style={styles.actionBar}>
     <TouchableOpacity onPress={onCancel} style={styles.cancelAction}>
       <Text style={styles.cancelActionText}>İptal</Text>
     </TouchableOpacity>
+    
     <Text style={styles.selectionCount}>{selectedCount} seçildi</Text>
-    <TouchableOpacity onPress={onDelete} style={styles.actionButton}>
-      <Feather name="trash-2" size={18} color={Colors.error} />
-      <Text style={styles.actionButtonText}>Sil</Text>
-    </TouchableOpacity>
+    
+    <View style={styles.batchActions}>
+      <TouchableOpacity 
+        onPress={onBatchRemoveBg} 
+        style={[styles.batchActionButton, styles.removeBgAction]}
+        disabled={isProcessing}
+      >
+        <Feather name="zap" size={16} color={Colors.warning} />
+        <Text style={styles.batchActionText}>Arka Plan</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        onPress={onDelete} 
+        style={[styles.batchActionButton, styles.deleteAction]}
+        disabled={isProcessing}
+      >
+        <Feather name="trash-2" size={16} color={Colors.error} />
+        <Text style={styles.batchActionText}>Sil</Text>
+      </TouchableOpacity>
+    </View>
   </View>
 ));
 
-// YENİ: Enhanced FAB with better performance
-const ModernFAB = React.memo<{ 
-  onPress: () => void; 
-  isVisible: boolean 
-}>(({ onPress, isVisible }) => {
-  const scaleValue = useRef(new Animated.Value(isVisible ? 1 : 0)).current;
-  
-  useEffect(() => {
-    const animation = Animated.spring(scaleValue, { 
-      toValue: isVisible ? 1 : 0, 
-      useNativeDriver: true, 
-      tension: 100, 
-      friction: 8 
-    });
-    animation.start();
-    
-    return () => animation.stop();
-  }, [isVisible, scaleValue]);
-
-  return (
-    <Animated.View
-      style={[styles.fabContainer, { transform: [{ scale: scaleValue }] }]}
-      pointerEvents={isVisible ? 'auto' : 'none'}
-    >
-      <TouchableOpacity style={styles.fab} onPress={onPress} activeOpacity={0.8}>
-        <Feather name="plus" size={24} color={Colors.card} />
-      </TouchableOpacity>
-    </Animated.View>
-  );
-});
-
-// YENİ: Main optimized component
-export default function ProductDetailScreen() {
+// ===== MAIN COMPONENT =====
+export default function EnhancedProductDetailScreen() {
   const { productId } = useLocalSearchParams<{ productId: string }>();
   const router = useRouter();
-  const { addMultiplePhotos, deleteMultiplePhotos, removeMultipleBackgrounds } = useProductStore();
+  
+  // Stores
+  const { 
+    addMultiplePhotos, 
+    deleteMultiplePhotos, 
+    removeMultipleBackgrounds,
+    removeSingleBackground,
+    isProcessing: storeIsProcessing
+  } = useProductStore();
   const activeProduct = useProductStore(state => state.products.find(p => p.id === productId));
-  const isProcessing = useProductStore(state => state.isProcessing);
   const storeError = useProductStore(state => state.error);
+  
+  // YENİ: Editor store integration for draft detection
+  const { getAllDrafts, hasDraftForPhoto } = useEnhancedEditorStore();
 
   // State management
   const [isSelectionMode, setSelectionMode] = useState(false);
@@ -259,23 +271,39 @@ export default function ProductDetailScreen() {
   const [showAnimationModal, setShowAnimationModal] = useState(false);
   const [currentAnimatingPhoto, setCurrentAnimatingPhoto] = useState<AnimatingPhoto | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLocalProcessing, setIsLocalProcessing] = useState(false);
 
   // Performance refs
   const flatListRef = useRef<any>(null);
   const lastPhotoAddTime = useRef<number>(0);
   const debounceTimeout = useRef<NodeJS.Timeout>();
 
-  // YENİ: Memoized values for performance
+  // YENİ: Draft detection memoization
+  const photosWithDrafts = useMemo(() => {
+    const drafts = getAllDrafts();
+    return new Set(drafts.map(d => d.photoId));
+  }, [getAllDrafts]);
+
+  // Computed values
   const photos = useMemo(() => activeProduct?.photos || [], [activeProduct?.photos]);
   const photoCount = useMemo(() => photos.length, [photos.length]);
   const selectedCount = useMemo(() => selectedPhotos.size, [selectedPhotos.size]);
+  const isProcessing = storeIsProcessing || isLocalProcessing;
 
-  // YENİ: Image extractor for preloading
+  // YENİ: Focus effect to refresh drafts when returning from editor
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh drafts when screen comes into focus (returning from editor)
+      console.log('🔄 Product screen focused, refreshing draft states...');
+    }, [])
+  );
+
+  // Image extractor for preloading
   const imageExtractor = useCallback((item: ProductPhoto) => {
     return [item.thumbnailUri].filter(Boolean);
   }, []);
 
-  // YENİ: Generate sibling URIs for preloading
+  // Generate sibling URIs for preloading
   const generateSiblingUris = useCallback((currentIndex: number) => {
     const start = Math.max(0, currentIndex - 2);
     const end = Math.min(photos.length, currentIndex + 3);
@@ -284,7 +312,256 @@ export default function ProductDetailScreen() {
       .filter(Boolean);
   }, [photos]);
 
-  // YENİ: Enhanced add photo handler with throttling
+  // ===== ENHANCED PHOTO ACTIONS =====
+
+  // YENİ: Enhanced photo press with editor navigation
+  const handlePhotoPress = useCallback((photo: ProductPhoto) => {
+    if (isProcessing) {
+      ToastService.show({ 
+        type: 'info', 
+        text1: 'Lütfen bekleyin', 
+        text2: 'İşlem devam ediyor.' 
+      });
+      return;
+    }
+
+    // Clear debounce
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+
+    debounceTimeout.current = setTimeout(() => {
+      if (isSelectionMode) {
+        togglePhotoSelection(photo.id);
+      } else {
+        // YENİ: Smart navigation based on status
+        if (photo.status === 'processed') {
+          navigateToEditor(photo);
+        } else if (photo.status === 'raw') {
+          // Show remove background option
+          DialogService.show({
+            title: 'Fotoğraf Hazırlanıyor',
+            message: 'Bu fotoğrafı düzenlemek için önce arka planını temizlemek gerekiyor. Devam etmek ister misiniz?',
+            buttons: [
+              { text: 'İptal', style: 'cancel' },
+              { 
+                text: 'Arka Planı Temizle', 
+                style: 'default', 
+                onPress: () => handleSingleRemoveBackground(photo) 
+              }
+            ]
+          });
+        } else {
+          ToastService.show({ 
+            type: 'info', 
+            text1: 'Lütfen Bekleyin', 
+            text2: 'Fotoğraf işleniyor...' 
+          });
+        }
+      }
+    }, 150);
+  }, [isProcessing, isSelectionMode]);
+
+  // YENİ: Navigate to editor with enhanced feedback
+  const navigateToEditor = useCallback((photo: ProductPhoto) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    
+    // Show loading briefly to indicate navigation
+    LoadingService.show();
+    
+    setTimeout(() => {
+      LoadingService.hide();
+      router.push({ 
+        pathname: '/(tabs)/editor/[photoId]', 
+        params: { 
+          photoId: photo.id, 
+          productId: photo.productId,
+          // YENİ: Pass context for better UX
+          returnTo: 'product'
+        } 
+      });
+    }, 300);
+  }, [router]);
+
+  // YENİ: Direct edit handler
+  const handleEditPhoto = useCallback((photo: ProductPhoto) => {
+    if (photo.status !== 'processed') {
+      ToastService.show({
+        type: 'warning',
+        text1: 'Düzenleme Yapılamaz',
+        text2: 'Sadece işlenmiş fotoğraflar düzenlenebilir.'
+      });
+      return;
+    }
+    navigateToEditor(photo);
+  }, [navigateToEditor]);
+
+  // Enhanced single background removal
+  const handleSingleRemoveBackground = useCallback(async (photo: ProductPhoto) => {
+    if (photo.status !== 'raw') return;
+
+    const animatingPhoto: AnimatingPhoto = { 
+      id: photo.id, 
+      originalUri: photo.originalUri 
+    };
+    
+    setCurrentAnimatingPhoto(animatingPhoto);
+    setShowAnimationModal(true);
+    setIsLocalProcessing(true);
+    
+    try {
+      const success = await removeSingleBackground(photo.productId, photo.id);
+      
+      if (success) {
+        const updatedProduct = useProductStore.getState().products.find(p => p.id === photo.productId);
+        const updatedPhoto = updatedProduct?.photos.find(p => p.id === photo.id);
+        
+        if (updatedPhoto?.processedUri) {
+          setCurrentAnimatingPhoto(prev => 
+            prev ? { ...prev, processedUri: updatedPhoto.processedUri } : null
+          );
+          
+          ToastService.show({
+            type: 'success',
+            text1: 'İşlem Tamamlandı',
+            text2: 'Arka plan başarıyla temizlendi. Şimdi düzenleme yapabilirsiniz.'
+          });
+          
+          // Auto-navigate to editor after successful processing
+          setTimeout(() => {
+            setShowAnimationModal(false);
+            setCurrentAnimatingPhoto(null);
+            if (updatedPhoto) {
+              navigateToEditor(updatedPhoto);
+            }
+          }, 1500);
+        } else {
+          throw new Error('İşlenmiş fotoğraf bulunamadı');
+        }
+      } else {
+        throw new Error(storeError || 'İşlem başarısız');
+      }
+    } catch (error: any) {
+      setShowAnimationModal(false);
+      setCurrentAnimatingPhoto(null);
+      ToastService.show({ 
+        type: 'error', 
+        text1: 'İşlem Başarısız', 
+        text2: error.message || 'Arka plan temizlenemedi.' 
+      });
+    } finally {
+      setIsLocalProcessing(false);
+    }
+  }, [removeSingleBackground, storeError, navigateToEditor]);
+
+  // ===== BATCH OPERATIONS =====
+
+  // YENİ: Enhanced batch background removal
+  const handleBatchRemoveBackground = useCallback(() => {
+    if (selectedPhotos.size === 0) return;
+    
+    const selectedPhotoObjects = photos.filter(p => selectedPhotos.has(p.id));
+    const rawPhotos = selectedPhotoObjects.filter(p => p.status === 'raw');
+    
+    if (rawPhotos.length === 0) {
+      ToastService.show({
+        type: 'info',
+        text1: 'Işlem Gerekmiyor',
+        text2: 'Seçili fotoğraflar zaten işlenmiş.'
+      });
+      return;
+    }
+
+    DialogService.show({
+      title: 'Toplu Arka Plan Temizleme',
+      message: `${rawPhotos.length} fotoğrafın arka planı temizlenecek. Bu işlem biraz zaman alabilir. Devam etmek ister misiniz?`,
+      buttons: [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: `${rawPhotos.length} Fotoğrafı İşle`,
+          style: 'default',
+          onPress: async () => {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            
+            const rawPhotoIds = rawPhotos.map(p => p.id);
+            const success = await removeMultipleBackgrounds(productId!, rawPhotoIds);
+            
+            if (success) {
+              ToastService.show({
+                type: 'success',
+                text1: 'Toplu İşlem Tamamlandı',
+                text2: `${rawPhotos.length} fotoğrafın arka planı temizlendi.`
+              });
+              toggleSelectionMode();
+            }
+          }
+        }
+      ]
+    });
+  }, [selectedPhotos, photos, removeMultipleBackgrounds, productId]);
+
+  // Enhanced batch delete with confirmation
+  const handleBatchDelete = useCallback(() => {
+    if (selectedPhotos.size === 0) return;
+    
+    DialogService.show({
+      title: 'Fotoğrafları Sil',
+      message: `${selectedPhotos.size} fotoğraf kalıcı olarak silinecek. Bu işlem geri alınamaz. Emin misiniz?`,
+      buttons: [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Kalıcı Olarak Sil',
+          style: 'destructive',
+          onPress: async () => {
+            if (productId) {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              
+              const photoIdsToDelete = Array.from(selectedPhotos);
+              await deleteMultiplePhotos(productId, photoIdsToDelete);
+              toggleSelectionMode();
+              
+              LazyImageUtils.optimizeMemory();
+              
+              ToastService.show({
+                type: 'success',
+                text1: 'Silme İşlemi Tamamlandı',
+                text2: `${photoIdsToDelete.length} fotoğraf silindi.`
+              });
+            }
+          }
+        }
+      ]
+    });
+  }, [selectedPhotos.size, productId, deleteMultiplePhotos]);
+
+  // Selection management
+  const togglePhotoSelection = useCallback((photoId: string) => {
+    const newSelection = new Set(selectedPhotos);
+    newSelection.has(photoId) ? newSelection.delete(photoId) : newSelection.add(photoId);
+    setSelectedPhotos(newSelection);
+    
+    if (newSelection.size === 0) {
+      setSelectionMode(false);
+    }
+  }, [selectedPhotos]);
+
+  const toggleSelectionMode = useCallback((photoId?: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    
+    setSelectionMode(prev => {
+      const newMode = !prev;
+      if (newMode && photoId) {
+        setSelectedPhotos(new Set([photoId]));
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } else {
+        setSelectedPhotos(new Set());
+      }
+      return newMode;
+    });
+  }, []);
+
+  // ===== ENHANCED ADD PHOTO =====
+  
   const handleAddPhoto = useCallback(async () => {
     if (isProcessing) return;
     if (!productId) return;
@@ -304,7 +581,11 @@ export default function ProductDetailScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') { 
-        ToastService.show({ type: 'error', text1: 'İzin Gerekli' }); 
+        ToastService.show({ 
+          type: 'error', 
+          text1: 'İzin Gerekli',
+          text2: 'Galeriye erişim izni gerekli.' 
+        }); 
         return; 
       }
 
@@ -312,13 +593,11 @@ export default function ProductDetailScreen() {
         mediaTypes: ImagePicker.MediaTypeOptions.Images, 
         quality: 1, 
         allowsMultipleSelection: true,
-        selectionLimit: 10, // Limit to prevent memory issues
+        selectionLimit: 10,
       });
 
       if (!result.canceled && result.assets) {
         LoadingService.show();
-        
-        // Add smooth animation
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         
         setTimeout(async () => {
@@ -326,23 +605,25 @@ export default function ProductDetailScreen() {
             const uris = result.assets.map(asset => asset.uri);
             const success = await addMultiplePhotos(productId, uris);
             
-            if (!success) {
-              ToastService.show({ 
-                type: 'error', 
-                text1: 'Hata', 
-                text2: storeError || 'Fotoğraflar eklenemedi.' 
-              });
-            } else {
-              // Scroll to bottom to show new photos
+            if (success) {
+              // Auto-scroll to show new photos
               setTimeout(() => {
                 FlatListUtils.scrollToIndex(flatListRef, photos.length - 1, true);
               }, 500);
+              
+              ToastService.show({
+                type: 'success',
+                text1: 'Fotoğraflar Eklendi',
+                text2: `${uris.length} fotoğraf başarıyla eklendi.`
+              });
+            } else {
+              throw new Error(storeError || 'Fotoğraflar eklenemedi.');
             }
-          } catch (e) {
+          } catch (e: any) {
             ToastService.show({ 
               type: 'error', 
               text1: 'Hata', 
-              text2: 'Fotoğraflar eklenemedi.' 
+              text2: e.message 
             });
           } finally {
             LoadingService.hide();
@@ -359,175 +640,46 @@ export default function ProductDetailScreen() {
     }
   }, [isProcessing, productId, addMultiplePhotos, storeError, photos.length]);
 
-  // YENİ: Enhanced selection mode toggle with animation
-  const toggleSelectionMode = useCallback((photoId?: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    
-    setSelectionMode(prev => {
-      const newMode = !prev;
-      if (newMode && photoId) {
-        setSelectedPhotos(new Set([photoId]));
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      } else {
-        setSelectedPhotos(new Set());
-      }
-      return newMode;
-    });
-  }, []);
-
-  // YENİ: Optimized photo press handler with debouncing
-  const handlePhotoPress = useCallback((photo: ProductPhoto) => {
-    if (isProcessing) {
-      ToastService.show({ 
-        type: 'info', 
-        text1: 'Lütfen bekleyin', 
-        text2: 'Mevcut işlem devam ediyor.' 
-      });
-      return;
-    }
-
-    // Clear previous debounce
-    if (debounceTimeout.current) {
-      clearTimeout(debounceTimeout.current);
-    }
-
-    // Debounce rapid taps
-    debounceTimeout.current = setTimeout(() => {
-      if (isSelectionMode) {
-        const newSelection = new Set(selectedPhotos);
-        newSelection.has(photo.id) ? newSelection.delete(photo.id) : newSelection.add(photo.id);
-        
-        if (newSelection.size === 0) {
-          setSelectionMode(false);
-        }
-        setSelectedPhotos(newSelection);
-      } else {
-        if (photo.status === 'processed') {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          router.push({ 
-            pathname: '/(tabs)/editor/[photoId]', 
-            params: { photoId: photo.id, productId: photo.productId } 
-          });
-        } else if (photo.status === 'raw') {
-          DialogService.show({
-            title: 'Arka Planı Temizle',
-            message: 'Bu fotoğrafı düzenlemeden önce arka planını temizlemek ister misiniz?',
-            buttons: [
-              { text: 'İptal', style: 'cancel' }, 
-              { 
-                text: 'Evet', 
-                style: 'default', 
-                onPress: () => handleSingleRemoveBackground(photo) 
-              }
-            ]
-          });
-        } else {
-          ToastService.show({ 
-            type: 'info', 
-            text1: 'Lütfen Bekleyin', 
-            text2: 'Fotoğraf şu anda işleniyor.' 
-          });
-        }
-      }
-    }, 150); // 150ms debounce
-  }, [isProcessing, isSelectionMode, selectedPhotos, router]);
-
-  // YENİ: Enhanced single background removal
-  const handleSingleRemoveBackground = useCallback(async (photo: ProductPhoto) => {
-    const animatingPhoto: AnimatingPhoto = { 
-      id: photo.id, 
-      originalUri: photo.originalUri 
-    };
-    
-    setCurrentAnimatingPhoto(animatingPhoto);
-    setShowAnimationModal(true);
-    
-    const success = await removeMultipleBackgrounds(photo.productId, [photo.id]);
-    
-    if (success) {
-      const updatedProduct = useProductStore.getState().products.find(p => p.id === photo.productId);
-      const updatedPhoto = updatedProduct?.photos.find(p => p.id === photo.id);
-      
-      if (updatedPhoto && updatedPhoto.processedUri) {
-        setCurrentAnimatingPhoto(prev => 
-          prev ? { ...prev, processedUri: updatedPhoto.processedUri } : null
-        );
-      } else {
-        setShowAnimationModal(false);
-        setCurrentAnimatingPhoto(null);
-      }
-    } else {
-      setShowAnimationModal(false);
-      setCurrentAnimatingPhoto(null);
-      ToastService.show({ 
-        type: 'error', 
-        text1: 'Hata', 
-        text2: storeError || 'Arka plan temizlenemedi.' 
-      });
-    }
-  }, [removeMultipleBackgrounds, storeError]);
-
-  // YENİ: Enhanced batch delete with confirmation
-  const handleBatchDelete = useCallback(() => {
-    if (selectedPhotos.size === 0) return;
-    
-    DialogService.show({
-      title: 'Fotoğrafları Sil',
-      message: `${selectedPhotos.size} fotoğraf kalıcı olarak silinecek. Emin misiniz?`,
-      buttons: [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: async () => {
-            if (productId) {
-              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-              
-              const photoIdsToDelete = Array.from(selectedPhotos);
-              await deleteMultiplePhotos(productId, photoIdsToDelete);
-              toggleSelectionMode();
-              
-              // Memory cleanup after deletion
-              LazyImageUtils.optimizeMemory();
-            }
-          }
-        }
-      ]
-    });
-  }, [selectedPhotos.size, productId, deleteMultiplePhotos, toggleSelectionMode]);
-
-  // YENİ: Pull to refresh handler
+  // Pull to refresh handler
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     
     try {
-      // Refresh product data and optimize memory
       LazyImageUtils.optimizeMemory();
-      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UX
+      await new Promise(resolve => setTimeout(resolve, 500));
     } finally {
       setRefreshing(false);
     }
   }, []);
 
-  // YENİ: Optimized render item
+  // Optimized render item
   const renderItem = useCallback(({ item, index }: { item: ProductPhoto, index: number }) => {
     const siblingUris = generateSiblingUris(index);
+    const hasDraft = photosWithDrafts.has(item.id);
     
     return (
-      <ModernPhotoCard
+      <EnhancedPhotoCard
         photo={item} 
         isSelected={selectedPhotos.has(item.id)}
         showRemoveBgIcon={item.status === 'raw' && !isSelectionMode && !isProcessing}
         onPress={() => handlePhotoPress(item)}
         onLongPress={() => toggleSelectionMode(item.id)}
+        onEditPress={() => handleEditPhoto(item)}
+        onRemoveBgPress={() => handleSingleRemoveBackground(item)}
         index={index}
         siblingUris={siblingUris}
+        hasDraft={hasDraft}
+        isProcessing={isProcessing}
       />
     );
-  }, [selectedPhotos, isSelectionMode, isProcessing, handlePhotoPress, toggleSelectionMode, generateSiblingUris]);
+  }, [
+    selectedPhotos, isSelectionMode, isProcessing, handlePhotoPress, 
+    toggleSelectionMode, handleEditPhoto, handleSingleRemoveBackground, 
+    generateSiblingUris, photosWithDrafts
+  ]);
 
-  // Memory cleanup on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (debounceTimeout.current) {
@@ -537,26 +689,10 @@ export default function ProductDetailScreen() {
     };
   }, []);
 
-  // App state management
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'background') {
-        LazyImageUtils.optimizeMemory();
-      }
-    });
-    
-    return () => subscription?.remove();
-  }, []);
-
   // Loading state
   if (!activeProduct) {
     return (
       <SafeAreaView style={styles.container}>
-        <ModernHeader 
-          productName={productId || ''} 
-          photoCount={0} 
-          onBack={() => router.back()} 
-        />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
@@ -568,16 +704,51 @@ export default function ProductDetailScreen() {
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: activeProduct.name, headerShown: false }} />
       
-      {/* Header */}
-      <ModernHeader 
-        productName={activeProduct.name} 
-        photoCount={photoCount} 
-        onBack={() => router.back()} 
-      />
+      {/* Enhanced Header with Draft Count */}
+      <View style={styles.header}>
+        <View style={styles.leftSection}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.centerSection}>
+          <Text style={styles.productName} numberOfLines={1} ellipsizeMode="tail">
+            {activeProduct.name}
+          </Text>
+          <Text style={styles.photoCount}>
+            {photoCount} fotoğraf
+            {photosWithDrafts.size > 0 && (
+              <Text style={styles.draftCount}> • {photosWithDrafts.size} taslak</Text>
+            )}
+          </Text>
+        </View>
+        
+        <View style={styles.rightSection}>
+          {/* Processing indicator */}
+          {isProcessing && (
+            <ActivityIndicator size="small" color={Colors.primary} />
+          )}
+        </View>
+      </View>
       
       {/* Main Content */}
       {photoCount === 0 ? (
-        <EmptyPhotoState onAddPhoto={handleAddPhoto} />
+        <View style={styles.emptyContainer}>
+          <Animated.View style={{ opacity: 1 }}>
+            <View style={styles.emptyIcon}>
+              <Feather name="camera" size={64} color={Colors.gray300} />
+            </View>
+            <Text style={styles.emptyTitle}>İlk Fotoğrafınızı Ekleyin</Text>
+            <Text style={styles.emptySubtitle}>
+              Fotoğraf ekledikten sonra arka planını temizleyip düzenleyebilirsiniz!
+            </Text>
+            <TouchableOpacity style={styles.emptyButton} onPress={handleAddPhoto}>
+              <Feather name="plus" size={20} color={Colors.primary} />
+              <Text style={styles.emptyButtonText}>Fotoğraf Ekle</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
       ) : (
         <OptimizedFlatList
           ref={flatListRef}
@@ -587,7 +758,7 @@ export default function ProductDetailScreen() {
           key={String(numColumns)}
           renderItem={renderItem}
           contentContainerStyle={styles.photoGrid}
-          extraData={`${activeProduct.modifiedAt}-${selectedCount}-${isProcessing}`}
+          extraData={`${activeProduct.modifiedAt}-${selectedCount}-${isProcessing}-${photosWithDrafts.size}`}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -612,20 +783,34 @@ export default function ProductDetailScreen() {
         />
       )}
 
-      {/* Selection Action Bar */}
+      {/* Enhanced Batch Action Bar */}
       {isSelectionMode && selectedCount > 0 && (
-        <SelectionActionBar 
+        <EnhancedActionBar 
           selectedCount={selectedCount} 
-          onDelete={handleBatchDelete} 
-          onCancel={() => toggleSelectionMode()} 
+          onDelete={handleBatchDelete}
+          onBatchRemoveBg={handleBatchRemoveBackground}
+          onCancel={() => toggleSelectionMode()}
+          isProcessing={isProcessing}
         />
       )}
 
-      {/* FAB */}
-      <ModernFAB 
-        onPress={handleAddPhoto} 
-        isVisible={!isProcessing && !isSelectionMode} 
-      />
+      {/* Enhanced FAB with processing state */}
+      <TouchableOpacity 
+        style={[
+          styles.fab, 
+          isProcessing && styles.fabDisabled,
+          isSelectionMode && styles.fabHidden
+        ]}
+        onPress={handleAddPhoto}
+        disabled={isProcessing}
+        activeOpacity={0.8}
+      >
+        {isProcessing ? (
+          <ActivityIndicator size="small" color={Colors.card} />
+        ) : (
+          <Feather name="plus" size={24} color={Colors.card} />
+        )}
+      </TouchableOpacity>
 
       {/* Background Removal Animation Modal */}
       <Modal visible={showAnimationModal} transparent animationType="fade">
@@ -650,9 +835,11 @@ export default function ProductDetailScreen() {
   );
 }
 
-// Optimized styles with performance considerations
+// ===== ENHANCED STYLES =====
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  
+  // Enhanced Header
   header: {
     backgroundColor: Colors.card,
     borderBottomWidth: 1,
@@ -670,7 +857,7 @@ const styles = StyleSheet.create({
   },
   leftSection: { width: 48, alignItems: 'flex-start' },
   centerSection: { flex: 1, alignItems: 'center', paddingHorizontal: Spacing.sm },
-  rightSection: { width: 48 },
+  rightSection: { width: 48, alignItems: 'flex-end' },
   backButton: { padding: Spacing.sm, marginLeft: -Spacing.sm },
   productName: {
     ...Typography.h2, color: Colors.textPrimary, fontWeight: '700', 
@@ -680,6 +867,9 @@ const styles = StyleSheet.create({
     ...Typography.body, color: Colors.textSecondary, fontSize: 14, 
     marginTop: 2, textAlign: 'center'
   },
+  draftCount: { color: Colors.warning, fontWeight: '600' },
+  
+  // Loading & Empty States
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyContainer: { 
     flex: 1, justifyContent: 'center', alignItems: 'center', 
@@ -699,7 +889,84 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full, gap: Spacing.sm,
   },
   emptyButtonText: { ...Typography.bodyMedium, color: Colors.primary, fontWeight: '600' },
+  
+  // Photo Grid
   photoGrid: { padding: Spacing.sm, paddingBottom: 100 },
+  
+  // Enhanced Photo Card
+  cardContainer: { width: `${100 / numColumns}%`, padding: Spacing.sm },
+  photoCard: {
+    backgroundColor: Colors.card, borderRadius: BorderRadius.xl,
+    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4, overflow: 'hidden',
+  },
+  selectedCard: { 
+    borderWidth: 3, borderColor: Colors.primary, shadowColor: Colors.primary, 
+    shadowOpacity: 0.2 
+  },
+  draftCard: {
+    borderWidth: 2, borderColor: Colors.warning + '50',
+  },
+  imageContainer: { 
+    aspectRatio: 1, position: 'relative', backgroundColor: Colors.background 
+  },
+  photoImage: { width: '100%', height: '100%' },
+  placeholder: {
+    width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: Colors.gray100,
+  },
+  
+  // Enhanced Status & Action Elements
+  statusOverlay: { 
+    ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.6)', 
+    justifyContent: 'center', alignItems: 'center', gap: Spacing.sm 
+  },
+  statusText: { ...Typography.caption, color: Colors.card, fontWeight: '500' },
+  
+  actionButtonsContainer: {
+    position: 'absolute', top: Spacing.sm, right: Spacing.sm,
+    flexDirection: 'column', gap: Spacing.xs,
+  },
+  actionButton: {
+    width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center',
+    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3, shadowRadius: 4, elevation: 4,
+  },
+  editButton: { backgroundColor: Colors.primary },
+  removeBgButton: { backgroundColor: Colors.warning },
+  
+  draftIndicator: {
+    position: 'absolute', top: Spacing.sm, left: Spacing.sm,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.warning + '90', paddingHorizontal: Spacing.sm,
+    paddingVertical: 4, borderRadius: BorderRadius.sm,
+  },
+  draftDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.card },
+  draftText: { ...Typography.caption, color: Colors.card, fontSize: 10, fontWeight: '600' },
+  
+  selectionOverlay: { 
+    ...StyleSheet.absoluteFillObject, backgroundColor: Colors.primary + '60', 
+    justifyContent: 'center', alignItems: 'center' 
+  },
+  selectionCheck: {
+    width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.primary,
+    justifyContent: 'center', alignItems: 'center', shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 4, 
+    elevation: 4, borderWidth: 2, borderColor: Colors.card,
+  },
+  
+  statusBadge: {
+    position: 'absolute', bottom: Spacing.sm, left: Spacing.sm,
+    paddingHorizontal: Spacing.sm, paddingVertical: 2,
+    borderRadius: BorderRadius.sm, backgroundColor: Colors.gray500,
+  },
+  processedBadge: { backgroundColor: Colors.success },
+  processingBadge: { backgroundColor: Colors.warning },
+  statusBadgeText: {
+    ...Typography.caption, color: Colors.card, fontSize: 10, fontWeight: '700'
+  },
+  
+  // Enhanced Action Bar
   actionBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -715,61 +982,32 @@ const styles = StyleSheet.create({
     flex: 1, ...Typography.bodyMedium, color: Colors.textPrimary, 
     textAlign: 'center', fontWeight: '600' 
   },
-  actionButton: { 
-    flexDirection: 'row', alignItems: 'center', padding: Spacing.md, gap: Spacing.sm, 
-    backgroundColor: Colors.error + '1A', borderRadius: BorderRadius.md 
+  batchActions: { flexDirection: 'row', gap: Spacing.sm },
+  batchActionButton: { 
+    flexDirection: 'row', alignItems: 'center', padding: Spacing.sm, 
+    gap: Spacing.xs, borderRadius: BorderRadius.md, minWidth: 70,
+    justifyContent: 'center',
   },
-  actionButtonText: { ...Typography.bodyMedium, color: Colors.error, fontWeight: '600' },
-  fabContainer: { position: 'absolute', right: Spacing.lg, bottom: Spacing.lg + 20 },
+  removeBgAction: { backgroundColor: Colors.warning + '1A' },
+  deleteAction: { backgroundColor: Colors.error + '1A' },
+  batchActionText: { 
+    ...Typography.caption, fontWeight: '600', fontSize: 11 
+  },
+  
+  // Enhanced FAB
   fab: {
+    position: 'absolute', right: Spacing.lg, bottom: Spacing.lg + 20,
     width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.primary,
     justifyContent: 'center', alignItems: 'center', shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, 
     elevation: 12,
   },
+  fabDisabled: { backgroundColor: Colors.gray400, opacity: 0.7 },
+  fabHidden: { opacity: 0, transform: [{ scale: 0.8 }] },
+  
+  // Animation Modal
   animationModalOverlay: { 
     flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.9)', justifyContent: 'center', 
     alignItems: 'center', padding: Spacing.lg 
-  },
-});
-
-const photoStyles = StyleSheet.create({
-  cardContainer: { width: `${100 / numColumns}%`, padding: Spacing.sm },
-  photoCard: {
-    backgroundColor: Colors.card, borderRadius: BorderRadius.xl,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4, overflow: 'hidden',
-  },
-  selectedCard: { 
-    borderWidth: 3, borderColor: Colors.primary, shadowColor: Colors.primary, 
-    shadowOpacity: 0.2 
-  },
-  imageContainer: { 
-    aspectRatio: 1, position: 'relative', backgroundColor: Colors.background 
-  },
-  photoImage: { width: '100%', height: '100%' },
-  placeholder: {
-    width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center',
-    backgroundColor: Colors.gray100,
-  },
-  statusOverlay: { 
-    ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.6)', 
-    justifyContent: 'center', alignItems: 'center', gap: Spacing.sm 
-  },
-  statusText: { ...Typography.caption, color: Colors.card, fontWeight: '500' },
-  removeBgButton: {
-    position: 'absolute', top: Spacing.sm, right: Spacing.sm,
-    width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  selectionOverlay: { 
-    ...StyleSheet.absoluteFillObject, backgroundColor: Colors.primary + '60', 
-    justifyContent: 'center', alignItems: 'center' 
-  },
-  selectionCheck: {
-    width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.primary,
-    justifyContent: 'center', alignItems: 'center', shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 4, 
-    elevation: 4, borderWidth: 2, borderColor: Colors.card,
   },
 });
