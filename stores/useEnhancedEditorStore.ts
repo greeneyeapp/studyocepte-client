@@ -1,3 +1,4 @@
+// stores/useEnhancedEditorStore.ts - PHOTO-BASED DRAFT SYSTEM İLE TAM VERSİYON
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -6,10 +7,10 @@ import { ALL_FILTERS } from '@/features/editor/config/filters';
 import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/features';
 import { TargetType } from '@/features/editor/config/tools';
 import { useProductStore, ProductPhoto } from './useProductStore';
+import { imageProcessor } from '@/services/imageProcessor';
 
 /**
- * Editörde kullanılabilecek tüm ayarları içeren kapsamlı arayüz.
- * Bu ayarlar, hem ürün hem de arka plan için ayrı ayrı tutulur.
+ * Editor'da kullanılabilecek tüm ayarları içeren kapsamlı arayüz
  */
 export interface EditorSettings {
   // Genel Ayarlar
@@ -57,10 +58,30 @@ export interface EditorSettings {
   };
 }
 
-interface UserPreset extends EditorSettings { id: string; name: string; }
-interface EditorHistoryEntry { settings: EditorSettings; timestamp: number; }
+/**
+ * YENİ: Her fotoğraf için ayrı draft sistemi
+ */
+export interface PhotoDraft {
+  photoId: string;
+  productId: string;
+  settings: EditorSettings;
+  timestamp: number;
+  autoSaved: boolean;
+  version: number; // Version control for conflicts
+}
+
+interface UserPreset extends EditorSettings { 
+  id: string; 
+  name: string; 
+}
+
+interface EditorHistoryEntry { 
+  settings: EditorSettings; 
+  timestamp: number; 
+}
 
 interface EditorState {
+  // Temel state
   activePhoto: ProductPhoto | null;
   settings: EditorSettings;
   history: EditorHistoryEntry[];
@@ -69,13 +90,23 @@ interface EditorState {
   hasUnsavedChanges: boolean;
   isSaving: boolean;
   userPresets: UserPreset[];
+
+  // YENİ: Draft system state
+  photoDrafts: Map<string, PhotoDraft>;
+  hasDraftChanges: boolean;
+  isUpdatingThumbnail: boolean;
+  thumbnailError: string | null;
+  autoSaveEnabled: boolean;
+  autoSaveInterval: number; // milliseconds
+  lastAutoSave: number;
 }
 
 interface EditorActions {
+  // Temel actions
   setActivePhoto: (photo: ProductPhoto) => void;
   updateSettings: (newSettings: Partial<EditorSettings>) => void;
   setActiveFilterKey: (key: string) => void;
-  saveChanges: () => Promise<void>;
+  saveChanges: (previewRef?: React.RefObject<any>) => Promise<void>;
   undo: () => void;
   redo: () => void;
   addSnapshotToHistory: () => void;
@@ -85,6 +116,27 @@ interface EditorActions {
   resetCropAndRotation: () => void;
   applyCrop: () => void;
   clearStore: () => void;
+
+  // YENİ: Draft system actions
+  saveDraft: () => void;
+  saveDraftForPhoto: (photoId: string) => void;
+  loadDraftForPhoto: (photoId: string) => PhotoDraft | null;
+  clearDraft: () => void;
+  clearDraftForPhoto: (photoId: string) => void;
+  hasDraftForPhoto: (photoId: string) => boolean;
+  getAllDrafts: () => PhotoDraft[];
+  restoreFromDraft: (draft: PhotoDraft) => void;
+  
+  // Auto-save actions
+  performAutoSave: () => void;
+  setAutoSaveEnabled: (enabled: boolean) => void;
+  setAutoSaveInterval: (intervalMs: number) => void;
+  
+  // Thumbnail actions
+  updateThumbnailWithPreview: (previewRef: React.RefObject<any>) => Promise<void>;
+  
+  // Settings reset
+  resetAllSettings: () => void;
 }
 
 const defaultSettings: EditorSettings = {
@@ -97,9 +149,13 @@ const defaultSettings: EditorSettings = {
   cropAspectRatio: 'original', cropX: 0, cropY: 0, cropWidth: 1, cropHeight: 1, visualCrop: undefined,
 };
 
+/**
+ * Enhanced Editor Store with Photo-based Draft System
+ */
 export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
   persist(
     (set, get) => ({
+      // Temel state
       activePhoto: null,
       settings: { ...defaultSettings },
       history: [],
@@ -109,25 +165,76 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       isSaving: false,
       userPresets: [],
 
+      // YENİ: Draft system state
+      photoDrafts: new Map<string, PhotoDraft>(),
+      hasDraftChanges: false,
+      isUpdatingThumbnail: false,
+      thumbnailError: null,
+      autoSaveEnabled: true,
+      autoSaveInterval: 30000, // 30 seconds
+      lastAutoSave: 0,
+
+      // ===== TEMEL EDITOR ACTIONS =====
+
       setActivePhoto: (photo: ProductPhoto) => {
-        const loadedSettings: EditorSettings = { ...defaultSettings, ...(photo.editorSettings || {}) };
+        console.log('📸 Setting active photo:', photo.id);
+        
+        // Önce mevcut photo için draft kaydet
+        const currentPhoto = get().activePhoto;
+        if (currentPhoto && get().hasDraftChanges) {
+          get().saveDraftForPhoto(currentPhoto.id);
+        }
+
+        // Yeni photo için draft var mı kontrol et
+        const existingDraft = get().loadDraftForPhoto(photo.id);
+        let loadedSettings: EditorSettings;
+
+        if (existingDraft) {
+          console.log('📂 Loading existing draft for photo:', photo.id);
+          loadedSettings = existingDraft.settings;
+        } else {
+          // Photo'nun kendi ayarları varsa kullan, yoksa default
+          loadedSettings = { ...defaultSettings, ...(photo.editorSettings || {}) };
+        }
+
         const initialEntry = { settings: loadedSettings, timestamp: Date.now() };
         set({
           activePhoto: photo,
           settings: loadedSettings,
           hasUnsavedChanges: false,
+          hasDraftChanges: !!existingDraft,
           history: [initialEntry],
           currentHistoryIndex: 0,
-          activeFilterKey: 'original'
+          activeFilterKey: 'original',
+          isUpdatingThumbnail: false,
+          thumbnailError: null
         });
       },
 
       updateSettings: (newSettings: Partial<EditorSettings>) => {
+        const updatedSettings = { ...get().settings, ...newSettings };
+        
         set(state => ({
-          settings: { ...state.settings, ...newSettings },
+          settings: updatedSettings,
           hasUnsavedChanges: true,
-          activeFilterKey: 'custom'
+          hasDraftChanges: true,
+          activeFilterKey: 'custom',
+          lastAutoSave: Date.now()
         }));
+
+        // Auto-save trigger (debounced)
+        if (get().autoSaveEnabled) {
+          const currentPhoto = get().activePhoto;
+          if (currentPhoto) {
+            // 2 saniye sonra auto-save
+            setTimeout(() => {
+              const state = get();
+              if (state.activePhoto?.id === currentPhoto.id && state.hasDraftChanges) {
+                state.performAutoSave();
+              }
+            }, 2000);
+          }
+        }
       },
 
       applyFilter: (filterKey: string, target: TargetType) => {
@@ -136,58 +243,125 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
         const currentSettings = { ...get().settings };
 
+        // Target'a göre reset edilecek feature'ları belirle
         const featuresToReset = target === 'all'
           ? [...ADJUST_FEATURES, ...BACKGROUND_FEATURES]
           : target === 'product' ? ADJUST_FEATURES : BACKGROUND_FEATURES;
 
+        // Önce ilgili ayarları sıfırla
         featuresToReset.forEach(feature => {
-            if (target === 'all') {
-                (currentSettings as any)[`product_${feature.key}`] = 0;
-                (currentSettings as any)[`background_${feature.key}`] = 0;
-            } else {
-                 (currentSettings as any)[`${target}_${feature.key}`] = 0;
-            }
+          if (target === 'all') {
+            (currentSettings as any)[`product_${feature.key}`] = 0;
+            (currentSettings as any)[`background_${feature.key}`] = 0;
+          } else {
+            (currentSettings as any)[`${target}_${feature.key}`] = 0;
+          }
         });
 
+        // Sonra filter ayarlarını uygula
         for (const [key, value] of Object.entries(filterPreset.settings)) {
           if (target === 'all' || key.startsWith(target)) {
             (currentSettings as any)[key] = value;
           }
         }
         
-        set({ settings: currentSettings, activeFilterKey: filterKey, hasUnsavedChanges: true });
+        set({ 
+          settings: currentSettings, 
+          activeFilterKey: filterKey, 
+          hasUnsavedChanges: true,
+          hasDraftChanges: true
+        });
+        
         get().addSnapshotToHistory();
       },
 
-      saveChanges: async () => {
+      // ===== SAVE & HISTORY ACTIONS =====
+
+      saveChanges: async (previewRef?: React.RefObject<any>) => {
         const { activePhoto, settings, isSaving } = get();
         if (!activePhoto || isSaving) return;
-        set({ isSaving: true });
+        
+        set({ isSaving: true, thumbnailError: null });
+        
         try {
-          useProductStore.getState().updatePhotoSettings(activePhoto.productId, activePhoto.id, settings);
-          set({ isSaving: false, hasUnsavedChanges: false });
-          ToastService.show({ type: 'success', text1: 'Kaydedildi', text2: 'Değişiklikler yerel olarak kaydedildi.' });
+          console.log('💾 Saving changes for photo:', activePhoto.id);
+          
+          // 1. Ana ayarları kaydet
+          useProductStore.getState().updatePhotoSettings(
+            activePhoto.productId, 
+            activePhoto.id, 
+            settings
+          );
+          
+          // 2. Thumbnail güncelle (opsiyonel)
+          if (previewRef) {
+            await get().updateThumbnailWithPreview(previewRef);
+          }
+          
+          // 3. Draft'ı temizle
+          get().clearDraftForPhoto(activePhoto.id);
+          
+          set({ 
+            isSaving: false, 
+            hasUnsavedChanges: false,
+            hasDraftChanges: false
+          });
+          
+          ToastService.show({ 
+            type: 'success', 
+            text1: 'Kaydedildi', 
+            text2: 'Değişiklikler başarıyla kaydedildi.' 
+          });
+          
         } catch (error: any) {
-          set({ isSaving: false });
-          ToastService.show({ type: 'error', text1: 'Hata', text2: 'Değişiklikler kaydedilemedi.' });
+          console.error('❌ Save failed:', error);
+          set({ 
+            isSaving: false,
+            thumbnailError: 'Thumbnail güncellenemedi'
+          });
+          
+          ToastService.show({ 
+            type: 'error', 
+            text1: 'Kayıt Hatası', 
+            text2: error.message || 'Değişiklikler kaydedilemedi.' 
+          });
         }
       },
 
       addSnapshotToHistory: () => {
         const { settings, history, currentHistoryIndex } = get();
         const currentSnapshot = history[currentHistoryIndex]?.settings;
-        if (currentSnapshot && JSON.stringify(currentSnapshot) === JSON.stringify(settings)) return;
+        
+        // Aynı ayarları tekrar ekleme
+        if (currentSnapshot && JSON.stringify(currentSnapshot) === JSON.stringify(settings)) {
+          return;
+        }
         
         const newHistory = history.slice(0, currentHistoryIndex + 1);
         newHistory.push({ settings: { ...settings }, timestamp: Date.now() });
-        set({ history: newHistory, currentHistoryIndex: newHistory.length - 1 });
+        
+        // History size'ı sınırla (memory için)
+        const maxHistorySize = 50;
+        if (newHistory.length > maxHistorySize) {
+          newHistory.shift();
+        }
+        
+        set({ 
+          history: newHistory, 
+          currentHistoryIndex: newHistory.length - 1 
+        });
       },
 
       undo: () => {
         const { history, currentHistoryIndex } = get();
         if (currentHistoryIndex > 0) {
           const newIndex = currentHistoryIndex - 1;
-          set({ settings: { ...history[newIndex].settings }, currentHistoryIndex: newIndex, hasUnsavedChanges: true });
+          set({ 
+            settings: { ...history[newIndex].settings }, 
+            currentHistoryIndex: newIndex, 
+            hasUnsavedChanges: true,
+            hasDraftChanges: true
+          });
         }
       },
 
@@ -195,17 +369,208 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         const { history, currentHistoryIndex } = get();
         if (currentHistoryIndex < history.length - 1) {
           const newIndex = currentHistoryIndex + 1;
-          set({ settings: { ...history[newIndex].settings }, currentHistoryIndex: newIndex, hasUnsavedChanges: true });
+          set({ 
+            settings: { ...history[newIndex].settings }, 
+            currentHistoryIndex: newIndex, 
+            hasUnsavedChanges: true,
+            hasDraftChanges: true
+          });
         }
       },
 
       canUndo: () => get().currentHistoryIndex > 0,
       canRedo: () => get().currentHistoryIndex < get().history.length - 1,
 
+      // ===== DRAFT SYSTEM ACTIONS =====
+
+      saveDraft: () => {
+        const activePhoto = get().activePhoto;
+        if (activePhoto) {
+          get().saveDraftForPhoto(activePhoto.id);
+        }
+      },
+
+      saveDraftForPhoto: (photoId: string) => {
+        const { settings, photoDrafts, activePhoto } = get();
+        if (!activePhoto || activePhoto.id !== photoId) return;
+
+        const draft: PhotoDraft = {
+          photoId,
+          productId: activePhoto.productId,
+          settings: { ...settings },
+          timestamp: Date.now(),
+          autoSaved: true,
+          version: Date.now()
+        };
+
+        const newDrafts = new Map(photoDrafts);
+        newDrafts.set(photoId, draft);
+        
+        set({ 
+          photoDrafts: newDrafts,
+          lastAutoSave: Date.now()
+        });
+
+        console.log('💾 Draft saved for photo:', photoId);
+      },
+
+      loadDraftForPhoto: (photoId: string) => {
+        return get().photoDrafts.get(photoId) || null;
+      },
+
+      clearDraft: () => {
+        const activePhoto = get().activePhoto;
+        if (activePhoto) {
+          get().clearDraftForPhoto(activePhoto.id);
+        }
+      },
+
+      clearDraftForPhoto: (photoId: string) => {
+        const { photoDrafts } = get();
+        const newDrafts = new Map(photoDrafts);
+        newDrafts.delete(photoId);
+        
+        set({ 
+          photoDrafts: newDrafts,
+          hasDraftChanges: false
+        });
+        
+        console.log('🗑️ Draft cleared for photo:', photoId);
+      },
+
+      hasDraftForPhoto: (photoId: string) => {
+        return get().photoDrafts.has(photoId);
+      },
+
+      getAllDrafts: () => {
+        return Array.from(get().photoDrafts.values());
+      },
+
+      restoreFromDraft: (draft: PhotoDraft) => {
+        const initialEntry = { settings: draft.settings, timestamp: Date.now() };
+        
+        set({
+          settings: draft.settings,
+          history: [initialEntry],
+          currentHistoryIndex: 0,
+          hasUnsavedChanges: true,
+          hasDraftChanges: true,
+          activeFilterKey: 'custom'
+        });
+        
+        console.log('🔄 Restored from draft:', draft.photoId);
+      },
+
+      // ===== AUTO-SAVE ACTIONS =====
+
+      performAutoSave: () => {
+        const { activePhoto, hasDraftChanges, autoSaveEnabled } = get();
+        
+        if (!autoSaveEnabled || !activePhoto || !hasDraftChanges) {
+          return;
+        }
+
+        // Çok sık auto-save'i engelle (debounce)
+        const now = Date.now();
+        const timeSinceLastSave = now - get().lastAutoSave;
+        const minInterval = 5000; // En az 5 saniye
+        
+        if (timeSinceLastSave < minInterval) {
+          return;
+        }
+
+        try {
+          get().saveDraftForPhoto(activePhoto.id);
+          console.log('⚡ Auto-save completed for photo:', activePhoto.id);
+        } catch (error) {
+          console.warn('⚠️ Auto-save failed:', error);
+        }
+      },
+
+      setAutoSaveEnabled: (enabled: boolean) => {
+        set({ autoSaveEnabled: enabled });
+        console.log('🔄 Auto-save:', enabled ? 'enabled' : 'disabled');
+      },
+
+      setAutoSaveInterval: (intervalMs: number) => {
+        set({ autoSaveInterval: Math.max(10000, intervalMs) }); // Min 10 seconds
+      },
+
+      // ===== THUMBNAIL ACTIONS =====
+
+      updateThumbnailWithPreview: async (previewRef: React.RefObject<any>) => {
+        const { activePhoto } = get();
+        if (!activePhoto || !previewRef.current) return;
+
+        set({ isUpdatingThumbnail: true, thumbnailError: null });
+
+        try {
+          console.log('🖼️ Updating thumbnail for photo:', activePhoto.id);
+
+          // Preview'dan thumbnail capture et
+          const capturedUri = await imageProcessor.captureFilteredThumbnail(previewRef, {
+            width: 300,
+            height: 300
+          });
+
+          // Kalıcı thumbnail olarak kaydet
+          const newThumbnailUri = await imageProcessor.saveFilteredThumbnail(
+            activePhoto.productId,
+            activePhoto.id,
+            capturedUri
+          );
+
+          // Product store'da thumbnail'i güncelle
+          useProductStore.getState().updatePhotoThumbnail(
+            activePhoto.productId,
+            activePhoto.id,
+            newThumbnailUri
+          );
+
+          set({ isUpdatingThumbnail: false });
+          console.log('✅ Thumbnail updated successfully');
+
+        } catch (error: any) {
+          console.error('❌ Thumbnail update failed:', error);
+          set({ 
+            isUpdatingThumbnail: false,
+            thumbnailError: error.message
+          });
+        }
+      },
+
+      // ===== RESET ACTIONS =====
+
+      resetAllSettings: () => {
+        const resetSettings = { ...defaultSettings };
+        const initialEntry = { settings: resetSettings, timestamp: Date.now() };
+        
+        set({
+          settings: resetSettings,
+          history: [initialEntry],
+          currentHistoryIndex: 0,
+          hasUnsavedChanges: true,
+          hasDraftChanges: true,
+          activeFilterKey: 'original'
+        });
+
+        // Aktif photo'nun draft'ını da temizle
+        const activePhoto = get().activePhoto;
+        if (activePhoto) {
+          get().clearDraftForPhoto(activePhoto.id);
+        }
+
+        console.log('🔄 All settings reset to default');
+      },
+
       resetCropAndRotation: () => {
         get().updateSettings({
-          cropAspectRatio: 'original', photoRotation: 0,
-          cropX: 0, cropY: 0, cropWidth: 1, cropHeight: 1,
+          cropAspectRatio: 'original', 
+          photoRotation: 0,
+          cropX: 0, 
+          cropY: 0, 
+          cropWidth: 1, 
+          cropHeight: 1,
           visualCrop: undefined,
         });
         get().addSnapshotToHistory();
@@ -215,28 +580,63 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         const { settings } = get();
         const visualCrop = {
           aspectRatio: settings.cropAspectRatio || 'original',
-          x: settings.cropX || 0, y: settings.cropY || 0,
-          width: settings.cropWidth || 1, height: settings.cropHeight || 1,
+          x: settings.cropX || 0, 
+          y: settings.cropY || 0,
+          width: settings.cropWidth || 1, 
+          height: settings.cropHeight || 1,
           isApplied: true,
         };
+        
         get().updateSettings({ visualCrop });
         get().addSnapshotToHistory();
-        ToastService.show({ type: 'success', text1: 'Kırpma Uygulandı' });
+        
+        ToastService.show({ 
+          type: 'success', 
+          text1: 'Kırpma Uygulandı',
+          text2: 'Kırpma ayarları başarıyla uygulandı'
+        });
       },
       
-      clearStore: () => set({
-        activePhoto: null, settings: { ...defaultSettings }, history: [],
-        currentHistoryIndex: -1, hasUnsavedChanges: false, isSaving: false
-      }),
+      clearStore: () => {
+        // Store'u temizlerken draft'ları da kaydet
+        const activePhoto = get().activePhoto;
+        if (activePhoto && get().hasDraftChanges) {
+          get().saveDraftForPhoto(activePhoto.id);
+        }
 
-      // Bu fonksiyonlar dışarıdan export edilmiyor ama burada tanımlı.
-      // Bunlar EditorActions'da var.
+        set({
+          activePhoto: null, 
+          settings: { ...defaultSettings }, 
+          history: [],
+          currentHistoryIndex: -1, 
+          hasUnsavedChanges: false, 
+          hasDraftChanges: false,
+          isSaving: false,
+          isUpdatingThumbnail: false,
+          thumbnailError: null
+        });
+      },
+
+      // Diğer mevcut fonksiyonlar
       setActiveFilterKey: (key) => set({ activeFilterKey: key }),
     }),
     {
-      name: 'enhanced-editor-storage-v2',
+      name: 'enhanced-editor-storage-v3',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ userPresets: state.userPresets }),
+      partialize: (state) => ({ 
+        userPresets: state.userPresets,
+        photoDrafts: Array.from(state.photoDrafts.entries()), // Map'i serialize et
+        autoSaveEnabled: state.autoSaveEnabled,
+        autoSaveInterval: state.autoSaveInterval
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state && Array.isArray(state.photoDrafts)) {
+          // Deserialized data'yı Map'e çevir
+          state.photoDrafts = new Map(state.photoDrafts);
+        } else {
+          state.photoDrafts = new Map();
+        }
+      }
     }
   )
 );

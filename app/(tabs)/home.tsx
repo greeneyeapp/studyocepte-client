@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   StyleSheet, SafeAreaView, TouchableOpacity, View, Text,
   ActivityIndicator, AppState, TextInput, RefreshControl,
-  LayoutAnimation, Platform
+  LayoutAnimation, Platform, Animated
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
