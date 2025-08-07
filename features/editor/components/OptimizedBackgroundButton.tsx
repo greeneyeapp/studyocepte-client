@@ -1,5 +1,5 @@
-// features/editor/components/OptimizedBackgroundButton.tsx - CACHE'Lİ BACKGROUND BUTTON
-import React, { useState, useEffect } from 'react';
+// features/editor/components/OptimizedBackgroundButton.tsx - DÜZELTİLMİŞ VERSİYON
+import React, { useState, useEffect, useRef } from 'react';
 import { TouchableOpacity, Image, View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, BorderRadius, Spacing } from '@/constants';
@@ -19,8 +19,7 @@ interface OptimizedBackgroundButtonProps {
 }
 
 /**
- * Optimize edilmiş background button - cache'lenmiş thumbnail kullanır
- * Performance artışı için background image'ları cache'ler ve optimize eder
+ * Optimize edilmiş background button - HATA DİRENÇLİ VERSİYON
  */
 export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps> = ({
   background,
@@ -30,49 +29,140 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const mountedRef = useRef(true);
+  const timeoutRef = useRef<NodeJS.Timeout>();
 
+  // Component unmount cleanup
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Load thumbnail with comprehensive error handling
+  useEffect(() => {
+    let isCancelled = false;
 
     const loadThumbnail = async () => {
+      if (!mountedRef.current) return;
+
       try {
         setIsLoading(true);
         setHasError(false);
 
+        console.log('🖼️ Loading thumbnail for background:', background.id);
+
+        // Timeout için promise wrapper
+        const timeoutPromise = new Promise<string | null>((_, reject) => {
+          timeoutRef.current = setTimeout(() => {
+            reject(new Error('Thumbnail load timeout'));
+          }, 8000); // 8 saniye timeout
+        });
+
         // Cache'lenmiş thumbnail'i al
-        const cachedUri = await backgroundThumbnailManager.getThumbnail(
+        const thumbnailPromise = backgroundThumbnailManager.getThumbnail(
           background.id,
           background.fullUrl
         );
 
-        if (mounted) {
-          if (cachedUri) {
-            setThumbnailUri(cachedUri);
-            console.log('💾 Using cached thumbnail for:', background.id);
-          } else {
-            // Fallback: orijinal thumbnail URL'ini kullan
-            console.log('⚠️ Using fallback thumbnail for:', background.id);
-            setThumbnailUri(background.thumbnailUrl);
-          }
-          setIsLoading(false);
+        const cachedUri = await Promise.race([thumbnailPromise, timeoutPromise]);
+
+        // Clear timeout
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = undefined;
         }
+
+        if (isCancelled || !mountedRef.current) return;
+
+        if (cachedUri) {
+          setThumbnailUri(cachedUri);
+          console.log('✅ Thumbnail loaded for:', background.id);
+        } else {
+          throw new Error('Cache returned null');
+        }
+
       } catch (error) {
-        console.error('❌ Background thumbnail load error:', error);
-        if (mounted) {
-          setHasError(true);
+        console.warn('⚠️ Background thumbnail load error:', background.id, error);
+        
+        if (!isCancelled && mountedRef.current) {
+          // Retry logic - maksimum 2 kez dene
+          if (retryCount < 2) {
+            console.log('🔄 Retrying thumbnail load for:', background.id, 'attempt:', retryCount + 1);
+            setRetryCount(prev => prev + 1);
+            
+            // Exponential backoff ile retry
+            const retryDelay = Math.min(2000 * Math.pow(2, retryCount), 8000);
+            timeoutRef.current = setTimeout(() => {
+              if (mountedRef.current && !isCancelled) {
+                loadThumbnail();
+              }
+            }, retryDelay);
+            return;
+          } else {
+            // Max retry'a ulaşılmış, fallback'e geç
+            console.log('❌ Max retries reached for:', background.id, 'using fallback');
+            setThumbnailUri(background.thumbnailUrl);
+            setHasError(true);
+          }
+        }
+      } finally {
+        if (mountedRef.current && !isCancelled) {
           setIsLoading(false);
-          // Fallback: orijinal thumbnail URL'ini kullan
-          setThumbnailUri(background.thumbnailUrl);
         }
       }
     };
 
+    // İlk yükleme
     loadThumbnail();
 
     return () => {
-      mounted = false;
+      isCancelled = true;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
-  }, [background.id, background.fullUrl, background.thumbnailUrl]);
+  }, [background.id, background.fullUrl, background.thumbnailUrl, retryCount]);
+
+  const handleImageError = () => {
+    console.warn('🖼️ Image render error for:', background.id);
+    if (mountedRef.current && !hasError) {
+      setHasError(true);
+      // Fallback olarak orijinal thumbnail URL'ini kullan
+      if (thumbnailUri !== background.thumbnailUrl) {
+        setThumbnailUri(background.thumbnailUrl);
+      }
+    }
+  };
+
+  const handleImageLoad = () => {
+    if (mountedRef.current) {
+      console.log('✅ Image successfully rendered for:', background.id);
+    }
+  };
+
+  // Render loading state
+  if (isLoading && !thumbnailUri) {
+    return (
+      <TouchableOpacity 
+        style={[
+          styles.container, 
+          isSelected && styles.containerSelected
+        ]} 
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={Colors.primary} />
+        </View>
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <TouchableOpacity 
@@ -84,21 +174,14 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
       activeOpacity={0.7}
     >
       <View style={styles.imageContainer}>
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={Colors.primary} />
-          </View>
-        ) : thumbnailUri ? (
+        {thumbnailUri ? (
           <Image 
             source={{ uri: thumbnailUri }} 
             style={styles.backgroundImage}
-            onError={() => {
-              console.warn('⚠️ Image load error for:', background.id);
-              setHasError(true);
-            }}
-            onLoad={() => {
-              console.log('✅ Image loaded successfully for:', background.id);
-            }}
+            onError={handleImageError}
+            onLoad={handleImageLoad}
+            // Cache control
+            cache="force-cache"
           />
         ) : (
           <View style={styles.errorContainer}>
@@ -125,6 +208,13 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
       {__DEV__ && thumbnailUri && thumbnailUri.includes('bg_thumbnails') && (
         <View style={styles.cacheIndicator}>
           <Feather name="database" size={8} color={Colors.success} />
+        </View>
+      )}
+
+      {/* Loading overlay for retry states */}
+      {isLoading && thumbnailUri && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="small" color={Colors.card} />
         </View>
       )}
     </TouchableOpacity>
@@ -166,6 +256,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.gray100,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   errorContainer: {
     width: '100%',

@@ -1,5 +1,5 @@
-// services/imageProcessor.ts - Filtered thumbnail desteği ile güncellenmiş
-import * as ImageManipulator from 'expo-image-manipulator';
+// services/imageProcessor.ts - IMPORT HATALARI DÜZELTİLMİŞ VERSİYON
+import { manipulateAsync, SaveFormat, FlipType } from 'expo-image-manipulator'; // DÜZELTME: Doğru import
 import * as FileSystem from 'expo-file-system';
 import { captureRef } from 'react-native-view-shot';
 import { EditorSettings } from '@/stores/useEnhancedEditorStore';
@@ -11,12 +11,10 @@ export const imageProcessor = {
    * @returns Thumbnail'in yeni URI'si (file://)
    */
   createThumbnail: async (originalUri: string, format: 'jpeg' | 'png'): Promise<string> => {
-    const saveFormat = format === 'png'
-      ? ImageManipulator.SaveFormat.PNG
-      : ImageManipulator.SaveFormat.JPEG;
+    const saveFormat = format === 'png' ? SaveFormat.PNG : SaveFormat.JPEG;
 
     try {
-      const result = await ImageManipulator.manipulateAsync(
+      const result = await manipulateAsync(
         originalUri,
         [{ resize: { width: 300 } }],
         { compress: 0.7, format: saveFormat }
@@ -47,12 +45,12 @@ export const imageProcessor = {
       });
 
       // Temel resize işlemi - thumbnail boyutunda
-      const resizedResult = await ImageManipulator.manipulateAsync(
+      const resizedResult = await manipulateAsync(
         originalUri,
         [{ resize: { width: 300, height: 300 } }], // Kare thumbnail
         { 
           compress: 0.8, 
-          format: ImageManipulator.SaveFormat.PNG // Alpha channel için PNG
+          format: SaveFormat.PNG // Alpha channel için PNG
         }
       );
 
@@ -73,7 +71,7 @@ export const imageProcessor = {
   },
 
   /**
-   * YENİ: Temel filter'ları ImageManipulator ile uygula
+   * YENİ: Temel filter'ları manipulateAsync ile uygula
    * @param imageUri Görüntü URI'si
    * @param settings Editor ayarları
    * @returns Filtered görüntü URI'si
@@ -83,33 +81,30 @@ export const imageProcessor = {
     settings: EditorSettings
   ): Promise<string> => {
     try {
-      const manipulations: ImageManipulator.Action[] = [];
+      const actions: any[] = [];
 
       // Rotation uygula
       if (settings.photoRotation && settings.photoRotation !== 0) {
-        manipulations.push({
+        actions.push({
           rotate: settings.photoRotation
         });
       }
 
-      // Temel renk ayarları - ImageManipulator'ın desteklediği kadarıyla
+      // Temel manipülasyonlar
       let finalUri = imageUri;
 
       // Manipülasyonlar varsa uygula
-      if (manipulations.length > 0) {
-        const result = await ImageManipulator.manipulateAsync(
+      if (actions.length > 0) {
+        const result = await manipulateAsync(
           imageUri,
-          manipulations,
+          actions,
           { 
             compress: 0.8, 
-            format: ImageManipulator.SaveFormat.PNG 
+            format: SaveFormat.PNG 
           }
         );
         finalUri = result.uri;
       }
-
-      // Daha gelişmiş filter'lar için view-shot kullanabiliriz
-      // (bunun için preview component'inden capture almak gerekir)
       
       return finalUri;
 
@@ -237,26 +232,26 @@ export const imageProcessor = {
       const halfWidth = width / 2;
 
       // Sol fotoğrafı resize et
-      const leftResult = await ImageManipulator.manipulateAsync(
+      const leftResult = await manipulateAsync(
         leftUri,
         [
           { resize: { width: halfWidth, height } }
         ],
         {
           compress: 0.8,
-          format: ImageManipulator.SaveFormat.JPEG,
+          format: SaveFormat.JPEG,
         }
       );
 
       // Sağ fotoğrafı resize et
-      const rightResult = await ImageManipulator.manipulateAsync(
+      const rightResult = await manipulateAsync(
         rightUri,
         [
           { resize: { width: halfWidth, height } }
         ],
         {
           compress: 0.8,
-          format: ImageManipulator.SaveFormat.JPEG,
+          format: SaveFormat.JPEG,
         }
       );
 
@@ -278,11 +273,11 @@ export const imageProcessor = {
    */
   getImageDimensions: async (uri: string): Promise<{ width: number; height: number }> => {
     try {
-      const result = await ImageManipulator.manipulateAsync(
+      const result = await manipulateAsync(
         uri,
         [], // Hiçbir manipülasyon yapmadan sadece bilgi al
         {
-          format: ImageManipulator.SaveFormat.JPEG,
+          format: SaveFormat.JPEG,
         }
       );
 
@@ -301,7 +296,7 @@ export const imageProcessor = {
   },
 
   /**
-   * Geçici dosyaları temizler
+   * Geçici dosyaları temizler - GÜVENLİ VERSİYON
    */
   cleanupTempFiles: async (): Promise<void> => {
     try {
@@ -312,14 +307,19 @@ export const imageProcessor = {
       const tempFiles = files.filter(file => 
         file.startsWith('temp_') || 
         file.startsWith('captured_') ||
-        file.startsWith('filtered_')
+        file.startsWith('filtered_') ||
+        file.startsWith('ImageManipulator') // Expo'nun geçici dosyaları
       );
 
-      await Promise.all(
-        tempFiles.map(file =>
-          FileSystem.deleteAsync(cacheDir + file, { idempotent: true })
-        )
+      // Her dosyayı ayrı ayrı sil, hata durumunda diğerlerini etkilemesin
+      const deletePromises = tempFiles.map(file =>
+        FileSystem.deleteAsync(cacheDir + file, { idempotent: true })
+          .catch(error => {
+            console.warn('⚠️ Failed to delete temp file:', file, error);
+          })
       );
+
+      await Promise.allSettled(deletePromises);
 
       console.log(`🧹 ${tempFiles.length} geçici dosya temizlendi`);
     } catch (error) {
@@ -328,7 +328,7 @@ export const imageProcessor = {
   },
 
   /**
-   * YENİ: Memory usage optimization
+   * YENİ: Memory usage optimization - GÜVENLİ VERSİYON
    */
   optimizeMemoryUsage: async (): Promise<void> => {
     try {
@@ -338,10 +338,10 @@ export const imageProcessor = {
       // JavaScript garbage collection'ı tetikle (sadece debug için)
       if (__DEV__ && global.gc) {
         global.gc();
-        console.log('🗑️ Garbage collection triggered');
+        console.log('🗑️ Image processor garbage collection triggered');
       }
     } catch (error) {
-      console.warn('Memory optimization failed:', error);
+      console.warn('⚠️ Image processor memory optimization failed:', error);
     }
   },
 };

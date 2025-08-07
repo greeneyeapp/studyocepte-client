@@ -1,6 +1,6 @@
-// services/backgroundThumbnailManager.ts - SADECE SERVICE KODU
+// services/backgroundThumbnailManager.ts - DÜZELTİLMİŞ VERSİYON
 import * as FileSystem from 'expo-file-system';
-import { ImageManipulator } from 'expo-image-manipulator';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'; // DÜZELTME: Doğru import
 import { imageProcessor } from './imageProcessor';
 
 interface BackgroundThumbnail {
@@ -21,19 +21,32 @@ interface BackgroundCache {
 class BackgroundThumbnailManager {
   private cache: BackgroundCache = {};
   private cacheDirectory: string;
-  private maxCacheSize: number = 50 * 1024 * 1024; // 50MB
-  private maxThumbnailAge: number = 7 * 24 * 60 * 60 * 1000; // 7 gün
-  private thumbnailSize: { width: number; height: number } = { width: 300, height: 300 };
+  private maxCacheSize: number = 25 * 1024 * 1024; // 25MB (Azaltıldı)
+  private maxThumbnailAge: number = 3 * 24 * 60 * 60 * 1000; // 3 gün (Azaltıldı)
+  private thumbnailSize: { width: number; height: number } = { width: 200, height: 200 }; // Küçültüldü
+  private isInitialized: boolean = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
     this.cacheDirectory = FileSystem.cacheDirectory + 'bg_thumbnails/';
-    this.initializeCache();
   }
 
   /**
    * Cache directory'sini oluştur ve mevcut thumbnail'leri yükle
    */
   private async initializeCache(): Promise<void> {
+    if (this.isInitialized) return;
+    
+    // Eğer zaten initialize ediliyorsa, bekle
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    this.initPromise = this._doInitialize();
+    return this.initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     try {
       const dirInfo = await FileSystem.getInfoAsync(this.cacheDirectory);
       if (!dirInfo.exists) {
@@ -43,8 +56,13 @@ class BackgroundThumbnailManager {
 
       await this.loadCacheIndex();
       await this.cleanupOldThumbnails();
+      
+      this.isInitialized = true;
+      console.log('✅ Background thumbnail cache initialized');
     } catch (error) {
       console.error('❌ Failed to initialize background thumbnail cache:', error);
+      this.isInitialized = false;
+      throw error;
     }
   }
 
@@ -62,7 +80,7 @@ class BackgroundThumbnailManager {
         console.log('📋 Background thumbnail cache loaded:', Object.keys(this.cache).length, 'items');
       }
     } catch (error) {
-      console.warn('⚠️ Failed to load thumbnail cache index:', error);
+      console.warn('⚠️ Failed to load thumbnail cache index, starting fresh:', error);
       this.cache = {};
     }
   }
@@ -124,6 +142,9 @@ class BackgroundThumbnailManager {
    */
   async getThumbnail(backgroundId: string, fullImageUri: string): Promise<string | null> {
     try {
+      // İlk initialize et
+      await this.initializeCache();
+      
       // Cache'de var mı kontrol et
       const cached = this.cache[backgroundId];
       if (cached) {
@@ -135,6 +156,7 @@ class BackgroundThumbnailManager {
         } else {
           // Cache'de var ama dosya yok, cache'den sil
           delete this.cache[backgroundId];
+          await this.saveCacheIndex();
         }
       }
 
@@ -158,20 +180,20 @@ class BackgroundThumbnailManager {
 
       return thumbnailUri;
     } catch (error) {
-      console.error('❌ Failed to get background thumbnail:', error);
-      return null;
+      console.error('❌ Failed to get background thumbnail for', backgroundId, ':', error);
+      return null; // Hata durumunda null döndür, döngüye girmesin
     }
   }
 
   /**
-   * Background thumbnail oluştur
+   * Background thumbnail oluştur - DÜZELTİLMİŞ VERSİYON
    */
   private async createThumbnail(backgroundId: string, fullImageUri: string): Promise<string | null> {
     try {
-      const thumbnailFilename = `bg_thumb_${backgroundId}.jpg`;
+      const thumbnailFilename = `bg_thumb_${backgroundId}_${Date.now()}.jpg`;
       const thumbnailPath = this.cacheDirectory + thumbnailFilename;
 
-      // ImageManipulator ile thumbnail oluştur
+      // ImageManipulator ile thumbnail oluştur - DÜZELTME: Doğru API kullanımı
       const result = await ImageManipulator.manipulateAsync(
         fullImageUri,
         [
@@ -183,8 +205,8 @@ class BackgroundThumbnailManager {
           }
         ],
         {
-          compress: 0.8,
-          format: ImageManipulator.SaveFormat.JPEG,
+          compress: 0.7, // Compression artırıldı
+          format: SaveFormat.JPEG, // DÜZELTME: Doğru import kullanımı
         }
       );
 
@@ -194,10 +216,26 @@ class BackgroundThumbnailManager {
         to: thumbnailPath
       });
 
+      // Geçici dosyayı sil
+      try {
+        await FileSystem.deleteAsync(result.uri, { idempotent: true });
+      } catch (cleanupError) {
+        console.warn('⚠️ Failed to cleanup temp thumbnail:', cleanupError);
+      }
+
       return thumbnailPath;
     } catch (error) {
-      console.error('❌ Failed to create background thumbnail:', error);
-      return null;
+      console.error('❌ Failed to create background thumbnail for', backgroundId, ':', error);
+      
+      // Specific hata mesajlarını logla
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack?.substring(0, 200)
+        });
+      }
+      
+      return null; // Hata durumunda null döndür
     }
   }
 
@@ -214,6 +252,8 @@ class BackgroundThumbnailManager {
       }
     } catch (error) {
       console.warn('⚠️ Failed to delete background thumbnail:', error);
+      // Cache'den kaldır ama dosya silme hatasını yok say
+      delete this.cache[backgroundId];
     }
   }
 
@@ -222,13 +262,20 @@ class BackgroundThumbnailManager {
    */
   async clearCache(): Promise<void> {
     try {
+      await this.initializeCache();
+      
+      // Tüm dosyaları sil
       const files = await FileSystem.readDirectoryAsync(this.cacheDirectory);
       
-      for (const file of files) {
-        await FileSystem.deleteAsync(this.cacheDirectory + file, { idempotent: true });
-      }
+      const deletePromises = files.map(file => 
+        FileSystem.deleteAsync(this.cacheDirectory + file, { idempotent: true })
+          .catch(error => console.warn('⚠️ Failed to delete cache file:', file, error))
+      );
+      
+      await Promise.allSettled(deletePromises);
       
       this.cache = {};
+      await this.saveCacheIndex();
       console.log('🧹 Background thumbnail cache cleared');
     } catch (error) {
       console.error('❌ Failed to clear background thumbnail cache:', error);
@@ -257,33 +304,84 @@ class BackgroundThumbnailManager {
   }
 
   /**
-   * Belirli background'lar için pre-cache yap
+   * Belirli background'lar için pre-cache yap - GÜVENLİ VERSİYON
    */
   async preloadThumbnails(backgrounds: { id: string; fullUrl: string }[]): Promise<void> {
+    if (!backgrounds || backgrounds.length === 0) return;
+    
     console.log('🚀 Preloading background thumbnails:', backgrounds.length, 'items');
     
-    const promises = backgrounds.map(async (bg) => {
-      try {
-        await this.getThumbnail(bg.id, bg.fullUrl);
-      } catch (error) {
-        console.warn('⚠️ Failed to preload thumbnail for:', bg.id, error);
-      }
-    });
-
-    await Promise.allSettled(promises);
-    console.log('✅ Background thumbnail preloading completed');
+    // Her background için ayrı ayrı, hata durumunda diğerlerini etkilemesin
+    const results = await Promise.allSettled(
+      backgrounds.map(async (bg) => {
+        try {
+          const result = await this.getThumbnail(bg.id, bg.fullUrl);
+          if (result) {
+            console.log('✅ Preloaded:', bg.id);
+          } else {
+            console.warn('⚠️ Failed to preload:', bg.id);
+          }
+          return result;
+        } catch (error) {
+          console.warn('❌ Preload error for', bg.id, ':', error);
+          return null;
+        }
+      })
+    );
+    
+    const successful = results.filter(r => r.status === 'fulfilled' && r.value !== null).length;
+    console.log('✅ Background thumbnail preloading completed:', successful, '/', backgrounds.length);
   }
 
   /**
    * Memory optimization - eski cache'leri temizle
    */
   async optimizeMemory(): Promise<void> {
-    await this.cleanupOldThumbnails();
-    
-    // JavaScript garbage collection'ı tetikle (sadece debug için)
-    if (__DEV__ && global.gc) {
-      global.gc();
-      console.log('🗑️ Background thumbnail memory optimization completed');
+    try {
+      await this.cleanupOldThumbnails();
+      
+      // JavaScript garbage collection'ı tetikle (sadece debug için)
+      if (__DEV__ && global.gc) {
+        global.gc();
+        console.log('🗑️ Background thumbnail memory optimization completed');
+      }
+    } catch (error) {
+      console.warn('⚠️ Memory optimization failed:', error);
+    }
+  }
+
+  /**
+   * Cache durumunu kontrol et ve gerekirse onar
+   */
+  async validateCache(): Promise<void> {
+    try {
+      await this.initializeCache();
+      
+      const idsToRemove: string[] = [];
+      
+      // Her cache entry'sini kontrol et
+      for (const [backgroundId, thumbnail] of Object.entries(this.cache)) {
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(thumbnail.thumbnailUri);
+          if (!fileInfo.exists) {
+            idsToRemove.push(backgroundId);
+          }
+        } catch (error) {
+          idsToRemove.push(backgroundId);
+        }
+      }
+      
+      // Bozuk entry'leri temizle
+      for (const id of idsToRemove) {
+        delete this.cache[id];
+      }
+      
+      if (idsToRemove.length > 0) {
+        await this.saveCacheIndex();
+        console.log('🔧 Cache validation completed, removed', idsToRemove.length, 'invalid entries');
+      }
+    } catch (error) {
+      console.warn('⚠️ Cache validation failed:', error);
     }
   }
 }
