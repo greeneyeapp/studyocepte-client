@@ -14,7 +14,7 @@ import { DialogService } from '@/components/Dialog/DialogService'; // Bu import 
 
 // Akıllı Renk Seçen Profil Avatarı Bileşeni
 const ProfileAvatar: React.FC<{ name: string }> = ({ name }) => {
-  const PALETTE = [ Colors.primary, Colors.secondary, Colors.accent, '#7D9A81', '#A288A6', '#E29578' ];
+  const PALETTE = [Colors.primary, Colors.secondary, Colors.accent, '#7D9A81', '#A288A6', '#E29578'];
   const getInitials = () => {
     const words = name.trim().split(' ');
     if (words.length > 1 && words[words.length - 1]) return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
@@ -28,9 +28,9 @@ const ProfileAvatar: React.FC<{ name: string }> = ({ name }) => {
   };
   return (
     <View style={avatarStyles.avatarContainer}>
-        <View style={[avatarStyles.avatar, { backgroundColor: stringToColor(name) }]}>
-            <Text style={avatarStyles.avatarText}>{getInitials()}</Text>
-        </View>
+      <View style={[avatarStyles.avatar, { backgroundColor: stringToColor(name) }]}>
+        <Text style={avatarStyles.avatarText}>{getInitials()}</Text>
+      </View>
     </View>
   );
 };
@@ -87,7 +87,7 @@ export default function SettingsScreen() {
   const getCurrentLanguageLabel = () => i18n.language === 'en' ? 'English' : 'Türkçe';
 
   if (!user) return <SafeAreaView style={styles.container} />;
-  
+
   const isGuest = user.isGuest;
 
   return (
@@ -96,30 +96,30 @@ export default function SettingsScreen() {
         <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
           <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Ayarlar</Text>
+        <Text style={styles.headerTitle}>Hesap</Text>
         <View style={styles.headerRight} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* Profil Kartı (Sadeleştirildi) */}
         <Card style={styles.profileCard}>
-            <View style={styles.profileCardContent}>
-                <ProfileAvatar name={user.name || 'Misafir'} />
-                <Text style={styles.userName}>{user.name}</Text>
-                {!isGuest && (
-                <Text style={styles.userEmail} numberOfLines={1} ellipsizeMode="tail">
-                    {user.email}
-                </Text>
-                )}
-                {/* "Profili Düzenle" butonu kaldırıldı */}
-            </View>
+          <View style={styles.profileCardContent}>
+            <ProfileAvatar name={user.name || 'Misafir'} />
+            <Text style={styles.userName}>{user.name}</Text>
+            {!isGuest && (
+              <Text style={styles.userEmail} numberOfLines={1} ellipsizeMode="tail">
+                {user.email}
+              </Text>
+            )}
+            {/* "Profili Düzenle" butonu kaldırıldı */}
+          </View>
         </Card>
 
         {/* Uygulama Ayarları */}
         <View style={styles.sectionContainer}>
           <SectionHeader title="Uygulama Ayarları" icon="settings" />
           <Card padding="none" style={styles.settingsCard}>
-            <ModernSettingCard icon="globe" title="Dil" subtitle="Uygulama dilini değiştirin" value={getCurrentLanguageLabel()} onPress={() => {}} iconColor={Colors.primary} />
+            <ModernSettingCard icon="globe" title="Dil" subtitle="Uygulama dilini değiştirin" value={getCurrentLanguageLabel()} onPress={() => { }} iconColor={Colors.primary} />
             <ModernSettingCard
               icon="credit-card" title="Abonelik"
               subtitle={isGuest ? "Abone olmak için hesap oluşturun" : "Premium özelliklere erişin"}
@@ -133,28 +133,28 @@ export default function SettingsScreen() {
         <View style={styles.sectionContainer}>
           <SectionHeader title="Destek ve Bilgi" icon="help-circle" />
           <Card padding="none" style={styles.settingsCard}>
-            <ModernSettingCard icon="message-circle" title="Destek" subtitle="Yardım alın ve geri bildirimde bulunun" onPress={() => {}} iconColor="#10B981" />
-            <ModernSettingCard icon="info" title="Hakkında" subtitle="Uygulama bilgileri ve sürüm" value="v1.0.0" onPress={() => {}} iconColor="#8B5CF6" />
-            <ModernSettingCard icon="star" title="Uygulamayı Değerlendirin" subtitle="App Store'da bizi değerlendirin" onPress={() => {}} iconColor="#F59E0B" showChevron={false} isLast />
+            <ModernSettingCard icon="message-circle" title="Destek" subtitle="Yardım alın ve geri bildirimde bulunun" onPress={() => { }} iconColor="#10B981" />
+            <ModernSettingCard icon="info" title="Hakkında" subtitle="Uygulama bilgileri ve sürüm" value="v1.0.0" onPress={() => { }} iconColor="#8B5CF6" />
+            <ModernSettingCard icon="star" title="Uygulamayı Değerlendirin" subtitle="App Store'da bizi değerlendirin" onPress={() => { }} iconColor="#F59E0B" showChevron={false} isLast />
           </Card>
         </View>
 
         {/* GÜNCELLEME: Yeni Çıkış Yap Butonu */}
         <View style={styles.sectionContainer}>
-             <SectionHeader title="Hesap" icon="user" />
-             <Card padding="none" style={styles.settingsCard}>
-                <ModernSettingCard
-                    icon="log-out"
-                    title="Çıkış Yap"
-                    onPress={handleLogout}
-                    iconColor={Colors.error}
-                    titleColor={Colors.error}
-                    showChevron={false}
-                    isLast
-                />
-             </Card>
+          <SectionHeader title="Hesap" icon="user" />
+          <Card padding="none" style={styles.settingsCard}>
+            <ModernSettingCard
+              icon="log-out"
+              title="Çıkış Yap"
+              onPress={handleLogout}
+              iconColor={Colors.error}
+              titleColor={Colors.error}
+              showChevron={false}
+              isLast
+            />
+          </Card>
         </View>
-        
+
         <View style={{ height: 60 }} />
       </ScrollView>
     </SafeAreaView>
@@ -162,27 +162,32 @@ export default function SettingsScreen() {
 }
 
 const avatarStyles = StyleSheet.create({
-    avatarContainer: { marginBottom: Spacing.md },
-    avatar: {
-        width: 80, height: 80, borderRadius: 40,
-        justifyContent: 'center', alignItems: 'center',
-        borderWidth: 4, borderColor: Colors.card,
-    },
-    avatarText: { ...Typography.h1, color: Colors.card, fontWeight: '700' },
+  avatarContainer: { marginBottom: Spacing.md },
+  avatar: {
+    width: 80, height: 80, borderRadius: 40,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 4, borderColor: Colors.card,
+  },
+  avatarText: { ...Typography.h1, color: Colors.card, fontWeight: '700' },
 });
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
-    backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md, // Bu satırı değiştirin
+    backgroundColor: Colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   backButton: { padding: Spacing.xs, marginLeft: -Spacing.xs },
   headerTitle: { ...Typography.h2, color: Colors.textPrimary, fontWeight: '700' },
   headerRight: { width: 40 },
   scrollContainer: { paddingVertical: Spacing.lg, paddingHorizontal: Spacing.md },
-  
+
   profileCard: {
     marginBottom: Spacing.xl, borderRadius: BorderRadius.xl,
     padding: Spacing.xl, // İçerik için padding eklendi
@@ -190,12 +195,12 @@ const styles = StyleSheet.create({
   profileCardContent: { // İçeriği ortalamak için yeni stil
     alignItems: 'center',
   },
-  userName: { 
-    ...Typography.h2, color: Colors.textPrimary, 
+  userName: {
+    ...Typography.h2, color: Colors.textPrimary,
     fontWeight: '700', marginBottom: Spacing.xs / 2,
   },
   userEmail: { ...Typography.body, color: Colors.textSecondary },
-  
+
   sectionContainer: { marginBottom: Spacing.xl },
   sectionHeader: {
     flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md,
@@ -206,7 +211,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 13,
   },
   settingsCard: { backgroundColor: Colors.card, borderRadius: BorderRadius.xl },
-  
+
   modernCard: { paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg },
   modernCardBorder: { borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
   modernCardContent: { flexDirection: 'row', alignItems: 'center' },

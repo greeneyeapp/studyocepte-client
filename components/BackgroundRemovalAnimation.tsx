@@ -14,26 +14,42 @@ interface BackgroundRemovalAnimationProps {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const ShimmeringInfoBox: React.FC<{ text: string }> = ({ text }) => {
+const ShimmeringInfoBox: React.FC<{ text: string; isActive: boolean }> = ({ text, isActive }) => {
     const shimmerAnim = useRef(new Animated.Value(-1)).current;
+    const opacityAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        Animated.loop(
-            Animated.timing(shimmerAnim, {
-                toValue: 2,
-                duration: 1500,
+        if (isActive) {
+            Animated.timing(opacityAnim, {
+                toValue: 1,
+                duration: 500,
                 useNativeDriver: true,
-            })
-        ).start();
-    }, []);
+            }).start();
+            Animated.loop(
+                Animated.timing(shimmerAnim, {
+                    toValue: 2,
+                    duration: 1500,
+                    useNativeDriver: true,
+                })
+            ).start();
+        } else {
+            Animated.timing(opacityAnim, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: true,
+            }).start();
+        }
+    }, [isActive]);
 
     const translateX = shimmerAnim.interpolate({
         inputRange: [-1, 2],
         outputRange: [-300, 300],
     });
 
+    if (!isActive) return null;
+
     return (
-        <View style={infoStyles.infoBox}>
+        <Animated.View style={[infoStyles.infoBox, { opacity: opacityAnim }]}>
             <MaskedView
                 style={StyleSheet.absoluteFill}
                 maskElement={<View style={infoStyles.mask} />}
@@ -49,139 +65,135 @@ const ShimmeringInfoBox: React.FC<{ text: string }> = ({ text }) => {
             </MaskedView>
             <Feather name="zap" size={18} color={Colors.primary} />
             <Text style={infoStyles.infoText}>{text}</Text>
-        </View>
+        </Animated.View>
     );
 };
 
 const FLOATING_ICONS = ['zap', 'star', 'heart', 'award', 'target', 'check-circle'];
 
-const FloatingIcon: React.FC<{ icon: string; delay: number; index: number; isActive: boolean }> = ({ 
-  icon, delay, index, isActive 
+const FloatingIcon: React.FC<{ icon: string; delay: number; index: number; isActive: boolean }> = ({
+    icon, delay, index, isActive
 }) => {
-  const animValue = useRef(new Animated.Value(0)).current;
-  const opacityValue = useRef(new Animated.Value(0)).current;
+    const animValue = useRef(new Animated.Value(0)).current;
+    const opacityValue = useRef(new Animated.Value(0)).current;
 
-  const animateIcon = useCallback(() => {
-    if (!isActive) return;
-    animValue.setValue(0);
-    opacityValue.setValue(0);
-    const timeout = setTimeout(() => {
-      if (!isActive) return;
-      Animated.parallel([
-        Animated.timing(opacityValue, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.timing(animValue, { toValue: 1, duration: 2200, useNativeDriver: true })
-      ]).start(() => {
+    const animateIcon = useCallback(() => {
         if (!isActive) return;
-        Animated.timing(opacityValue, { toValue: 0, duration: 400, useNativeDriver: true }).start();
-      });
-    }, delay);
-    return () => clearTimeout(timeout);
-  }, [isActive, animValue, opacityValue, delay]);
+        animValue.setValue(0);
+        opacityValue.setValue(0);
+        const timeout = setTimeout(() => {
+            if (!isActive) return;
+            Animated.parallel([
+                Animated.timing(opacityValue, { toValue: 1, duration: 400, useNativeDriver: true }),
+                Animated.timing(animValue, { toValue: 1, duration: 2200, useNativeDriver: true })
+            ]).start(() => {
+                if (!isActive) return;
+                Animated.timing(opacityValue, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+            });
+        }, delay);
+        return () => clearTimeout(timeout);
+    }, [isActive, animValue, opacityValue, delay]);
 
-  useEffect(() => {
-    if (isActive) animateIcon();
-  }, [isActive, animateIcon]);
+    useEffect(() => {
+        if (isActive) animateIcon();
+    }, [isActive, animateIcon]);
 
-  if (!isActive) return null;
+    if (!isActive) return null;
 
-  const positions = [ { top: '20%', left: '10%' }, { top: '30%', right: '5%' }, { top: '50%', left: '15%' }, { top: '60%', right: '20%' }, { top: '80%', left: '5%' }, { top: '15%', right: '15%' }];
-  const position = positions[index % positions.length];
-  const translateY = animValue.interpolate({ inputRange: [0, 1], outputRange: [30, -80] });
-  const scale = animValue.interpolate({ inputRange: [0, 0.3, 0.7, 1], outputRange: [0.3, 1.3, 1.1, 0.6] });
-  const rotate = animValue.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
+    const positions = [{ top: '20%', left: '10%' }, { top: '30%', right: '5%' }, { top: '50%', left: '15%' }, { top: '60%', right: '20%' }, { top: '80%', left: '5%' }, { top: '15%', right: '15%' }];
+    const position = positions[index % positions.length];
+    const translateY = animValue.interpolate({ inputRange: [0, 1], outputRange: [30, -80] });
+    const scale = animValue.interpolate({ inputRange: [0, 0.3, 0.7, 1], outputRange: [0.3, 1.3, 1.1, 0.6] });
+    const rotate = animValue.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
 
-  return (
-    <Animated.View style={[ styles.floatingIcon, position, { opacity: opacityValue, transform: [{ translateY }, { scale }, { rotate }] }]}>
-      <Feather name={icon as any} size={18} color={Colors.primary} />
-    </Animated.View>
-  );
+    return (
+        <Animated.View style={[styles.floatingIcon, position, { opacity: opacityValue, transform: [{ translateY }, { scale }, { rotate }] }]}>
+            <Feather name={icon as any} size={18} color={Colors.primary} />
+        </Animated.View>
+    );
 };
 
 export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProps> = ({
-  originalUri, processedUri, isAnimating, onAnimationComplete
+    originalUri, processedUri, isAnimating, onAnimationComplete
 }) => {
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const [animationPhase, setAnimationPhase] = useState<'waiting' | 'sliding' | 'completed'>('waiting');
-  
-  const modalWidth = SCREEN_WIDTH;
+    const slideAnim = useRef(new Animated.Value(0)).current;
+    const [animationPhase, setAnimationPhase] = useState<'waiting' | 'sliding' | 'completed'>('waiting');
 
-  useEffect(() => {
-    if (processedUri && isAnimating && animationPhase === 'waiting') {
-      setAnimationPhase('sliding');
-      setTimeout(() => {
-        Animated.timing(slideAnim, {
-          toValue: 1, duration: 1500, useNativeDriver: false,
-        }).start(({ finished }) => {
-          if (finished) {
-            setAnimationPhase('completed');
-            setTimeout(onAnimationComplete, 500);
-          }
-        });
-      }, 300);
-    }
-  }, [processedUri, isAnimating, animationPhase]);
+    const modalWidth = SCREEN_WIDTH;
 
-  useEffect(() => {
-    if (!isAnimating) {
-      slideAnim.setValue(0);
-      setAnimationPhase('waiting');
-    }
-  }, [isAnimating]);
-  
-  const getInfoText = () => {
-    if (animationPhase === 'sliding') return "Arka Plan Temizleniyor...";
-    if (animationPhase === 'completed') return "İşlem Tamamlandı!";
-    return "Lütfen bekleyiniz...";
-  };
-  
-  const imageWidth = modalWidth * 0.9;
+    useEffect(() => {
+        if (processedUri && isAnimating && animationPhase === 'waiting') {
+            setAnimationPhase('sliding');
+            setTimeout(() => {
+                Animated.timing(slideAnim, {
+                    toValue: 1, duration: 1500, useNativeDriver: false,
+                }).start(({ finished }) => {
+                    if (finished) {
+                        setAnimationPhase('completed');
+                        setTimeout(onAnimationComplete, 500);
+                    }
+                });
+            }, 300);
+        }
+    }, [processedUri, isAnimating, animationPhase]);
 
-  return (
-    <View style={styles.container}>
-      <ShimmeringInfoBox text={getInfoText()} />
-      
-      <View style={[styles.imageContainer, { width: imageWidth, height: imageWidth }]}>
-        <LinearGradient
-            colors={['rgba(255,255,255,0.1)', 'rgba(0,0,0,0.1)']}
-            style={StyleSheet.absoluteFill}
-        />
-        <Image 
-          source={{ uri: processedUri || originalUri }}
-          style={styles.baseImage}
-          resizeMode="contain"
-        />
-        <Animated.View style={[ styles.overlayImageContainer, { 
-            width: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [imageWidth, 0] })
-        }]}>
-          <Image 
-            source={{ uri: originalUri }} 
-            style={[styles.overlayImage, { width: imageWidth }]}
-            resizeMode="contain"
-          />
-        </Animated.View>
-        {animationPhase === 'waiting' && (
-            <View style={StyleSheet.absoluteFillObject}>
-                {FLOATING_ICONS.map((icon, index) => (
-                    <FloatingIcon key={`${icon}-${index}`} icon={icon} index={index} delay={index * 200} isActive={true} />
-                ))}
+    useEffect(() => {
+        if (!isAnimating) {
+            slideAnim.setValue(0);
+            setAnimationPhase('waiting');
+        }
+    }, [isAnimating]);
+
+    const getInfoText = () => {
+        if (animationPhase === 'sliding') return "Arka Plan Temizleniyor...";
+        if (animationPhase === 'completed') return "İşlem Tamamlandı!";
+        return "Lütfen bekleyiniz...";
+    };
+
+    const imageWidth = modalWidth * 0.9;
+
+    return (
+        <View style={styles.container}>
+            <ShimmeringInfoBox text={getInfoText()} isActive={isAnimating} />
+
+            <View style={[styles.imageContainer, { width: imageWidth, height: imageWidth }]}>
+                <Image
+                    source={{ uri: processedUri || originalUri }}
+                    style={styles.baseImage}
+                    resizeMode="contain"
+                />
+                <Animated.View style={[styles.overlayImageContainer, {
+                    width: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [imageWidth, 0] })
+                }]}>
+                    <Image
+                        source={{ uri: originalUri }}
+                        style={[styles.overlayImage, { width: imageWidth }]}
+                        resizeMode="contain"
+                    />
+                </Animated.View>
+                {animationPhase === 'waiting' && (
+                    <View style={StyleSheet.absoluteFillObject}>
+                        {FLOATING_ICONS.map((icon, index) => (
+                            <FloatingIcon key={`${icon}-${index}`} icon={icon} index={index} delay={index * 200} isActive={true} />
+                        ))}
+                    </View>
+                )}
+                {animationPhase === 'sliding' && (
+                    <Animated.View style={[styles.wipeIndicatorLine, {
+                        left: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [0, imageWidth] })
+                    }]} />
+                )}
             </View>
-        )}
-        {animationPhase === 'sliding' && (
-          <Animated.View style={[styles.wipeIndicatorLine, { 
-              left: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [0, imageWidth] })
-          }]} />
-        )}
-      </View>
 
-      {animationPhase === 'sliding' && (
-        <View style={styles.progressBarContainer}>
-            <Animated.View style={[ styles.progressBar, { 
-                width: slideAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] })
-            }]} />
+            {animationPhase === 'sliding' && (
+                <View style={styles.progressBarContainer}>
+                    <Animated.View style={[styles.progressBar, {
+                        width: slideAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] })
+                    }]} />
+                </View>
+            )}
         </View>
-      )}
-    </View>
-  );
+    );
 };
 
 const infoStyles = StyleSheet.create({
@@ -206,45 +218,53 @@ const infoStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  container: { 
-      flex: 1, 
-      width: '100%', 
-      justifyContent: 'center', 
-      alignItems: 'center',
-      paddingVertical: Spacing.xxxl,
+    container: {
+        flex: 1,
+        width: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: Spacing.xxxl,
     },
-  imageContainer: { 
-    borderRadius: BorderRadius.xl, 
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 20,
-   },
-  baseImage: { ...StyleSheet.absoluteFillObject },
-  overlayImageContainer: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
-  overlayImage: { height: '100%' },
-  wipeIndicatorLine: {
-    position: 'absolute', top: 0, bottom: 0, width: 3, backgroundColor: Colors.card,
-    shadowColor: '#FFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8,
-    shadowRadius: 4, elevation: 15,
-  },
-  progressBarContainer: {
-    position: 'absolute',
-    bottom: Spacing.xxxl,
-    width: '90%', 
-    height: 8, 
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 4, 
-    overflow: 'hidden',
-  },
-  progressBar: { height: '100%', backgroundColor: Colors.primary, borderRadius: 4 },
-  floatingIcon: {
-    position: 'absolute', width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.card + 'E6',
-    justifyContent: 'center', alignItems: 'center', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 10, borderWidth: 1.5, borderColor: Colors.primary + '40',
-  },
+    imageContainer: {
+        borderRadius: BorderRadius.xl,
+        overflow: 'hidden',
+        backgroundColor: Colors.background, // Arka plan rengi krem tonu olarak güncellendi
+        borderWidth: 1,
+        borderColor: Colors.border,
+        shadowColor: Colors.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        elevation: 8,
+    },
+    baseImage: { ...StyleSheet.absoluteFillObject },
+    overlayImageContainer: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+    overlayImage: { height: '100%' },
+    wipeIndicatorLine: {
+        position: 'absolute', top: 0, bottom: 0, width: 3, backgroundColor: Colors.card,
+        shadowColor: '#FFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8,
+        shadowRadius: 4, elevation: 15,
+    },
+    progressBarContainer: {
+        position: 'absolute',
+        bottom: Spacing.xxxl,
+        width: '90%',
+        height: 8,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 4,
+        overflow: 'hidden',
+    },
+    progressBar: { height: '100%', backgroundColor: Colors.primary, borderRadius: 4 },
+    floatingIcon: {
+        position: 'absolute', width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.card + 'E6',
+        justifyContent: 'center', alignItems: 'center', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3, shadowRadius: 8, elevation: 10, borderWidth: 1.5, borderColor: Colors.primary + '40',
+    },
+    animationOverlay: { // Modal için yeni stil eklendi
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: Colors.background, // Krem tonu arka plan
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        zIndex: 2000 
+    },
 });

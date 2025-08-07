@@ -1,6 +1,5 @@
-// client/components/Loading/AppLoading.tsx - DÖNME ANİMASYONU KALDIRILDI
 import React, { useState, useImperativeHandle, forwardRef } from 'react';
-import { StyleSheet, View, Image } from 'react-native';
+import { StyleSheet, View, Image, Text } from 'react-native'; // Text bileşeni eklendi
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -17,7 +16,13 @@ export interface AppLoadingRef {
   hide: () => void;
 }
 
-const AppLoading = forwardRef<AppLoadingRef, {}>((props, ref) => {
+// Props'lara isteğe bağlı 'text' özelliği eklendi
+interface AppLoadingProps {
+  text?: string;
+}
+
+const AppLoading = forwardRef<AppLoadingRef, AppLoadingProps>((props, ref) => {
+  const { text } = props; // text prop'u ayrıştırıldı
   const [visible, setVisible] = useState(false);
 
   const opacity = useSharedValue(0);
@@ -35,7 +40,6 @@ const AppLoading = forwardRef<AppLoadingRef, {}>((props, ref) => {
   React.useEffect(() => {
     if (visible) {
       opacity.value = withTiming(1, { duration: 250 });
-      // Sadece ölçeklenme animasyonunu çalıştır
       scale.value = withRepeat(
         withSequence(
           withTiming(1.05, { duration: 800, easing: Easing.inOut(Easing.ease) }),
@@ -49,7 +53,7 @@ const AppLoading = forwardRef<AppLoadingRef, {}>((props, ref) => {
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [{ scale: scale.value }], // rotate kaldırıldı
+    transform: [{ scale: scale.value }],
   }));
 
   if (!visible) {
@@ -64,6 +68,7 @@ const AppLoading = forwardRef<AppLoadingRef, {}>((props, ref) => {
           style={styles.logo}
         />
       </Animated.View>
+      {text && <Text style={styles.text}>{text}</Text>}
     </View>
   );
 });
@@ -79,6 +84,13 @@ const styles = StyleSheet.create({
   logo: {
     width: 130,
     height: 130,
+  },
+  // Metin için yeni stil eklendi
+  text: {
+    marginTop: 20,
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.primary, // Veya istediğiniz başka bir renk
   },
 });
 
