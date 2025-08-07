@@ -381,38 +381,41 @@ export default function HomeScreen() {
     return () => subscription.remove();
   }, [handleLoadProducts]);
 
-  const handleCreateNewProduct = useCallback(() => {
-    InputDialogService.show({
+  // BURADAKİ FONKSİYON GÜNCELLENDİ
+  const handleCreateNewProduct = useCallback(async () => { // async anahtar kelimesini ekledik
+    const name = await InputDialogService.show({ // await ile Promise'ı bekliyoruz
       title: 'Yeni Ürün Oluştur',
       placeholder: 'Ürün adını girin',
-      onConfirm: async (name) => {
-        if (!name.trim()) {
-          ToastService.show({
-            type: 'error',
-            text1: 'İsim Gerekli',
-            text2: 'Lütfen ürün için bir isim girin.'
-          });
-          return;
-        }
-        loadingRef.current?.show(); // Ürün oluşturma animasyonunu göster
-        try {
-          const newProduct = await createProduct(name.trim());
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          router.push({
-            pathname: '/(tabs)/product/[productId]',
-            params: { productId: newProduct.id }
-          });
-        } catch (e: any) {
-          ToastService.show({
-            type: 'error',
-            text1: 'Hata',
-            text2: e.message
-          });
-        } finally {
-          loadingRef.current?.hide(); // İşlem bitince animasyonu gizle
-        }
-      },
     });
+
+    if (!name?.trim()) { // name null veya boş olabilir, bu yüzden kontrol ediyoruz
+      if (name !== null) { // Eğer kullanıcı iptal etmediyse (yani null değilse) ve boşsa hata göster
+        ToastService.show({
+          type: 'error',
+          text1: 'İsim Gerekli',
+          text2: 'Lütfen ürün için bir isim girin.'
+        });
+      }
+      return;
+    }
+
+    loadingRef.current?.show(); // Ürün oluşturma animasyonunu göster
+    try {
+      const newProduct = await createProduct(name.trim());
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      router.push({
+        pathname: '/(tabs)/product/[productId]',
+        params: { productId: newProduct.id }
+      });
+    } catch (e: any) {
+      ToastService.show({
+        type: 'error',
+        text1: 'Hata',
+        text2: e.message
+      });
+    } finally {
+      loadingRef.current?.hide(); // İşlem bitince animasyonu gizle
+    }
   }, [createProduct, router]);
 
   const handleProductPress = useCallback((product: Product) => {
