@@ -10,13 +10,13 @@
     "splash": {
       "image": "./assets/images/splash-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#fcfbf7"
     },
     "android": {
       "package": "com.greeneyeapp.studyocepte",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#fcfbf7"
       },
       "permissions": [
         "android.permission.READ_EXTERNAL_STORAGE",

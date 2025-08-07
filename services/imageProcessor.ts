@@ -1,5 +1,5 @@
-// services/imageProcessor.ts - IMPORT HATALARI DÜZELTİLMİŞ VERSİYON
-import { manipulateAsync, SaveFormat, FlipType } from 'expo-image-manipulator'; // DÜZELTME: Doğru import
+// services/imageProcessor.ts - EKSİK FONKSİYON DÜZELTİLMİŞ VERSİYON
+import { manipulateAsync, SaveFormat, FlipType } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 import { captureRef } from 'react-native-view-shot';
 import { EditorSettings } from '@/stores/useEnhancedEditorStore';
@@ -296,7 +296,7 @@ export const imageProcessor = {
   },
 
   /**
-   * Geçici dosyaları temizler - GÜVENLİ VERSİYON
+   * DÜZELTME: Geçici dosyaları temizler - GÜVENLİ VERSİYON
    */
   cleanupTempFiles: async (): Promise<void> => {
     try {
@@ -328,7 +328,7 @@ export const imageProcessor = {
   },
 
   /**
-   * YENİ: Memory usage optimization - GÜVENLİ VERSİYON
+   * DÜZELTME: Memory usage optimization - GÜVENLİ VERSİYON
    */
   optimizeMemoryUsage: async (): Promise<void> => {
     try {

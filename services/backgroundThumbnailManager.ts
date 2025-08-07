@@ -1,6 +1,6 @@
-// services/backgroundThumbnailManager.ts - DÜZELTİLMİŞ VERSİYON
+// services/backgroundThumbnailManager.ts - IMPORT HATASI DÜZELTİLMİŞ VERSİYON
 import * as FileSystem from 'expo-file-system';
-import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'; // DÜZELTME: Doğru import
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator'; // DÜZELTME: Doğru import
 import { imageProcessor } from './imageProcessor';
 
 interface BackgroundThumbnail {
@@ -21,9 +21,9 @@ interface BackgroundCache {
 class BackgroundThumbnailManager {
   private cache: BackgroundCache = {};
   private cacheDirectory: string;
-  private maxCacheSize: number = 25 * 1024 * 1024; // 25MB (Azaltıldı)
-  private maxThumbnailAge: number = 3 * 24 * 60 * 60 * 1000; // 3 gün (Azaltıldı)
-  private thumbnailSize: { width: number; height: number } = { width: 200, height: 200 }; // Küçültüldü
+  private maxCacheSize: number = 25 * 1024 * 1024; // 25MB
+  private maxThumbnailAge: number = 3 * 24 * 60 * 60 * 1000; // 3 gün
+  private thumbnailSize: { width: number; height: number } = { width: 200, height: 200 };
   private isInitialized: boolean = false;
   private initPromise: Promise<void> | null = null;
 
@@ -186,15 +186,21 @@ class BackgroundThumbnailManager {
   }
 
   /**
-   * Background thumbnail oluştur - DÜZELTİLMİŞ VERSİYON
+   * Background thumbnail oluştur - DÜZELTME: Doğru import kullanımı
    */
   private async createThumbnail(backgroundId: string, fullImageUri: string): Promise<string | null> {
     try {
       const thumbnailFilename = `bg_thumb_${backgroundId}_${Date.now()}.jpg`;
       const thumbnailPath = this.cacheDirectory + thumbnailFilename;
 
-      // ImageManipulator ile thumbnail oluştur - DÜZELTME: Doğru API kullanımı
-      const result = await ImageManipulator.manipulateAsync(
+      console.log('🔧 Creating thumbnail with manipulateAsync:', {
+        input: fullImageUri,
+        output: thumbnailPath,
+        size: this.thumbnailSize
+      });
+
+      // DÜZELTME: Doğru import ile manipulateAsync kullan
+      const result = await manipulateAsync(
         fullImageUri,
         [
           { 
@@ -205,16 +211,20 @@ class BackgroundThumbnailManager {
           }
         ],
         {
-          compress: 0.7, // Compression artırıldı
-          format: SaveFormat.JPEG, // DÜZELTME: Doğru import kullanımı
+          compress: 0.7,
+          format: SaveFormat.JPEG,
         }
       );
+
+      console.log('✅ manipulateAsync completed:', result.uri);
 
       // Cache directory'sine kopyala
       await FileSystem.copyAsync({
         from: result.uri,
         to: thumbnailPath
       });
+
+      console.log('✅ Thumbnail copied to cache:', thumbnailPath);
 
       // Geçici dosyayı sil
       try {
@@ -231,6 +241,7 @@ class BackgroundThumbnailManager {
       if (error instanceof Error) {
         console.error('Error details:', {
           message: error.message,
+          name: error.name,
           stack: error.stack?.substring(0, 200)
         });
       }
