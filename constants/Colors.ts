@@ -1,31 +1,31 @@
 // client/constants/Colors.ts - YENİ RENK PALETİ
 export const Colors = {
-  // Ana Renkler (Logo Renginiz ve Tonları)
-  primary: '#758c71', // Ana Yeşil
-  primaryDark: '#5E705A', // Koyu Yeşil
-  primaryLight: '#A2B59F', // Açık Yeşil
+  // Ana Renkler
+  primary: '#758c71',
+  primaryDark: '#5E705A',
+  primaryLight: '#A2B59F',
   
   // İkincil ve Vurgu Renkleri
-  secondary: '#E8A87C', // Tamamlayıcı Yumuşak Turuncu/Somon
-  accent: '#C38D9E', // Vurgu için Tozlu Gül
+  secondary: '#E8A87C',
+  accent: '#C38D9E',
   
   // Nötr Renkler
-  background: '#F7F7F7', // Çok açık, neredeyse beyaz arka plan
-  card: '#FFFFFF', // Kartlar ve ana yüzeyler
-  textPrimary: '#3C403D', // Koyu, okunabilir metin rengi
-  textSecondary: '#8A8D8B', // İkincil, daha soluk metin
-  border: '#EAEAEA', // İnce ve yumuşak sınırlar
+  background: '#F7F7F7',
+  card: '#FFFFFF',
+  textPrimary: '#3C403D',
+  textSecondary: '#8A8D8B',
+  border: '#EAEAEA',
   
-  // Geri Bildirim Renkleri
-  success: '#28a745', // Başarı (Biraz daha yumuşak yeşil)
-  error: '#dc3545',   // Hata
-  warning: '#ffc107', // Uyarı
+  // Geri Bildirim Renkleri (BU KISIM KRİTİK)
+  success: '#28a745',
+  error: '#dc3545',
+  warning: '#ffc107',
   
   // Diğer Renkler
   transparent: 'transparent',
-  shadow: '#000000', // Gölgeler için siyah (opaklık ile kullanılacak)
+  shadow: '#000000',
 
-  // Gri Tonları (Nötr Paletle Uyumlu)
+  // Gri Tonları
   gray50: '#F7F7F7',
   gray100: '#EAEAEA',
   gray200: '#DCDCDC',
