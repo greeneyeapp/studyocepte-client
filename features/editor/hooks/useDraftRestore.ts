@@ -1,26 +1,33 @@
-// features/editor/hooks/useDraftRestore.ts - SADECE HOOK
-import { useEffect, useState, useCallback } from 'react';
+// features/editor/hooks/useDraftRestore.ts - DÜZELTİLMİŞ VERSİYON
+import { useEffect, useState, useCallback, useRef } from 'react'; // Added useRef
 import { useEnhancedEditorStore, PhotoDraft } from '@/stores/useEnhancedEditorStore';
 import { ToastService } from '@/components/Toast/ToastService';
 import { DialogService } from '@/components/Dialog/DialogService';
 
 interface DraftRestoreOptions {
-  autoRestore?: boolean; // Otomatik restore etsin mi?
-  showNotification?: boolean; // Restore notification göstersin mi?
-  maxDraftAge?: number; // Maksimum draft yaşı (ms)
+  autoRestore?: boolean;
+  showNotification?: boolean;
+  maxDraftAge?: number;
 }
 
 /**
  * Draft restore hook - kullanıcı editor'a girdiğinde draft kontrolü yapar
+ * Düzeltmeler: `autoRestore` prop'unun tutarlı okunmasını ve diyalog tetiklemesini daha sağlam hale getirir.
  */
 export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
   const {
-    autoRestore = false,
+    autoRestore = false, // Bu varsayılan değer önemli
     showNotification = true,
     maxDraftAge = 7 * 24 * 60 * 60 * 1000 // 7 gün
   } = options;
 
-  // Debugging log: Hook başlatıldığında autoRestore değeri ve sayım
+  // Options prop'unun en güncel değerini bir ref içinde tut
+  // Bu, callback'ler ve efektler içinde her zaman doğru değere erişimi garanti eder.
+  const optionsRef = useRef(options);
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
+
   console.count('useDraftRestore initialization'); 
   console.log('useDraftRestore: Hook initialized with autoRestore =', autoRestore);
 
@@ -47,7 +54,9 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
 
   // Aktif foto için draft kontrolü
   const checkForDraft = useCallback(async () => {
-    console.log('checkForDraft: Executing with autoRestore =', autoRestore);
+    // `autoRestore` değerini `optionsRef` üzerinden güvenli bir şekilde al.
+    const currentAutoRestore = optionsRef.current.autoRestore ?? false;
+    console.log('checkForDraft: Executing with currentAutoRestore =', currentAutoRestore);
 
     if (!activePhoto) {
       // Fotoğraf yoksa, pendingDraft'ı sıfırla ve diyalogu gizle
@@ -69,7 +78,6 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
     if (draftAge > maxDraftAge) {
       console.log('🗑️ Old draft found, cleaning up:', activePhoto.id);
       clearDraftForPhoto(activePhoto.id);
-      // Eski taslak temizlendi, pendingDraft'ı sıfırla ve diyalogu gizle
       setPendingDraft(null);
       DialogService.hide();
       return;
@@ -77,13 +85,12 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
 
     console.log('📂 Draft found for photo:', activePhoto.id, 'Age:', Math.round(draftAge / 60000), 'minutes');
 
-    if (autoRestore) {
+    if (currentAutoRestore) { // `optionsRef`'ten alınan değeri kullan
       // Otomatik restore
-      console.log('checkForDraft: autoRestore is TRUE, performing automatic restore.');
+      console.log('checkForDraft: currentAutoRestore is TRUE, performing automatic restore.');
       restoreFromDraft(draft);
-      // Otomatik restore yapıldığı için pendingDraft'ı sıfırla ve diyalogu gizle
-      setPendingDraft(null);
-      DialogService.hide(); 
+      setPendingDraft(null); // Otomatik restore yapıldığı için pendingDraft'ı sıfırla
+      DialogService.hide(); // Diyaloğu gizle
 
       if (showNotification) { 
         ToastService.show({
@@ -94,10 +101,10 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
       }
     } else {
       // Manuel restore seçeneği sun
-      console.log('checkForDraft: autoRestore is FALSE, setting pendingDraft to prompt user.');
-      setPendingDraft(draft); // Set pendingDraft to trigger dialog via useEffect
+      console.log('checkForDraft: currentAutoRestore is FALSE, setting pendingDraft to prompt user.');
+      setPendingDraft(draft); // Dialogu tetiklemek için pendingDraft'ı set et
     }
-  }, [activePhoto, loadDraftForPhoto, maxDraftAge, autoRestore, restoreFromDraft, showNotification, clearDraftForPhoto]);
+  }, [activePhoto, loadDraftForPhoto, maxDraftAge, restoreFromDraft, showNotification, clearDraftForPhoto]); // `autoRestore` bağımlılıklardan kaldırıldı, çünkü ref'ten okunuyor
 
   // Tüm draft'ları güncelle
   const refreshDrafts = useCallback(() => {
@@ -164,25 +171,27 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
 
   // Pop-up gösterme ve gizleme mantığı (pendingDraft'e bağlı)
   useEffect(() => {
-    if (autoRestore) {
-      // autoRestore TRUE ise, dialog state'lerini temizle ve gizle.
-      // Bu, overlay'in yanlışlıkla görünmesini önler.
-      if (pendingDraft) { // Eğer bir şekilde pendingDraft set edildiyse, temizle.
-        console.log('useDraftRestore: autoRestore is TRUE, but pendingDraft is set. Forcing hide.');
-        setPendingDraft(null);
-      }
-      DialogService.hide(); // Her durumda diyalogu gizle
-      return; 
-    }
+    // `autoRestore` değerini her zaman en güncel `optionsRef` üzerinden al.
+    const currentAutoRestore = optionsRef.current.autoRestore ?? false;
 
-    // autoRestore FALSE ise (manuel onay modu)
-    if (pendingDraft) { 
+    if (pendingDraft) {
+      // Eğer pendingDraft ayarlanmışsa ama autoRestore TRUE ise, bu bir tutarsızlık
+      // ve diyaloğu gizlememiz gerekir. Bu durum, Strict Mode'da veya hızlı re-render'larda olabilir.
+      if (currentAutoRestore) {
+        console.warn('⚠️ useDraftRestore: pendingDraft set but autoRestore is TRUE. Forcing hide.');
+        setPendingDraft(null); // Pending draft'ı temizle
+        DialogService.hide(); // Diyaloğu gizle
+        return; // İşleme devam etme
+      }
+
+      // Eğer `autoRestore` gerçekten `FALSE` ise (manuel onay modu), diyalogu göster
       const draftAge = Date.now() - pendingDraft.timestamp;
       const ageMinutes = Math.round(draftAge / 60000);
       const ageText = ageMinutes < 60 
         ? `${ageMinutes} dakika önce`
         : `${Math.round(ageMinutes / 60)} saat önce`;
 
+      console.log('✅ useDraftRestore: Showing dialog for pending draft (currentAutoRestore is FALSE).');
       DialogService.show({
         title: 'Kaydedilmemiş Değişiklikler',
         message: `Bu fotoğraf için ${ageText} kaydedilmemiş değişiklikler bulundu. Geri yüklemek ister misiniz?`,
@@ -201,9 +210,26 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
       });
     } else {
       // pendingDraft yoksa diyalogu gizle
+      console.log('ℹ️ useDraftRestore: Hiding dialog (no pending draft).');
       DialogService.hide();
     }
-  }, [pendingDraft, autoRestore, handleManualRestore, handleRejectRestore]);
+  }, [pendingDraft, handleManualRestore, handleRejectRestore]); // `optionsRef.current.autoRestore` buraya doğrudan eklendiğinde gereksiz döngülere neden olabilir, `optionsRef` kullanımı bu durumu yönetir.
+
+  // Bu efekt, `autoRestore` prop'unun değeri değiştiğinde (örn: Strict Mode'da ilk renderdan sonra gerçek prop geldiğinde)
+  // potansiyel olarak açık kalmış bir diyalogu kapatmak için ekstra bir güvenlik katmanı sağlar.
+  useEffect(() => {
+    // Bu kontrolün sadece `optionsRef.current.autoRestore`'un değişmesi durumunda tetiklenmesi için bağımlılıklara eklenmeli.
+    // Ancak, `pendingDraft`'ın da değişmesi durumunda bu efektin çalışması önemlidir.
+    const currentAutoRestore = optionsRef.current.autoRestore ?? false;
+    if (currentAutoRestore) {
+      if (pendingDraft) { // autoRestore TRUE olduğunda pendingDraft set edildiyse temizle
+        console.log('useDraftRestore: autoRestore turned TRUE, clearing pendingDraft and hiding dialog.');
+        setPendingDraft(null);
+      }
+      // Her durumda diyalogu gizle, çünkü autoRestore true ise diyalog gösterilmemelidir.
+      DialogService.hide(); 
+    }
+  }, [optionsRef.current.autoRestore, pendingDraft]); // Hem `autoRestore`'un değişimi hem de `pendingDraft`'ın değişimi bu efekti tetikleyebilir.
 
   return {
     // State

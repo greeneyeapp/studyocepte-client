@@ -11,7 +11,7 @@ import { useProductStore } from '@/stores/useProductStore';
 import { useExportManager } from '@/features/editor/hooks/useExportManager';
 import { useScrollManager } from '@/features/editor/hooks/useScrollManager';
 import { useEditorAutoSave } from '@/features/editor/hooks/useEditorAutoSave';
-import { useDraftRestore } from '@/features/editor/hooks/useDraftRestore'; // Correct import
+import { useDraftRestore } from '@/features/editor/hooks/useDraftRestore';
 import { useBackgroundPreloader } from '@/features/editor/hooks/useBackgroundPreloader';
 
 import { EditorHeader } from '@/features/editor/components/EditorHeader';
@@ -33,7 +33,13 @@ import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
 import { ExportPreset } from '@/features/editor/config/exportTools';
 import { ToastService } from '@/components/Toast/ToastService';
 import { imageProcessor } from '@/services/imageProcessor';
-import { backgroundThumbnailManager }  from '@/services/backgroundThumbnailManager'; // Correct import
+import { backgroundThumbnailManager }  from '@/services/backgroundThumbnailManager'; 
+
+// Yeni eklenen importlar:
+import { DialogService } from '@/components/Dialog/DialogService';
+import { InputDialogService } from '@/components/Dialog/InputDialogService';
+import { BottomSheetService } from '@/components/BottomSheet/BottomSheetService';
+
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -202,6 +208,11 @@ export default function EnhancedEditorScreen() {
           
           clearStore();
           imageProcessor.optimizeMemoryUsage();
+          // EKLENEN KISIM: Global UI servislerini manuel olarak gizle
+          DialogService.hide();
+          InputDialogService.hide();
+          ToastService.hide();
+          BottomSheetService.hide();
         };
     }, [photoId, productId, getProductById, setActivePhoto, clearStore, router]);
 
