@@ -1,37 +1,79 @@
-// services/imageProcessor.ts - EKSİK FONKSİYON DÜZELTİLMİŞ VERSİYON
-import { manipulateAsync, SaveFormat, FlipType } from 'expo-image-manipulator';
+// services/imageProcessor.ts - KALİCİ DOSYA YÖNETİMİ İLE DÜZELTİLMİŞ VERSİYON
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 import { captureRef } from 'react-native-view-shot';
 import { EditorSettings } from '@/stores/useEnhancedEditorStore';
 
 export const imageProcessor = {
   /**
-   * Verilen bir görüntüden düşük kaliteli bir thumbnail oluşturur.
-   * @param originalUri Orijinal resmin URI'si (file:// veya data: formatında)
-   * @returns Thumbnail'in yeni URI'si (file://)
+   * DÜZELTME: Kalıcı thumbnail oluştur ve geçici dosyayı hemen temizle
    */
   createThumbnail: async (originalUri: string, format: 'jpeg' | 'png'): Promise<string> => {
     const saveFormat = format === 'png' ? SaveFormat.PNG : SaveFormat.JPEG;
 
     try {
-      const result = await manipulateAsync(
+      // Geçici thumbnail oluştur
+      const tempResult = await manipulateAsync(
         originalUri,
         [{ resize: { width: 300 } }],
         { compress: 0.7, format: saveFormat }
       );
-      return result.uri;
+
+      console.log('🖼️ Temporary thumbnail created:', tempResult.uri);
+
+      // DÜZELTME: Geçici dosyayı kalıcı konuma taşı
+      const permanentUri = await imageProcessor.moveToDocuments(
+        tempResult.uri,
+        `thumb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${format}`
+      );
+
+      console.log('✅ Thumbnail moved to permanent location:', permanentUri);
+      return permanentUri;
+
     } catch (error) {
-      console.error('Thumbnail oluşturma hatası:', error);
+      console.error('❌ Thumbnail creation failed:', error);
       throw new Error('Thumbnail oluşturulamadı');
     }
   },
 
   /**
-   * YENİ: Editor ayarları uygulanmış filtered thumbnail oluşturur
-   * @param originalUri Orijinal fotoğraf URI'si
-   * @param editorSettings Editor'da yapılan ayarlar
-   * @param backgroundUri Arka plan URI'si (opsiyonel)
-   * @returns Filtered thumbnail URI'si
+   * YENİ: Geçici dosyayı Documents klasörüne taşı
+   */
+  moveToDocuments: async (tempUri: string, filename: string): Promise<string> => {
+    try {
+      const documentsDir = FileSystem.documentDirectory + 'temp_images/';
+      
+      // Documents içinde temp klasörü oluştur
+      const dirInfo = await FileSystem.getInfoAsync(documentsDir);
+      if (!dirInfo.exists) {
+        await FileSystem.makeDirectoryAsync(documentsDir, { intermediates: true });
+      }
+
+      const permanentUri = documentsDir + filename;
+
+      // Dosyayı kopyala
+      await FileSystem.copyAsync({
+        from: tempUri,
+        to: permanentUri
+      });
+
+      // Geçici dosyayı sil
+      try {
+        await FileSystem.deleteAsync(tempUri, { idempotent: true });
+      } catch (cleanupError) {
+        console.warn('⚠️ Failed to cleanup temp file:', cleanupError);
+      }
+
+      return permanentUri;
+
+    } catch (error) {
+      console.error('❌ Failed to move to documents:', error);
+      throw new Error('Dosya kalıcı konuma taşınamadı');
+    }
+  },
+
+  /**
+   * DÜZELTME: Filtered thumbnail oluştur - kalıcı dosya yönetimi ile
    */
   createFilteredThumbnail: async (
     originalUri: string,
@@ -44,24 +86,39 @@ export const imageProcessor = {
         settingsKeys: Object.keys(editorSettings)
       });
 
-      // Temel resize işlemi - thumbnail boyutunda
-      const resizedResult = await manipulateAsync(
+      // Geçici resize işlemi
+      const tempResized = await manipulateAsync(
         originalUri,
-        [{ resize: { width: 300, height: 300 } }], // Kare thumbnail
+        [{ resize: { width: 300, height: 300 } }],
         { 
           compress: 0.8, 
-          format: SaveFormat.PNG // Alpha channel için PNG
+          format: SaveFormat.PNG
         }
       );
 
-      // CSS filter benzeri manipulasyonlar uygula
-      const filteredResult = await imageProcessor.applyBasicFilters( 
-        resizedResult.uri,
+      // Temel filter'ları uygula
+      const tempFiltered = await imageProcessor.applyBasicFilters( 
+        tempResized.uri,
         editorSettings
       );
 
+      // DÜZELTME: Kalıcı konuma taşı
+      const permanentUri = await imageProcessor.moveToDocuments(
+        tempFiltered,
+        `filtered_thumb_${Date.now()}.png`
+      );
+
+      // Eğer farklı dosyalarsa geçici dosyayı da temizle
+      if (tempFiltered !== tempResized.uri) {
+        try {
+          await FileSystem.deleteAsync(tempFiltered, { idempotent: true });
+        } catch (error) {
+          console.warn('⚠️ Cleanup warning:', error);
+        }
+      }
+
       console.log('✅ Filtered thumbnail created successfully');
-      return filteredResult;
+      return permanentUri;
 
     } catch (error) {
       console.error('❌ Filtered thumbnail creation failed:', error);
@@ -71,10 +128,7 @@ export const imageProcessor = {
   },
 
   /**
-   * YENİ: Temel filter'ları manipulateAsync ile uygula
-   * @param imageUri Görüntü URI'si
-   * @param settings Editor ayarları
-   * @returns Filtered görüntü URI'si
+   * DÜZELTME: Temel filter'ları uygula ve kalıcı dosya döndür
    */
   applyBasicFilters: async (
     imageUri: string,
@@ -90,12 +144,9 @@ export const imageProcessor = {
         });
       }
 
-      // Temel manipülasyonlar
-      let finalUri = imageUri;
-
       // Manipülasyonlar varsa uygula
       if (actions.length > 0) {
-        const result = await manipulateAsync(
+        const tempResult = await manipulateAsync(
           imageUri,
           actions,
           { 
@@ -103,22 +154,26 @@ export const imageProcessor = {
             format: SaveFormat.PNG 
           }
         );
-        finalUri = result.uri;
+
+        // DÜZELTME: Kalıcı konuma taşı
+        const permanentUri = await imageProcessor.moveToDocuments(
+          tempResult.uri,
+          `filtered_${Date.now()}.png`
+        );
+
+        return permanentUri;
       }
       
-      return finalUri;
+      return imageUri; // Değişiklik yoksa orijinal URI döndür
 
     } catch (error) {
-      console.error('Filter application failed:', error);
+      console.error('❌ Filter application failed:', error);
       return imageUri; // Fallback: orijinal URI döndür
     }
   },
 
   /**
-   * YENİ: View component'inden filtered thumbnail capture
-   * @param viewRef React ref to the preview component
-   * @param targetSize Thumbnail boyutu
-   * @returns Captured thumbnail URI
+   * DÜZELTME: View component'inden kalıcı thumbnail capture
    */
   captureFilteredThumbnail: async (
     viewRef: any,
@@ -131,7 +186,8 @@ export const imageProcessor = {
 
       console.log('📸 Capturing filtered thumbnail from view...');
 
-      const capturedUri = await captureRef(viewRef, {
+      // Geçici capture
+      const tempCaptured = await captureRef(viewRef, {
         format: 'png',
         quality: 0.8,
         width: targetSize.width,
@@ -139,8 +195,15 @@ export const imageProcessor = {
         result: 'tmpfile',
       });
 
-      console.log('✅ View captured successfully:', capturedUri);
-      return capturedUri;
+      console.log('✅ View captured successfully:', tempCaptured);
+
+      // DÜZELTME: Kalıcı konuma taşı
+      const permanentUri = await imageProcessor.moveToDocuments(
+        tempCaptured,
+        `captured_thumb_${Date.now()}.png`
+      );
+
+      return permanentUri;
 
     } catch (error) {
       console.error('❌ View capture failed:', error);
@@ -149,38 +212,7 @@ export const imageProcessor = {
   },
 
   /**
-   * Base64 verisini geçici dosyaya yazar ve URI döndürür
-   * @param base64Data Base64 formatında veri
-   * @param filename Dosya adı
-   * @returns Geçici dosyanın URI'si
-   */
-  base64ToTempFile: async (base64Data: string, filename: string = `temp_${Date.now()}.png`): Promise<string> => {
-    try {
-      const tempUri = FileSystem.cacheDirectory + filename;
-
-      await FileSystem.writeAsStringAsync(tempUri, base64Data, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      // Dosyanın oluştuğunu kontrol et
-      const fileInfo = await FileSystem.getInfoAsync(tempUri);
-      if (!fileInfo.exists) {
-        throw new Error('Geçici dosya oluşturulamadı');
-      }
-
-      return tempUri;
-    } catch (error) {
-      console.error('Base64 dosya dönüştürme hatası:', error);
-      throw new Error('Base64 verisi dosyaya dönüştürülemedi');
-    }
-  },
-
-  /**
-   * YENİ: Kalıcı thumbnail dosyası oluştur ve kaydet
-   * @param productId Ürün ID'si
-   * @param photoId Fotoğraf ID'si
-   * @param sourceUri Kaynak URI (geçici veya kalıcı)
-   * @returns Kalıcı thumbnail URI'si
+   * DÜZELTME: Kalıcı thumbnail dosyası oluştur ve doğru dosya sistemine kaydet
    */
   saveFilteredThumbnail: async (
     productId: string,
@@ -188,19 +220,29 @@ export const imageProcessor = {
     sourceUri: string
   ): Promise<string> => {
     try {
+      // fileSystemManager'ı dynamic import ile al
       const { fileSystemManager } = await import('@/services/fileSystemManager');
       
       // Filtered thumbnail için özel dosya adı
       const thumbnailFilename = `thumb_filtered_${photoId}.png`;
       
-      // Kalıcı konuma kaydet
+      // DÜZELTME: fileSystemManager kullanarak kalıcı ürün klasörüne kaydet
       const permanentUri = await fileSystemManager.saveImage(
         productId,
         sourceUri,
         thumbnailFilename
       );
 
-      console.log('💾 Filtered thumbnail saved:', {
+      // Kaynak dosya geçici konumdaysa sil
+      if (sourceUri.includes('temp_images/') || sourceUri.includes('cache/')) {
+        try {
+          await FileSystem.deleteAsync(sourceUri, { idempotent: true });
+        } catch (cleanupError) {
+          console.warn('⚠️ Source cleanup warning:', cleanupError);
+        }
+      }
+
+      console.log('💾 Filtered thumbnail saved permanently:', {
         photoId,
         filename: thumbnailFilename,
         uri: permanentUri
@@ -215,96 +257,106 @@ export const imageProcessor = {
   },
 
   /**
-   * İki fotoğrafı karşılaştırmak için yan yana koyar
-   * @param leftUri Sol taraftaki fotoğraf URI'si
-   * @param rightUri Sağ taraftaki fotoğraf URI'si
-   * @param width Toplam genişlik
-   * @param height Yükseklik
-   * @returns Birleştirilmiş fotoğrafın URI'si
+   * Base64 verisini kalıcı dosyaya yazar
    */
-  createBeforeAfterComparison: async (
-    leftUri: string,
-    rightUri: string,
-    width: number = 600,
-    height: number = 400
-  ): Promise<string> => {
+  base64ToTempFile: async (base64Data: string, filename: string = `temp_${Date.now()}.png`): Promise<string> => {
     try {
-      const halfWidth = width / 2;
+      // DÜZELTME: Documents klasörüne kaydet, cache'e değil
+      const documentsDir = FileSystem.documentDirectory + 'temp_images/';
+      
+      // Klasörü oluştur
+      const dirInfo = await FileSystem.getInfoAsync(documentsDir);
+      if (!dirInfo.exists) {
+        await FileSystem.makeDirectoryAsync(documentsDir, { intermediates: true });
+      }
 
-      // Sol fotoğrafı resize et
-      const leftResult = await manipulateAsync(
-        leftUri,
-        [
-          { resize: { width: halfWidth, height } }
-        ],
-        {
-          compress: 0.8,
-          format: SaveFormat.JPEG,
-        }
-      );
+      const permanentUri = documentsDir + filename;
 
-      // Sağ fotoğrafı resize et
-      const rightResult = await manipulateAsync(
-        rightUri,
-        [
-          { resize: { width: halfWidth, height } }
-        ],
-        {
-          compress: 0.8,
-          format: SaveFormat.JPEG,
-        }
-      );
+      await FileSystem.writeAsStringAsync(permanentUri, base64Data, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
-      // Canvas-like işlemler React Native'de mümkün olmadığı için
-      // bu özellik gelecekte native modül veya farklı kütüphane ile yapılabilir
-      // Şimdilik sadece sol fotoğrafı döndürelim
-      return leftResult.uri;
+      // Dosyanın oluştuğunu kontrol et
+      const fileInfo = await FileSystem.getInfoAsync(permanentUri);
+      if (!fileInfo.exists) {
+        throw new Error('Dosya oluşturulamadı');
+      }
+
+      console.log('✅ Base64 file saved permanently:', permanentUri);
+      return permanentUri;
 
     } catch (error) {
-      console.error('Karşılaştırma fotoğrafı oluşturma hatası:', error);
-      throw new Error('Karşılaştırma fotoğrafı oluşturulamadı');
+      console.error('❌ Base64 file conversion failed:', error);
+      throw new Error('Base64 verisi dosyaya dönüştürülemedi');
     }
   },
 
   /**
-   * DÜZELTME: Geçici dosyaları temizler - GÜVENLİ VERSİYON
+   * DÜZELTME: Sadece gerçek geçici dosyaları temizle
    */
   cleanupTempFiles: async (): Promise<void> => {
     try {
+      // Cache klasöründeki ImageManipulator dosyalarını temizle
       const cacheDir = FileSystem.cacheDirectory;
-      if (!cacheDir) return;
+      if (cacheDir) {
+        const cacheFiles = await FileSystem.readDirectoryAsync(cacheDir);
+        const tempCacheFiles = cacheFiles.filter(file => 
+          file.includes('ImageManipulator') ||
+          file.startsWith('temp_') ||
+          file.startsWith('captured_')
+        );
 
-      const files = await FileSystem.readDirectoryAsync(cacheDir);
-      const tempFiles = files.filter(file => 
-        file.startsWith('temp_') || 
-        file.startsWith('captured_') ||
-        file.startsWith('filtered_') ||
-        file.startsWith('ImageManipulator') // Expo'nun geçici dosyaları
-      );
+        const cacheDeletePromises = tempCacheFiles.map(file =>
+          FileSystem.deleteAsync(cacheDir + file, { idempotent: true })
+            .catch(error => console.warn('⚠️ Cache cleanup warning:', file, error))
+        );
 
-      // Her dosyayı ayrı ayrı sil, hata durumunda diğerlerini etkilemesin
-      const deletePromises = tempFiles.map(file =>
-        FileSystem.deleteAsync(cacheDir + file, { idempotent: true })
-          .catch(error => {
-            console.warn('⚠️ Failed to delete temp file:', file, error);
-          })
-      );
+        await Promise.allSettled(cacheDeletePromises);
+      }
 
-      await Promise.allSettled(deletePromises);
+      // Documents/temp_images klasöründeki eski dosyaları temizle (7 günden eski)
+      const tempImagesDir = FileSystem.documentDirectory + 'temp_images/';
+      const dirInfo = await FileSystem.getInfoAsync(tempImagesDir);
+      
+      if (dirInfo.exists) {
+        const tempFiles = await FileSystem.readDirectoryAsync(tempImagesDir);
+        const now = Date.now();
+        const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 gün
 
-      console.log(`🧹 ${tempFiles.length} geçici dosya temizlendi`);
+        const oldFilePromises = tempFiles.map(async (file) => {
+          try {
+            const fileUri = tempImagesDir + file;
+            const fileInfo = await FileSystem.getInfoAsync(fileUri);
+            
+            if (fileInfo.exists && fileInfo.modificationTime) {
+              const fileAge = now - fileInfo.modificationTime * 1000;
+              if (fileAge > maxAge) {
+                await FileSystem.deleteAsync(fileUri, { idempotent: true });
+                console.log('🗑️ Old temp file deleted:', file);
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ Old file cleanup warning:', file, error);
+          }
+        });
+
+        await Promise.allSettled(oldFilePromises);
+      }
+
+      console.log('🧹 Temp files cleanup completed');
+
     } catch (error) {
-      console.warn('⚠️ Geçici dosya temizleme hatası:', error);
+      console.warn('⚠️ Cleanup warning:', error);
     }
   },
 
   /**
-   * DÜZELTME: Memory usage optimization - GÜVENLİ VERSİYON
+   * Memory optimization - sadece gerçek cache'i temizle
    */
   optimizeMemoryUsage: async (): Promise<void> => {
     try {
       // Geçici dosyaları temizle
-      await imageProcessor.cleanupTempFiles(); // DÜZELTME: this.cleanupTempFiles() -> imageProcessor.cleanupTempFiles()
+      await imageProcessor.cleanupTempFiles();
       
       // JavaScript garbage collection'ı tetikle (sadece debug için)
       if (__DEV__ && global.gc) {
@@ -315,4 +367,27 @@ export const imageProcessor = {
       console.warn('⚠️ Image processor memory optimization failed:', error);
     }
   },
+
+  /**
+   * YENİ: Dosya varlık kontrolü ve recovery
+   */
+  validateAndRecoverFile: async (uri: string): Promise<string | null> => {
+    try {
+      if (!uri) return null;
+
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      if (fileInfo.exists) {
+        return uri; // Dosya mevcut
+      }
+
+      console.warn('⚠️ File not found, attempting recovery:', uri);
+      
+      // Dosya yoksa null döndür (recovery logic gelecekte eklenebilir)
+      return null;
+
+    } catch (error) {
+      console.warn('⚠️ File validation failed:', uri, error);
+      return null;
+    }
+  }
 };

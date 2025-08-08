@@ -1,4 +1,4 @@
-// app/(tabs)/editor/[photoId].tsx - BACKGROUND SECTION ENTEGRASYONLu VERSİYON
+// app/(tabs)/editor/[photoId].tsx - DİNAMİK DRAFT RESTORE İLE TAM KOD
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, LayoutAnimation, UIManager, Platform, AppState, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -35,11 +35,9 @@ import { ToastService } from '@/components/Toast/ToastService';
 import { imageProcessor } from '@/services/imageProcessor';
 import { backgroundThumbnailManager }  from '@/services/backgroundThumbnailManager'; 
 
-// Yeni eklenen importlar:
 import { DialogService } from '@/components/Dialog/DialogService';
 import { InputDialogService } from '@/components/Dialog/InputDialogService';
 import { BottomSheetService } from '@/components/BottomSheet/BottomSheetService';
-
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -83,14 +81,15 @@ export default function EnhancedEditorScreen() {
       resetAllSettings,
       saveDraft,
       clearDraft,
-      autoSaveEnabled,
-      performAutoSave
+      autoSaveEnabled, // ✅ ÖNEMLI: Auto-save durumu
+      performAutoSave,
+      setAutoSaveEnabled // ✅ ÖNEMLI: Auto-save control
     } = store;
     
     const applyCrop = useEnhancedEditorStore((state) => state.applyCrop);
     const getProductById = useProductStore(state => state.getProductById);
 
-    // ===== DRAFT SYSTEM HOOKS (Calls moved to top level) =====
+    // ===== DRAFT SYSTEM HOOKS (DİNAMİK AYARLAR İLE) =====
     const autoSaveStatus = useEditorAutoSave({
       intervalMs: 30000,
       onAppBackground: true,
@@ -98,22 +97,22 @@ export default function EnhancedEditorScreen() {
       debounceMs: 2000
     });
     
+    // ✅ DİNAMİK DRAFT RESTORE AYARLARI
     const draftRestore = useDraftRestore({
-      autoRestore: true, 
-      showNotification: false, // DEĞİŞİKLİK: Burası false yapıldı (Toast'u kaldırmak için)
-      maxDraftAge: 7 * 24 * 60 * 60 * 1000
+      autoRestore: autoSaveEnabled, // Auto-save açıksa otomatik restore
+      showNotification: !autoSaveEnabled, // Auto-save kapalıysa bildirim göster
+      maxDraftAge: 7 * 24 * 60 * 60 * 1000 // 7 gün
     });
 
-    // ===== YENİ: BACKGROUND PRELOADER HOOK (Call moved to top level) =====
+    // ===== BACKGROUND PRELOADER HOOK =====
     const backgroundPreloader = useBackgroundPreloader(staticBackgrounds, {
       enabled: true,
       priority: 'low',
       maxConcurrent: 2,
-      delayMs: 2000 // Editor yüklendikten 2 saniye sonra başla
+      delayMs: 2000
     });
 
     // ===== STATE =====
-    
     const [activeTool, setActiveTool] = useState<ToolType>('adjust');
     const [activeTarget, setActiveTarget] = useState<TargetType>('product');
     const [activeFeature, setActiveFeature] = useState<string | null>(null);
@@ -122,18 +121,15 @@ export default function EnhancedEditorScreen() {
     const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
     const [selectedPreset, setSelectedPreset] = useState<ExportPreset | null>(null);
     const [showDraftManager, setShowDraftManager] = useState(false);
-    
-    // YENİ: Cache status monitoring (dev mode)
     const [cacheStatus, setCacheStatus] = useState<any>(null);
 
     const { isExporting, shareWithOption, skiaViewRef } = useExportManager();
     const { currentScrollRef } = useScrollManager({ activeTool, activeTarget, activeFeature, isSliderActive });
     const previewRef = useRef<View>(null);
 
-    // ===== BACKGROUND CACHE MONITORING (Döngüyü önlemek için düzenlendi) =====
+    // ===== BACKGROUND CACHE MONITORING =====
     useEffect(() => {
       if (__DEV__) {
-        // Init status'u al ve logla
         const initialStatus = backgroundThumbnailManager.getCacheStats();
         setCacheStatus({
           totalBackgrounds: staticBackgrounds?.length || 0,
@@ -141,11 +137,10 @@ export default function EnhancedEditorScreen() {
           cacheSize: initialStatus.totalSize,
           isFullyCached: initialStatus.itemCount >= (staticBackgrounds?.length || 0),
           cacheStats: initialStatus,
-          preloadStatus: backgroundPreloader.preloadStatus // Preloader'dan güncel status'ü al
+          preloadStatus: backgroundPreloader.preloadStatus
         });
         console.log('📊 Background cache status (initial):', initialStatus);
 
-        // Her 10 saniyede bir güncellemeyi ayarla
         const interval = setInterval(() => {
           const currentStatus = backgroundThumbnailManager.getCacheStats();
           setCacheStatus({
@@ -154,18 +149,15 @@ export default function EnhancedEditorScreen() {
             cacheSize: currentStatus.totalSize,
             isFullyCached: currentStatus.itemCount >= (staticBackgrounds?.length || 0),
             cacheStats: currentStatus,
-            preloadStatus: backgroundPreloader.preloadStatus // Preloader'dan güncel status'ü al
+            preloadStatus: backgroundPreloader.preloadStatus
           });
-          console.log('📊 Background cache status:', currentStatus);
         }, 10000);
 
-        // Component unmount olduğunda interval'i temizle
         return () => clearInterval(interval);
       }
-    }, [backgroundPreloader.preloadStatus]); // Sadece preloader'ın kendi preloadStatus'u değiştiğinde tetiklensin
+    }, [backgroundPreloader.preloadStatus]);
 
     // ===== MEMORY OPTIMIZATION =====
-    
     useEffect(() => {
       const handleAppStateChange = (nextAppState: string) => {
         if (nextAppState === 'background') {
@@ -178,10 +170,9 @@ export default function EnhancedEditorScreen() {
       return () => subscription?.remove();
     }, [backgroundPreloader]);
 
-    // ===== PHOTO LOADING EFFECT (Mount/Unmount logları eklendi) =====
-    
+    // ===== PHOTO LOADING EFFECT =====
     useEffect(() => {
-        console.log('✨ EnhancedEditorScreen mounted!'); // Mount logu
+        console.log('✨ EnhancedEditorScreen mounted!');
         if (photoId && productId) {
           const product = getProductById(productId);
           const photo = product?.photos.find(p => p.id === photoId);
@@ -190,7 +181,7 @@ export default function EnhancedEditorScreen() {
               photoId: photo.id,
               draftSystem: 'enabled',
               backgroundCache: 'enabled',
-              autoSave: 'enabled'
+              autoSave: autoSaveEnabled ? 'enabled' : 'disabled'
             });
             setActivePhoto(photo);
           } else {
@@ -199,7 +190,7 @@ export default function EnhancedEditorScreen() {
         }
         
         return () => {
-          console.log('🗑️ EnhancedEditorScreen unmounted!'); // Unmount logu
+          console.log('🗑️ EnhancedEditorScreen unmounted!');
           const state = useEnhancedEditorStore.getState();
           if (state.activePhoto && state.hasDraftChanges) {
             console.log('🔄 Component unmounting, saving draft...');
@@ -208,16 +199,14 @@ export default function EnhancedEditorScreen() {
           
           clearStore();
           imageProcessor.optimizeMemoryUsage();
-          // EKLENEN KISIM: Global UI servislerini manuel olarak gizle
           DialogService.hide();
           InputDialogService.hide();
           ToastService.hide();
           BottomSheetService.hide();
         };
-    }, [photoId, productId, getProductById, setActivePhoto, clearStore, router]);
+    }, [photoId, productId, getProductById, setActivePhoto, clearStore, router, autoSaveEnabled]);
 
     // ===== HANDLERS =====
-    
     const animateLayout = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     
     const handleToolChange = (tool: ToolType) => {
@@ -284,6 +273,21 @@ export default function EnhancedEditorScreen() {
       autoSaveStatus.forceAutoSave();
     };
 
+    // ✅ YENİ: Auto-save toggle handler
+    const handleAutoSaveToggle = () => {
+      const newState = !autoSaveEnabled;
+      setAutoSaveEnabled(newState);
+      console.log('🔄 Auto-save toggled:', newState ? 'ON' : 'OFF');
+      
+      ToastService.show({
+        type: 'info',
+        text1: 'Auto-Save ' + (newState ? 'Açıldı' : 'Kapatıldı'),
+        text2: newState 
+          ? 'Değişiklikler otomatik kaydedilecek' 
+          : 'Manuel kayıt gerekli'
+      });
+    };
+
     const handleCancel = () => {
         if (activeTool === 'crop' || activeTool === 'export' || activeFeature) {
           setActiveFeature(null);
@@ -297,14 +301,12 @@ export default function EnhancedEditorScreen() {
         }
     };
 
-    // ===== YENİ: BACKGROUND SECTION RENDER =====
-    
+    // ===== BACKGROUND SECTION RENDER =====
     const renderBackgroundSection = () => {
       if (activeTool !== 'background') return null;
 
       return (
         <View style={styles.backgroundSection}>
-          {/* YENİ: Cache status indicator (dev mode) */}
           {__DEV__ && cacheStatus && (
             <View style={styles.cacheStatusBar}>
               <Text style={styles.cacheStatusText}>
@@ -321,7 +323,6 @@ export default function EnhancedEditorScreen() {
             </View>
           )}
 
-          {/* Background buttons */}
           <ScrollView 
             ref={currentScrollRef} 
             horizontal 
@@ -342,7 +343,6 @@ export default function EnhancedEditorScreen() {
             )}
           </ScrollView>
 
-          {/* YENİ: Background management controls (dev mode) */}
           {__DEV__ && (
             <View style={styles.backgroundControls}>
               <TouchableOpacity 
@@ -385,7 +385,6 @@ export default function EnhancedEditorScreen() {
     };
 
     // ===== LOADING STATE =====
-    
     if (!activePhoto) {
         return (
           <SafeAreaView style={styles.loadingContainer}>
@@ -401,7 +400,7 @@ export default function EnhancedEditorScreen() {
     return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        {/* Enhanced Header */}
+        {/* ✅ ENHANCED HEADER - AUTO-SAVE DURUMU İLE */}
         <EditorHeader 
           onCancel={handleCancel} 
           onSave={handleSave} 
@@ -415,12 +414,11 @@ export default function EnhancedEditorScreen() {
           hasDraftChanges={hasDraftChanges}
           totalDraftsCount={draftRestore.totalDraftsCount}
           onShowDraftManager={() => setShowDraftManager(true)}
-          autoSaveEnabled={autoSaveEnabled}
+          autoSaveEnabled={autoSaveEnabled} // ✅ Auto-save durumu
           onForceAutoSave={handleForceAutoSave}
         />
         
         <View style={styles.contentWrapper}>
-            {/* Preview */}
             <View style={styles.previewContainer} ref={skiaViewRef} collapsable={false}>
                 <EditorPreview 
                   ref={previewRef}
@@ -436,7 +434,7 @@ export default function EnhancedEditorScreen() {
                 />
             </View>
 
-            {/* Status Indicators */}
+            {/* ✅ STATUS INDICATORS - GELİŞTİRİLMİŞ */}
             {isUpdatingThumbnail && (
               <View style={styles.thumbnailUpdateIndicator}>
                 <ActivityIndicator size="small" color={Colors.primary} />
@@ -444,17 +442,39 @@ export default function EnhancedEditorScreen() {
               </View>
             )}
 
-            {__DEV__ && autoSaveStatus.hasPendingChanges && (
-              <View style={styles.autoSaveIndicator}>
+            {/* ✅ AUTO-SAVE STATUS INDICATOR */}
+            {__DEV__ && (
+              <View style={[
+                styles.autoSaveIndicator,
+                { backgroundColor: autoSaveEnabled ? Colors.success + '90' : Colors.warning + '90' }
+              ]}>
                 <Text style={styles.autoSaveText}>
-                  Auto-save: {autoSaveStatus.isAutoSaveEnabled ? 'ON' : 'OFF'} • 
-                  Son: {new Date(autoSaveStatus.lastSaveAttempt).toLocaleTimeString()}
+                  Auto-save: {autoSaveEnabled ? 'ON' : 'OFF'} • 
+                  Draft: {hasDraftChanges ? 'Var' : 'Yok'} • 
+                  Son: {autoSaveStatus.lastSaveAttempt ? new Date(autoSaveStatus.lastSaveAttempt).toLocaleTimeString() : 'Hiç'}
+                </Text>
+                <TouchableOpacity 
+                  style={styles.autoSaveToggle}
+                  onPress={handleAutoSaveToggle}
+                >
+                  <Text style={styles.autoSaveToggleText}>
+                    {autoSaveEnabled ? 'Kapat' : 'Aç'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* ✅ DRAFT INFO INDICATOR */}
+            {draftRestore.totalDraftsCount > 0 && (
+              <View style={styles.draftInfoIndicator}>
+                <Text style={styles.draftInfoText}>
+                  📄 {draftRestore.totalDraftsCount} taslak • 
+                  Auto-restore: {autoSaveEnabled ? 'Açık' : 'Kapalı'}
                 </Text>
               </View>
             )}
 
             <View style={styles.bottomToolbarContainer}>
-              {/* Crop Toolbar */}
               {activeTool === 'crop' && (
                   <CropToolbar 
                     activeRatio={settings.cropAspectRatio || 'original'} 
@@ -471,7 +491,6 @@ export default function EnhancedEditorScreen() {
                   />
               )}
               
-              {/* Export Toolbar */}
               {activeTool === 'export' && (
                   <View style={styles.fullScreenTool}>
                     <ExportToolbar 
@@ -484,7 +503,6 @@ export default function EnhancedEditorScreen() {
                   </View>
               )}
 
-              {/* Main Tool Content */}
               {activeTool !== 'export' && activeTool !== 'crop' && (
                   <>
                     {(activeTool === 'adjust' || activeTool === 'filter') && !activeFeature && (
@@ -499,7 +517,6 @@ export default function EnhancedEditorScreen() {
                     )}
                     
                     <View style={styles.dynamicToolContainer}>
-                        {/* Slider Mode */}
                         {activeTool === 'adjust' && currentFeatureConfig ? (
                             <CustomSlider 
                               feature={currentFeatureConfig} 
@@ -515,7 +532,6 @@ export default function EnhancedEditorScreen() {
                             />
                         ) : (
                             <>
-                              {/* Adjust Features */}
                               {activeTool === 'adjust' && (
                                 <ScrollView 
                                   ref={currentScrollRef} 
@@ -536,7 +552,6 @@ export default function EnhancedEditorScreen() {
                                 </ScrollView>
                               )}
                               
-                              {/* Filter Previews */}
                               {activeTool === 'filter' && (
                                 <ScrollView 
                                   ref={currentScrollRef} 
@@ -557,7 +572,6 @@ export default function EnhancedEditorScreen() {
                                 </ScrollView>
                               )}
                               
-                              {/* GÜNCELLEME: Background Section - Optimize edilmiş */}
                               {renderBackgroundSection()}
                             </>
                         )}
@@ -565,7 +579,6 @@ export default function EnhancedEditorScreen() {
                   </>
               )}
               
-              {/* Main Toolbar */}
               {activeTool !== 'crop' && (
                 <MainToolbar 
                   activeTool={activeTool} 
@@ -575,7 +588,6 @@ export default function EnhancedEditorScreen() {
             </View>
         </View>
 
-        {/* Draft Manager Modal */}
         <DraftManager 
           visible={showDraftManager}
           onClose={() => setShowDraftManager(false)}
@@ -603,14 +615,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg, borderRadius: 20, marginHorizontal: Spacing.lg, zIndex: 100,
   },
   thumbnailUpdateText: { color: Colors.card, fontSize: 14, fontWeight: '600' },
+  
+  // ✅ GELİŞTİRİLMİŞ AUTO-SAVE INDICATOR
   autoSaveIndicator: {
     position: 'absolute', top: 120, left: Spacing.lg, right: Spacing.lg,
-    backgroundColor: Colors.success + '90', paddingVertical: 4,
-    paddingHorizontal: Spacing.md, borderRadius: 12, zIndex: 90,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 6, paddingHorizontal: Spacing.md, borderRadius: 12, zIndex: 90,
   },
-  autoSaveText: { color: Colors.card, fontSize: 12, fontWeight: '500', textAlign: 'center' },
+  autoSaveText: { 
+    color: Colors.card, fontSize: 11, fontWeight: '500', flex: 1 
+  },
+  autoSaveToggle: {
+    backgroundColor: Colors.card + '30', paddingHorizontal: 8, paddingVertical: 2,
+    borderRadius: 6, marginLeft: Spacing.sm,
+  },
+  autoSaveToggleText: {
+    color: Colors.card, fontSize: 10, fontWeight: '600',
+  },
 
-  // YENİ: Background section styles
+  // ✅ YENİ DRAFT INFO INDICATOR
+  draftInfoIndicator: {
+    position: 'absolute', top: 160, left: Spacing.lg, right: Spacing.lg,
+    backgroundColor: Colors.primary + '80', paddingVertical: 4,
+    paddingHorizontal: Spacing.md, borderRadius: 8, zIndex: 85,
+  },
+  draftInfoText: { 
+    color: Colors.card, fontSize: 10, fontWeight: '500', textAlign: 'center' 
+  },
+
+  // Background section styles
   backgroundSection: { width: '100%', paddingVertical: Spacing.md },
   cacheStatusBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

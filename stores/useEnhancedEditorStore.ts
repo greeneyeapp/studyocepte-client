@@ -112,6 +112,7 @@ interface EditorActions {
   addSnapshotToHistory: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
+  setAutoSaveEnabled: (enabled: boolean) => void;
   applyFilter: (filterKey: string, target: TargetType) => void;
   resetCropAndRotation: () => void;
   applyCrop: () => void;
@@ -497,6 +498,15 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       setAutoSaveEnabled: (enabled: boolean) => {
         set({ autoSaveEnabled: enabled });
         console.log('🔄 Auto-save:', enabled ? 'enabled' : 'disabled');
+        
+        // Auto-save kapatılırken son bir kez kaydet
+        if (!enabled) {
+          const { activePhoto, hasDraftChanges } = get();
+          if (activePhoto && hasDraftChanges) {
+            console.log('💾 Final save before disabling auto-save');
+            get().saveDraftForPhoto(activePhoto.id);
+          }
+        }
       },
 
       setAutoSaveInterval: (intervalMs: number) => {

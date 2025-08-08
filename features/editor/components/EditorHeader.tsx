@@ -1,4 +1,4 @@
-// features/editor/components/EditorHeader.tsx - DRAFT SYSTEM İLE GELİŞTİRİLMİŞ VERSİYON
+// features/editor/components/EditorHeader.tsx - AUTO-SAVE CONTROLS İLE GELİŞTİRİLMİŞ VERSİYON
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -22,11 +22,11 @@ interface EditorHeaderProps {
   isUpdatingThumbnail?: boolean;
   hasDraftChanges?: boolean;
   
-  // YENİ: Draft Manager props
+  // Draft Manager props
   totalDraftsCount?: number;
   onShowDraftManager?: () => void;
   
-  // YENİ: Auto-save props
+  // ✅ YENİ: Auto-save props
   autoSaveEnabled?: boolean;
   onForceAutoSave?: () => void;
 }
@@ -42,10 +42,10 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
   onResetAll,
   isUpdatingThumbnail = false,
   hasDraftChanges = false,
-  // YENİ: Draft props
+  // Draft props
   totalDraftsCount = 0,
   onShowDraftManager,
-  // YENİ: Auto-save props
+  // ✅ YENİ: Auto-save props
   autoSaveEnabled = true,
   onForceAutoSave,
 }) => {
@@ -82,7 +82,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
     return null;
   };
 
-  // YENİ: Draft status badge component
+  // ✅ YENİ: Draft status badge component
   const DraftStatusBadge = () => {
     if (!hasDraftChanges && totalDraftsCount === 0) return null;
     
@@ -111,9 +111,9 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
     );
   };
 
-  // YENİ: Auto-save indicator component
+  // ✅ YENİ: Auto-save indicator component
   const AutoSaveIndicator = () => {
-    if (!autoSaveEnabled && !onForceAutoSave) return null;
+    if (!onForceAutoSave) return null;
     
     return (
       <TouchableOpacity 
@@ -180,7 +180,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* YENİ: Enhanced control row */}
+        {/* ✅ YENİ: Enhanced control row */}
         <View style={styles.controlRow}>
           {/* Reset All butonu */}
           <TouchableOpacity 
@@ -203,10 +203,10 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
             </Text>
           </TouchableOpacity>
 
-          {/* YENİ: Draft status indicators */}
+          {/* ✅ YENİ: Draft status indicators */}
           <DraftStatusBadge />
           
-          {/* YENİ: Auto-save indicator */}
+          {/* ✅ YENİ: Auto-save indicator */}
           <AutoSaveIndicator />
         </View>
       </View>
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
 
-  // YENİ: Control row styles
+  // Control row styles
   controlRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
 
-  // YENİ: Draft status styles
+  // ✅ YENİ: Draft status styles
   draftStatusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
 
-  // YENİ: Auto-save styles
+  // ✅ YENİ: Auto-save styles
   autoSaveButton: {
     flexDirection: 'row',
     alignItems: 'center',
