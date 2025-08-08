@@ -55,7 +55,7 @@ export const imageProcessor = {
       );
 
       // CSS filter benzeri manipulasyonlar uygula
-      const filteredResult = await this.applyBasicFilters(
+      const filteredResult = await imageProcessor.applyBasicFilters( 
         resizedResult.uri,
         editorSettings
       );
@@ -66,7 +66,7 @@ export const imageProcessor = {
     } catch (error) {
       console.error('❌ Filtered thumbnail creation failed:', error);
       // Fallback: normal thumbnail oluştur
-      return await this.createThumbnail(originalUri, 'png');
+      return await imageProcessor.createThumbnail(originalUri, 'png'); 
     }
   },
 
@@ -267,35 +267,6 @@ export const imageProcessor = {
   },
 
   /**
-   * Görüntü boyutlarını alır
-   * @param uri Görüntü URI'si
-   * @returns Genişlik ve yükseklik bilgisi
-   */
-  getImageDimensions: async (uri: string): Promise<{ width: number; height: number }> => {
-    try {
-      const result = await manipulateAsync(
-        uri,
-        [], // Hiçbir manipülasyon yapmadan sadece bilgi al
-        {
-          format: SaveFormat.JPEG,
-        }
-      );
-
-      // ImageManipulator sonucundan boyut bilgisi almak için
-      // getInfoAsync kullanabiliriz (dosya boyutu için)
-      const fileInfo = await FileSystem.getInfoAsync(result.uri);
-
-      // Gerçek boyutları almak için farklı bir kütüphane gerekebilir
-      // Şimdilik varsayılan değerler döndürelim
-      return { width: 1000, height: 1000 };
-
-    } catch (error) {
-      console.error('Görüntü boyutu alınamadı:', error);
-      return { width: 1000, height: 1000 }; // Varsayılan değer
-    }
-  },
-
-  /**
    * DÜZELTME: Geçici dosyaları temizler - GÜVENLİ VERSİYON
    */
   cleanupTempFiles: async (): Promise<void> => {
@@ -333,7 +304,7 @@ export const imageProcessor = {
   optimizeMemoryUsage: async (): Promise<void> => {
     try {
       // Geçici dosyaları temizle
-      await this.cleanupTempFiles();
+      await imageProcessor.cleanupTempFiles(); // DÜZELTME: this.cleanupTempFiles() -> imageProcessor.cleanupTempFiles()
       
       // JavaScript garbage collection'ı tetikle (sadece debug için)
       if (__DEV__ && global.gc) {

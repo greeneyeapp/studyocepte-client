@@ -177,6 +177,13 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       // ===== TEMEL EDITOR ACTIONS =====
 
       setActivePhoto: (photo: ProductPhoto) => {
+        const currentActivePhoto = get().activePhoto;
+        // Eğer zaten aktif olan fotoğraf gelen fotoğrafla aynıysa, gereksiz işlemi önle.
+        if (currentActivePhoto && currentActivePhoto.id === photo.id) {
+          console.log('📸 Active photo already set to this photo, skipping re-initialization.');
+          return;
+        }
+        
         console.log('📸 Setting active photo:', photo.id);
         
         // Önce mevcut photo için draft kaydet
@@ -197,7 +204,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           loadedSettings = { ...defaultSettings, ...(photo.editorSettings || {}) };
         }
 
-        const initialEntry = { settings: loadedSettings, timestamp: Date.now() };
+        const initialEntry = { settings: loadedSettings, timestamp: Date.now() }; 
         set({
           activePhoto: photo,
           settings: loadedSettings,
@@ -219,7 +226,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           hasUnsavedChanges: true,
           hasDraftChanges: true,
           activeFilterKey: 'custom',
-          lastAutoSave: Date.now()
+          lastAutoSave: Date.now() 
         }));
 
         // Auto-save trigger (debounced)
@@ -338,7 +345,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         }
         
         const newHistory = history.slice(0, currentHistoryIndex + 1);
-        newHistory.push({ settings: { ...settings }, timestamp: Date.now() });
+        newHistory.push({ settings: { ...settings }, timestamp: Date.now() }); 
         
         // History size'ı sınırla (memory için)
         const maxHistorySize = 50;
@@ -398,9 +405,9 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           photoId,
           productId: activePhoto.productId,
           settings: { ...settings },
-          timestamp: Date.now(),
+          timestamp: Date.now(), 
           autoSaved: true,
-          version: Date.now()
+          version: Date.now() 
         };
 
         const newDrafts = new Map(photoDrafts);
@@ -408,7 +415,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         
         set({ 
           photoDrafts: newDrafts,
-          lastAutoSave: Date.now()
+          lastAutoSave: Date.now() 
         });
 
         console.log('💾 Draft saved for photo:', photoId);
@@ -447,7 +454,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       },
 
       restoreFromDraft: (draft: PhotoDraft) => {
-        const initialEntry = { settings: draft.settings, timestamp: Date.now() };
+        const initialEntry = { settings: draft.settings, timestamp: Date.now() }; 
         
         set({
           settings: draft.settings,
@@ -471,7 +478,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         }
 
         // Çok sık auto-save'i engelle (debounce)
-        const now = Date.now();
+        const now = Date.now(); 
         const timeSinceLastSave = now - get().lastAutoSave;
         const minInterval = 5000; // En az 5 saniye
         
@@ -543,7 +550,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
       resetAllSettings: () => {
         const resetSettings = { ...defaultSettings };
-        const initialEntry = { settings: resetSettings, timestamp: Date.now() };
+        const initialEntry = { settings: resetSettings, timestamp: Date.now() }; 
         
         set({
           settings: resetSettings,

@@ -119,7 +119,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       
       const newPhotos: ProductPhoto[] = [];
       for (const uri of imageUris) {
-        const photoId = `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const photoId = `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; 
         const originalFilename = `original_${photoId}.jpg`;
         const originalUri = await fileSystemManager.saveImage(productId, uri, originalFilename);
         const thumbnailUri = await imageProcessor.createThumbnail(originalUri, 'jpeg');
@@ -201,7 +201,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
     try {
       const tempProducts = JSON.parse(JSON.stringify(get().products));
       const product = tempProducts.find(p => p.id === productId);
-      if (!product) throw new Error('Ürün bulunamadı.');
+      if (!product) throw new Error('Ürün bulunamadı');
 
       const photosToProcess = product.photos.filter(p => 
         photoIds.includes(p.id) && p.status === 'raw'

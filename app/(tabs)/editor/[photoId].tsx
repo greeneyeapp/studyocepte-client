@@ -11,12 +11,12 @@ import { useProductStore } from '@/stores/useProductStore';
 import { useExportManager } from '@/features/editor/hooks/useExportManager';
 import { useScrollManager } from '@/features/editor/hooks/useScrollManager';
 import { useEditorAutoSave } from '@/features/editor/hooks/useEditorAutoSave';
-import { useDraftRestore } from '@/features/editor/hooks/useDraftRestore';
+import { useDraftRestore } from '@/features/editor/hooks/useDraftRestore'; // Correct import
 import { useBackgroundPreloader } from '@/features/editor/hooks/useBackgroundPreloader';
 
 import { EditorHeader } from '@/features/editor/components/EditorHeader';
 import { TargetSelector } from '@/features/editor/components/TargetSelector';
-import { EditorPreview } from '@/features/editor/components/EditorPreview';
+import { EditorPreview } from '@/features/editor/components/EditorPreview'; 
 import { FeatureButton } from '@/features/editor/components/FeatureButton';
 import { CustomSlider } from '@/features/editor/components/CustomSlider';
 import { MainToolbar } from '@/features/editor/components/MainToolbar';
@@ -33,6 +33,7 @@ import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
 import { ExportPreset } from '@/features/editor/config/exportTools';
 import { ToastService } from '@/components/Toast/ToastService';
 import { imageProcessor } from '@/services/imageProcessor';
+import { backgroundThumbnailManager }  from '@/services/backgroundThumbnailManager'; // Correct import
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -83,8 +84,7 @@ export default function EnhancedEditorScreen() {
     const applyCrop = useEnhancedEditorStore((state) => state.applyCrop);
     const getProductById = useProductStore(state => state.getProductById);
 
-    // ===== DRAFT SYSTEM HOOKS =====
-    
+    // ===== DRAFT SYSTEM HOOKS (Calls moved to top level) =====
     const autoSaveStatus = useEditorAutoSave({
       intervalMs: 30000,
       onAppBackground: true,
@@ -93,13 +93,12 @@ export default function EnhancedEditorScreen() {
     });
     
     const draftRestore = useDraftRestore({
-      autoRestore: false,
-      showNotification: true,
+      autoRestore: true, 
+      showNotification: false, // DEĞİŞİKLİK: Burası false yapıldı (Toast'u kaldırmak için)
       maxDraftAge: 7 * 24 * 60 * 60 * 1000
     });
 
-    // ===== YENİ: BACKGROUND PRELOADER HOOK =====
-    
+    // ===== YENİ: BACKGROUND PRELOADER HOOK (Call moved to top level) =====
     const backgroundPreloader = useBackgroundPreloader(staticBackgrounds, {
       enabled: true,
       priority: 'low',
@@ -125,24 +124,39 @@ export default function EnhancedEditorScreen() {
     const { currentScrollRef } = useScrollManager({ activeTool, activeTarget, activeFeature, isSliderActive });
     const previewRef = useRef<View>(null);
 
-    // ===== BACKGROUND CACHE MONITORING =====
-    
+    // ===== BACKGROUND CACHE MONITORING (Döngüyü önlemek için düzenlendi) =====
     useEffect(() => {
       if (__DEV__) {
-        const updateCacheStatus = () => {
-          const status = backgroundPreloader.getCacheStatus();
-          setCacheStatus(status);
-          console.log('📊 Background cache status:', status);
-        };
+        // Init status'u al ve logla
+        const initialStatus = backgroundThumbnailManager.getCacheStats();
+        setCacheStatus({
+          totalBackgrounds: staticBackgrounds?.length || 0,
+          cachedCount: initialStatus.itemCount,
+          cacheSize: initialStatus.totalSize,
+          isFullyCached: initialStatus.itemCount >= (staticBackgrounds?.length || 0),
+          cacheStats: initialStatus,
+          preloadStatus: backgroundPreloader.preloadStatus // Preloader'dan güncel status'ü al
+        });
+        console.log('📊 Background cache status (initial):', initialStatus);
 
-        // İlk durumu al
-        updateCacheStatus();
-        
-        // Her 10 saniyede bir güncelle
-        const interval = setInterval(updateCacheStatus, 10000);
+        // Her 10 saniyede bir güncellemeyi ayarla
+        const interval = setInterval(() => {
+          const currentStatus = backgroundThumbnailManager.getCacheStats();
+          setCacheStatus({
+            totalBackgrounds: staticBackgrounds?.length || 0,
+            cachedCount: currentStatus.itemCount,
+            cacheSize: currentStatus.totalSize,
+            isFullyCached: currentStatus.itemCount >= (staticBackgrounds?.length || 0),
+            cacheStats: currentStatus,
+            preloadStatus: backgroundPreloader.preloadStatus // Preloader'dan güncel status'ü al
+          });
+          console.log('📊 Background cache status:', currentStatus);
+        }, 10000);
+
+        // Component unmount olduğunda interval'i temizle
         return () => clearInterval(interval);
       }
-    }, [backgroundPreloader]);
+    }, [backgroundPreloader.preloadStatus]); // Sadece preloader'ın kendi preloadStatus'u değiştiğinde tetiklensin
 
     // ===== MEMORY OPTIMIZATION =====
     
@@ -158,9 +172,10 @@ export default function EnhancedEditorScreen() {
       return () => subscription?.remove();
     }, [backgroundPreloader]);
 
-    // ===== PHOTO LOADING EFFECT =====
+    // ===== PHOTO LOADING EFFECT (Mount/Unmount logları eklendi) =====
     
     useEffect(() => {
+        console.log('✨ EnhancedEditorScreen mounted!'); // Mount logu
         if (photoId && productId) {
           const product = getProductById(productId);
           const photo = product?.photos.find(p => p.id === photoId);
@@ -173,12 +188,12 @@ export default function EnhancedEditorScreen() {
             });
             setActivePhoto(photo);
           } else {
-            ToastService.show({type: 'error', text1: 'Hata', text2: 'Düzenlenecek fotoğraf bulunamadı.'});
             router.back();
           }
         }
         
         return () => {
+          console.log('🗑️ EnhancedEditorScreen unmounted!'); // Unmount logu
           const state = useEnhancedEditorStore.getState();
           if (state.activePhoto && state.hasDraftChanges) {
             console.log('🔄 Component unmounting, saving draft...');
@@ -256,11 +271,6 @@ export default function EnhancedEditorScreen() {
     const handleForceAutoSave = () => {
       console.log('⚡ Force auto-save triggered');
       autoSaveStatus.forceAutoSave();
-      ToastService.show({
-        type: 'success',
-        text1: 'Taslak Kaydedildi',
-        text2: 'Değişiklikler otomatik olarak kaydedildi'
-      });
     };
 
     const handleCancel = () => {
@@ -350,13 +360,8 @@ export default function EnhancedEditorScreen() {
               <TouchableOpacity 
                 style={styles.controlButton}
                 onPress={() => {
-                  const status = backgroundPreloader.getCacheStatus();
+                  const status = backgroundPreloader.getCacheStatus(); 
                   console.log('📊 Background cache info:', status);
-                  ToastService.show({
-                    type: 'info',
-                    text1: 'Cache Status',
-                    text2: `${status.cachedCount}/${status.totalBackgrounds} cached • ${Math.round(status.cacheSize/1024)}KB`
-                  });
                 }}
               >
                 <Feather name="info" size={14} color={Colors.primary} />

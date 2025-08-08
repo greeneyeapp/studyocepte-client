@@ -20,6 +20,10 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
     maxDraftAge = 7 * 24 * 60 * 60 * 1000 // 7 gün
   } = options;
 
+  // Debugging log: Hook başlatıldığında autoRestore değeri ve sayım
+  console.count('useDraftRestore initialization'); 
+  console.log('useDraftRestore: Hook initialized with autoRestore =', autoRestore);
+
   const { 
     activePhoto, 
     getAllDrafts, 
@@ -30,7 +34,6 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
   } = useEnhancedEditorStore();
 
   const [availableDrafts, setAvailableDrafts] = useState<PhotoDraft[]>([]);
-  const [showRestoreDialog, setShowRestoreDialog] = useState(false);
   const [pendingDraft, setPendingDraft] = useState<PhotoDraft | null>(null);
 
   // Draft'ları filtrele (eski olanları temizle)
@@ -44,16 +47,31 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
 
   // Aktif foto için draft kontrolü
   const checkForDraft = useCallback(async () => {
-    if (!activePhoto) return;
+    console.log('checkForDraft: Executing with autoRestore =', autoRestore);
+
+    if (!activePhoto) {
+      // Fotoğraf yoksa, pendingDraft'ı sıfırla ve diyalogu gizle
+      setPendingDraft(null);
+      DialogService.hide();
+      return;
+    }
 
     const draft = loadDraftForPhoto(activePhoto.id);
-    if (!draft) return;
+    if (!draft) {
+      // Taslak yoksa, pendingDraft'ı sıfırla ve diyalogu gizle
+      setPendingDraft(null);
+      DialogService.hide();
+      return;
+    }
 
     // Draft yaşını kontrol et
     const draftAge = Date.now() - draft.timestamp;
     if (draftAge > maxDraftAge) {
       console.log('🗑️ Old draft found, cleaning up:', activePhoto.id);
       clearDraftForPhoto(activePhoto.id);
+      // Eski taslak temizlendi, pendingDraft'ı sıfırla ve diyalogu gizle
+      setPendingDraft(null);
+      DialogService.hide();
       return;
     }
 
@@ -61,8 +79,13 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
 
     if (autoRestore) {
       // Otomatik restore
+      console.log('checkForDraft: autoRestore is TRUE, performing automatic restore.');
       restoreFromDraft(draft);
-      if (showNotification) {
+      // Otomatik restore yapıldığı için pendingDraft'ı sıfırla ve diyalogu gizle
+      setPendingDraft(null);
+      DialogService.hide(); 
+
+      if (showNotification) { 
         ToastService.show({
           type: 'info',
           text1: 'Taslak Geri Yüklendi',
@@ -71,8 +94,8 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
       }
     } else {
       // Manuel restore seçeneği sun
-      setPendingDraft(draft);
-      setShowRestoreDialog(true);
+      console.log('checkForDraft: autoRestore is FALSE, setting pendingDraft to prompt user.');
+      setPendingDraft(draft); // Set pendingDraft to trigger dialog via useEffect
     }
   }, [activePhoto, loadDraftForPhoto, maxDraftAge, autoRestore, restoreFromDraft, showNotification, clearDraftForPhoto]);
 
@@ -102,8 +125,8 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
         text2: `${Math.round(age / 60000)} dakika önceki değişiklikler geri yüklendi`
       });
       
-      setShowRestoreDialog(false);
-      setPendingDraft(null);
+      setPendingDraft(null); // Restore sonrası diyalogu kapatmak için
+      DialogService.hide(); // Manuel restore yapıldığında da diyalog servisini gizle
     } catch (error) {
       console.error('❌ Draft restore failed:', error);
       ToastService.show({
@@ -119,8 +142,8 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
     if (pendingDraft) {
       clearDraftForPhoto(pendingDraft.photoId);
     }
-    setShowRestoreDialog(false);
-    setPendingDraft(null);
+    setPendingDraft(null); // İptal sonrası diyalogu kapatmak için
+    DialogService.hide(); // Manuel iptal yapıldığında da diyalog servisini gizle
   }, [pendingDraft, clearDraftForPhoto]);
 
   // Effects
@@ -128,15 +151,32 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
     refreshDrafts();
   }, [refreshDrafts]);
 
+  // activePhoto değiştiğinde veya bileşen mount edildiğinde draft kontrolü
   useEffect(() => {
     if (activePhoto) {
       checkForDraft();
+    } else {
+      // activePhoto null olduğunda diyalog servisinin temizlendiğinden emin ol
+      setPendingDraft(null);
+      DialogService.hide();
     }
   }, [activePhoto, checkForDraft]);
 
-  // Restore dialog göster
+  // Pop-up gösterme ve gizleme mantığı (pendingDraft'e bağlı)
   useEffect(() => {
-    if (showRestoreDialog && pendingDraft) {
+    if (autoRestore) {
+      // autoRestore TRUE ise, dialog state'lerini temizle ve gizle.
+      // Bu, overlay'in yanlışlıkla görünmesini önler.
+      if (pendingDraft) { // Eğer bir şekilde pendingDraft set edildiyse, temizle.
+        console.log('useDraftRestore: autoRestore is TRUE, but pendingDraft is set. Forcing hide.');
+        setPendingDraft(null);
+      }
+      DialogService.hide(); // Her durumda diyalogu gizle
+      return; 
+    }
+
+    // autoRestore FALSE ise (manuel onay modu)
+    if (pendingDraft) { 
       const draftAge = Date.now() - pendingDraft.timestamp;
       const ageMinutes = Math.round(draftAge / 60000);
       const ageText = ageMinutes < 60 
@@ -159,14 +199,16 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
           }
         ]
       });
+    } else {
+      // pendingDraft yoksa diyalogu gizle
+      DialogService.hide();
     }
-  }, [showRestoreDialog, pendingDraft, handleManualRestore, handleRejectRestore]);
+  }, [pendingDraft, autoRestore, handleManualRestore, handleRejectRestore]);
 
   return {
     // State
     availableDrafts,
-    hasPendingRestore: showRestoreDialog,
-    pendingDraft,
+    pendingDraft, 
     
     // Actions
     refreshDrafts,
@@ -181,7 +223,6 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
 };
 
 // ===== DRAFT MANAGEMENT UTILITIES =====
-
 export const draftUtils = {
   /**
    * Draft yaşını human-readable formatta döndürür
@@ -220,7 +261,7 @@ export const draftUtils = {
     Object.entries(settings).forEach(([key, value]) => {
       if (key.includes('_') && typeof value === 'number' && Math.abs(value) > 0) {
         changedSettings++;
-        if (Math.abs(value) > 10) { // Önemli değişiklik threshold
+        if (Math.abs(value) > 10) { 
           hasSignificantChanges = true;
         }
       }
