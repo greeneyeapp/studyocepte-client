@@ -1,19 +1,15 @@
-// features/editor/hooks/useDraftRestore.ts - DÜZELTILMIŞ VERSİYON
+// features/editor/hooks/useDraftRestore.ts - AUTO-SAVE HEP AÇIK TAM VERSİYON
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useEnhancedEditorStore, PhotoDraft } from '@/stores/useEnhancedEditorStore';
 import { ToastService } from '@/components/Toast/ToastService';
-import { DialogService } from '@/components/Dialog/DialogService';
 
+// ✅ AUTO-SAVE HEP AÇIK: Dialog seçenekleri kaldırıldı, sadece maxDraftAge kalıyor
 interface DraftRestoreOptions {
-  autoRestore?: boolean;
-  showNotification?: boolean;
   maxDraftAge?: number;
 }
 
 export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
   const {
-    autoRestore = false,
-    showNotification = true,
     maxDraftAge = 7 * 24 * 60 * 60 * 1000 // 7 gün
   } = options;
 
@@ -28,25 +24,13 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
 
   const [availableDrafts, setAvailableDrafts] = useState<PhotoDraft[]>([]);
   
-  // DÜZELTME: Dialog durumunu kontrol eden stable ref
-  const dialogStateRef = useRef({
-    isDialogShown: false,
-    currentPhotoId: null as string | null,
-    isProcessing: false
-  });
-
-  // DÜZELTME: Component mount durumunu track et
+  // Component mount durumunu track et
   const mountedRef = useRef(true);
   
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      // Component unmount olduğunda dialog'u temizle
-      if (dialogStateRef.current.isDialogShown) {
-        DialogService.hide();
-        dialogStateRef.current.isDialogShown = false;
-      }
     };
   }, []);
 
@@ -59,35 +43,16 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
     });
   }, [maxDraftAge]);
 
-  // DÜZELTME: Tek seferlik draft kontrolü
+  // ✅ AUTO-SAVE HEP AÇIK: Otomatik draft kontrolü ve yükleme
   const checkForDraft = useCallback(async () => {
     if (!mountedRef.current || !activePhoto) {
       return;
     }
 
-    // Eğer zaten bu photo için dialog açıksa, tekrar açma
-    if (dialogStateRef.current.isDialogShown && 
-        dialogStateRef.current.currentPhotoId === activePhoto.id) {
-      return;
-    }
-
-    // Eğer processing durumundaysa bekle
-    if (dialogStateRef.current.isProcessing) {
-      return;
-    }
-
-    dialogStateRef.current.isProcessing = true;
-
     try {
       const draft = loadDraftForPhoto(activePhoto.id);
       if (!draft) {
-        // Draft yoksa dialog'u gizle
-        if (dialogStateRef.current.isDialogShown) {
-          DialogService.hide();
-          dialogStateRef.current.isDialogShown = false;
-          dialogStateRef.current.currentPhotoId = null;
-        }
-        return;
+        return; // Draft yok, hiçbir şey yapma
       }
 
       // Draft yaşını kontrol et
@@ -98,79 +63,21 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
         return;
       }
 
-      console.log('📂 Draft found for photo:', activePhoto.id, 'Age:', Math.round(draftAge / 60000), 'minutes');
+      // ✅ AUTO-SAVE HEP AÇIK: Draft var ise otomatik olarak restore et
+      console.log('📂 Auto-restoring draft for photo:', activePhoto.id, 'Age:', Math.round(draftAge / 60000), 'minutes');
+      
+      // setActivePhoto tarafından zaten otomatik yükleniyor, 
+      // bu yüzden burada ekstra işlem yapmaya gerek yok
+      // Sadece bilgi verme amaçlı log
+      const ageMinutes = Math.round(draftAge / 60000);
+      console.log(`✅ Draft auto-loaded: ${ageMinutes} minutes old`);
 
-      if (autoRestore) {
-        // DÜZELTME: Auto-restore durumunda dialog gösterme
-        console.log('🔄 Auto-restore enabled, restoring draft automatically');
-        restoreFromDraft(draft);
-        
-        if (showNotification) {
-          ToastService.show({
-            type: 'info',
-            text1: 'Taslak Geri Yüklendi',
-            text2: `${Math.round(draftAge / 60000)} dakika önceki değişiklikler geri yüklendi`
-          });
-        }
-
-        // Dialog'u gizle (auto-restore'da gösterilmemeli)
-        if (dialogStateRef.current.isDialogShown) {
-          DialogService.hide();
-          dialogStateRef.current.isDialogShown = false;
-        }
-      } else {
-        // DÜZELTME: Manuel restore için dialog göster (sadece bir kez)
-        if (!dialogStateRef.current.isDialogShown) {
-          console.log('💬 Showing draft restore dialog for:', activePhoto.id);
-          
-          dialogStateRef.current.isDialogShown = true;
-          dialogStateRef.current.currentPhotoId = activePhoto.id;
-          
-          const ageMinutes = Math.round(draftAge / 60000);
-          const ageText = ageMinutes < 60 
-            ? `${ageMinutes} dakika önce`
-            : `${Math.round(ageMinutes / 60)} saat önce`;
-
-          DialogService.show({
-            title: 'Kaydedilmemiş Değişiklikler',
-            message: `Bu fotoğraf için ${ageText} kaydedilmemiş değişiklikler bulundu. Geri yüklemek ister misiniz?`,
-            buttons: [
-              {
-                text: 'Hayır',
-                style: 'cancel',
-                onPress: () => {
-                  clearDraftForPhoto(activePhoto.id);
-                  dialogStateRef.current.isDialogShown = false;
-                  dialogStateRef.current.currentPhotoId = null;
-                }
-              },
-              {
-                text: 'Geri Yükle',
-                style: 'default',
-                onPress: () => {
-                  restoreFromDraft(draft);
-                  dialogStateRef.current.isDialogShown = false;
-                  dialogStateRef.current.currentPhotoId = null;
-                  
-                  if (showNotification) {
-                    ToastService.show({
-                      type: 'success',
-                      text1: 'Taslak Geri Yüklendi',
-                      text2: `${ageMinutes} dakika önceki değişiklikler geri yüklendi`
-                    });
-                  }
-                }
-              }
-            ]
-          });
-        }
-      }
-    } finally {
-      dialogStateRef.current.isProcessing = false;
+    } catch (error) {
+      console.warn('⚠️ Draft check failed:', error);
     }
-  }, [activePhoto, loadDraftForPhoto, maxDraftAge, restoreFromDraft, showNotification, clearDraftForPhoto, autoRestore]);
+  }, [activePhoto, loadDraftForPhoto, maxDraftAge, clearDraftForPhoto]);
 
-  // DÜZELTME: Tüm draft'ları güncelle
+  // Tüm draft'ları güncelle
   const refreshDrafts = useCallback(() => {
     if (!mountedRef.current) return;
     
@@ -186,36 +93,17 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
     });
   }, [getAllDrafts, filterValidDrafts, clearDraftForPhoto]);
 
-  // DÜZELTME: ActivePhoto değiştiğinde draft kontrolü (debounced)
-  const draftCheckTimeoutRef = useRef<NodeJS.Timeout>();
-  
+  // ✅ AUTO-SAVE HEP AÇIK: ActivePhoto değiştiğinde sadece draft temizliği yap
   useEffect(() => {
-    // Önceki timeout'u temizle
-    if (draftCheckTimeoutRef.current) {
-      clearTimeout(draftCheckTimeoutRef.current);
-    }
-
     if (activePhoto) {
-      // Kısa bir gecikme ile draft kontrolü yap (rapid changes'i önlemek için)
-      draftCheckTimeoutRef.current = setTimeout(() => {
+      // checkForDraft artık sadece log için kullanılıyor
+      // asıl restore işlemi setActivePhoto tarafından yapılıyor
+      setTimeout(() => {
         if (mountedRef.current) {
           checkForDraft();
         }
-      }, 500); // 500ms gecikme
-    } else {
-      // activePhoto yoksa dialog'u gizle
-      if (dialogStateRef.current.isDialogShown) {
-        DialogService.hide();
-        dialogStateRef.current.isDialogShown = false;
-        dialogStateRef.current.currentPhotoId = null;
-      }
+      }, 100); // Kısa bir gecikme
     }
-
-    return () => {
-      if (draftCheckTimeoutRef.current) {
-        clearTimeout(draftCheckTimeoutRef.current);
-      }
-    };
   }, [activePhoto, checkForDraft]);
 
   // Draft listesini güncelle
@@ -223,7 +111,7 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
     refreshDrafts();
   }, [refreshDrafts]);
 
-  // Manuel restore fonksiyonu
+  // Manuel restore fonksiyonu (Draft Manager için)
   const handleManualRestore = useCallback((draft: PhotoDraft) => {
     try {
       restoreFromDraft(draft);
@@ -234,10 +122,6 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
         text1: 'Taslak Geri Yüklendi',
         text2: `${Math.round(age / 60000)} dakika önceki değişiklikler geri yüklendi`
       });
-      
-      // Dialog durumunu temizle
-      dialogStateRef.current.isDialogShown = false;
-      dialogStateRef.current.currentPhotoId = null;
       
     } catch (error) {
       console.error('❌ Draft restore failed:', error);
@@ -264,7 +148,7 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
   };
 };
 
-// Utility fonksiyonları aynı kalabilir
+// Utility fonksiyonları aynı kalıyor
 export const draftUtils = {
   formatDraftAge: (timestamp: number): string => {
     const age = Date.now() - timestamp;

@@ -1,4 +1,4 @@
-// features/editor/hooks/useEditorAutoSave.ts - TAM AUTO-SAVE SİSTEMİ
+// features/editor/hooks/useEditorAutoSave.ts - AUTO-SAVE HEP AÇIK BASİTLEŞTİRİLMİŞ VERSİYON
 import { useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useEnhancedEditorStore } from '@/stores/useEnhancedEditorStore';
@@ -11,12 +11,11 @@ interface UseEditorAutoSaveOptions {
 }
 
 /**
- * Enhanced auto-save hook with comprehensive features:
- * - Periodic auto-save timer
+ * ✅ AUTO-SAVE HEP AÇIK: Basitleştirilmiş auto-save hook
+ * - Periodic auto-save timer (HEP AKTİF)
  * - App background/foreground detection
  * - Component unmount protection
  * - Debounced saves for performance
- * - Network-aware saving
  */
 export const useEditorAutoSave = (options: UseEditorAutoSaveOptions = {}) => {
   const {
@@ -29,7 +28,6 @@ export const useEditorAutoSave = (options: UseEditorAutoSaveOptions = {}) => {
   const { 
     activePhoto,
     hasDraftChanges,
-    autoSaveEnabled, 
     performAutoSave,
     saveDraft,
     isUpdatingThumbnail,
@@ -63,25 +61,29 @@ export const useEditorAutoSave = (options: UseEditorAutoSaveOptions = {}) => {
         return;
       }
 
-      if (autoSaveEnabled && hasDraftChanges && activePhoto && !isSaving && !isUpdatingThumbnail) {
+      // ✅ AUTO-SAVE HEP AÇIK: autoSaveEnabled kontrolü kaldırıldı
+      if (hasDraftChanges && activePhoto && !isSaving && !isUpdatingThumbnail) {
         console.log('💾 Debounced auto-save triggered for photo:', activePhoto.id);
         lastSaveAttempt.current = now;
         performAutoSave();
       }
     }, debounceMs);
-  }, [autoSaveEnabled, hasDraftChanges, activePhoto, isSaving, isUpdatingThumbnail, performAutoSave, debounceMs]);
+  }, [hasDraftChanges, activePhoto, isSaving, isUpdatingThumbnail, performAutoSave, debounceMs]);
 
   // ===== PERIODIC AUTO-SAVE TIMER =====
   
   const startPeriodicSave = useCallback(() => {
+    // Zaten çalışan interval varsa temizle
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
 
-    if (!autoSaveEnabled) return;
+    console.log('🔄 Starting periodic auto-save with interval:', intervalMs / 1000, 'seconds');
 
     intervalRef.current = setInterval(() => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current) {
+        return;
+      }
 
       const now = Date.now();
       const timeSinceLastSave = now - lastSaveAttempt.current;
@@ -99,9 +101,15 @@ export const useEditorAutoSave = (options: UseEditorAutoSaveOptions = {}) => {
         performAutoSave();
       }
     }, intervalMs);
+  }, [intervalMs, hasDraftChanges, activePhoto, isSaving, isUpdatingThumbnail, performAutoSave]);
 
-    console.log('🔄 Periodic auto-save started with interval:', intervalMs / 1000, 'seconds');
-  }, [autoSaveEnabled, intervalMs, hasDraftChanges, activePhoto, isSaving, isUpdatingThumbnail, performAutoSave]);
+  const stopPeriodicSave = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+      console.log('⏹️ Periodic auto-save stopped');
+    }
+  }, []);
 
   // ===== APP STATE MANAGEMENT =====
   
@@ -121,6 +129,9 @@ export const useEditorAutoSave = (options: UseEditorAutoSaveOptions = {}) => {
         saveDraft();
         lastSaveAttempt.current = Date.now();
       }
+      
+      // Background'a giderken periodic save'i durdur
+      stopPeriodicSave();
     }
 
     if (nextAppState === 'active' && previousState === 'background') {
@@ -128,49 +139,56 @@ export const useEditorAutoSave = (options: UseEditorAutoSaveOptions = {}) => {
       console.log('📱 App foregrounded, restarting auto-save');
       startPeriodicSave();
     }
-  }, [onAppBackground, activePhoto, hasDraftChanges, isSaving, saveDraft, startPeriodicSave]);
+  }, [onAppBackground, activePhoto, hasDraftChanges, isSaving, saveDraft, startPeriodicSave, stopPeriodicSave]);
 
   // ===== EFFECTS =====
 
-  // App state listener
+  // App state listener - sadece bir kez setup
   useEffect(() => {
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription?.remove();
   }, [handleAppStateChange]);
 
-  // Periodic auto-save setup
-  useEffect(() => {
-    startPeriodicSave();
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [startPeriodicSave]);
-
-  // Debounced auto-save trigger
-  useEffect(() => {
-    if (hasDraftChanges && activePhoto) {
-      debouncedAutoSave();
-    }
-  }, [hasDraftChanges, activePhoto, debouncedAutoSave]);
-
-  // Cleanup and unmount protection
+  // ✅ AUTO-SAVE HEP AÇIK: Component mount'ta otomatik başlat
   useEffect(() => {
     mountedRef.current = true;
+    
+    // Hemen başlat
+    startPeriodicSave();
     
     return () => {
       mountedRef.current = false;
       
-      // Clear timers
+      // Cleanup
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
+        debounceRef.current = null;
       }
-      
+    };
+  }, [startPeriodicSave]);
+
+  // ✅ AUTO-SAVE HEP AÇIK: Debounced auto-save trigger - sadece değişiklik olduğunda
+  useEffect(() => {
+    if (hasDraftChanges && activePhoto) {
+      debouncedAutoSave();
+    }
+    
+    return () => {
+      // Cleanup debounce on dependency change
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+    };
+  }, [hasDraftChanges, activePhoto?.id, debouncedAutoSave]);
+
+  // Cleanup and unmount protection
+  useEffect(() => {
+    return () => {
       // Save on unmount if needed
       if (onBeforeUnload) {
         const state = useEnhancedEditorStore.getState();
@@ -182,7 +200,7 @@ export const useEditorAutoSave = (options: UseEditorAutoSaveOptions = {}) => {
     };
   }, [onBeforeUnload]);
 
-  // ===== PUBLIC API =====
+  // ===== PUBLIC API (BASİTLEŞTİRİLMİŞ) =====
 
   const forceAutoSave = useCallback(() => {
     if (activePhoto && hasDraftChanges && !isSaving && !isUpdatingThumbnail) {
@@ -192,22 +210,11 @@ export const useEditorAutoSave = (options: UseEditorAutoSaveOptions = {}) => {
     }
   }, [activePhoto, hasDraftChanges, isSaving, isUpdatingThumbnail, performAutoSave]);
 
-  const pauseAutoSave = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-      console.log('⏸️ Auto-save paused');
-    }
-  }, []);
-
-  const resumeAutoSave = useCallback(() => {
-    startPeriodicSave();
-    console.log('▶️ Auto-save resumed');
-  }, [startPeriodicSave]);
+  // ✅ AUTO-SAVE HEP AÇIK: pause/resume kaldırıldı çünkü hep aktif olacak
 
   const getAutoSaveStatus = useCallback(() => {
     return {
-      isEnabled: autoSaveEnabled,
+      isEnabled: true, // ✅ HEP AÇIK
       hasChanges: hasDraftChanges,
       isActive: !!intervalRef.current,
       lastSaveAttempt: lastSaveAttempt.current,
@@ -215,24 +222,23 @@ export const useEditorAutoSave = (options: UseEditorAutoSaveOptions = {}) => {
       isSaving,
       isUpdatingThumbnail
     };
-  }, [autoSaveEnabled, hasDraftChanges, activePhoto, isSaving, isUpdatingThumbnail]);
+  }, [hasDraftChanges, activePhoto, isSaving, isUpdatingThumbnail]);
 
-  // Return public API
+  // Return simplified public API
   return {
     // Status
-    isAutoSaveEnabled: autoSaveEnabled,
+    isAutoSaveEnabled: true, // ✅ HEP AÇIK
     hasPendingChanges: hasDraftChanges,
     isSaving,
     isUpdatingThumbnail,
     
     // Controls
     forceAutoSave,
-    pauseAutoSave,
-    resumeAutoSave,
     getAutoSaveStatus,
     
     // Stats
     lastSaveAttempt: lastSaveAttempt.current,
-    currentInterval: intervalMs
+    currentInterval: intervalMs,
+    isIntervalActive: !!intervalRef.current
   };
 };

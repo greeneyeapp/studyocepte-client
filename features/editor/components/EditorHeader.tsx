@@ -1,4 +1,4 @@
-// features/editor/components/EditorHeader.tsx - AUTO-SAVE CONTROLS İLE GELİŞTİRİLMİŞ VERSİYON
+// features/editor/components/EditorHeader.tsx - AUTO-SAVE HEP AÇIK VERSİYON
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -26,9 +26,9 @@ interface EditorHeaderProps {
   totalDraftsCount?: number;
   onShowDraftManager?: () => void;
   
-  // ✅ YENİ: Auto-save props
-  autoSaveEnabled?: boolean;
-  onForceAutoSave?: () => void;
+  // ✅ AUTO-SAVE HEP AÇIK: Auto-save kontrol props'ları kaldırıldı
+  // autoSaveEnabled?: boolean;
+  // onForceAutoSave?: () => void;
 }
 
 export const EditorHeader: React.FC<EditorHeaderProps> = ({
@@ -45,9 +45,6 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
   // Draft props
   totalDraftsCount = 0,
   onShowDraftManager,
-  // ✅ YENİ: Auto-save props
-  autoSaveEnabled = true,
-  onForceAutoSave,
 }) => {
   const { t } = useTranslation();
 
@@ -82,17 +79,17 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
     return null;
   };
 
-  // ✅ YENİ: Draft status badge component
+  // ✅ AUTO-SAVE HEP AÇIK: Sadece draft status badge
   const DraftStatusBadge = () => {
     if (!hasDraftChanges && totalDraftsCount === 0) return null;
     
     return (
       <View style={styles.draftStatusContainer}>
-        {/* Active draft indicator */}
+        {/* Active draft indicator - ✅ AUTO-SAVE HEP AÇIK: Sadece bilgi amaçlı */}
         {hasDraftChanges && (
           <View style={styles.activeDraftBadge}>
             <View style={styles.draftDot} />
-            <Text style={styles.draftText}>Taslak</Text>
+            <Text style={styles.draftText}>Otomatik Kaydediliyor</Text>
           </View>
         )}
         
@@ -108,37 +105,6 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
           </TouchableOpacity>
         )}
       </View>
-    );
-  };
-
-  // ✅ YENİ: Auto-save indicator component
-  const AutoSaveIndicator = () => {
-    if (!onForceAutoSave) return null;
-    
-    return (
-      <TouchableOpacity 
-        style={[
-          styles.autoSaveButton,
-          autoSaveEnabled && styles.autoSaveButtonActive
-        ]}
-        onPress={onForceAutoSave}
-        disabled={!onForceAutoSave}
-        activeOpacity={0.7}
-      >
-        <Feather 
-          name={autoSaveEnabled ? "clock" : "pause"} 
-          size={12} 
-          color={autoSaveEnabled ? Colors.success : Colors.textSecondary} 
-        />
-        <Text 
-          style={[
-            styles.autoSaveText,
-            autoSaveEnabled && styles.autoSaveTextActive
-          ]}
-        >
-          Auto
-        </Text>
-      </TouchableOpacity>
     );
   };
 
@@ -180,7 +146,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* ✅ YENİ: Enhanced control row */}
+        {/* ✅ AUTO-SAVE HEP AÇIK: Sadeleştirilmiş control row */}
         <View style={styles.controlRow}>
           {/* Reset All butonu */}
           <TouchableOpacity 
@@ -203,11 +169,9 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
             </Text>
           </TouchableOpacity>
 
-          {/* ✅ YENİ: Draft status indicators */}
+          {/* ✅ AUTO-SAVE HEP AÇIK: Sadece draft status indicators */}
           <DraftStatusBadge />
-          
-          {/* ✅ YENİ: Auto-save indicator */}
-          <AutoSaveIndicator />
+      
         </View>
       </View>
       
@@ -341,7 +305,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
 
-  // ✅ YENİ: Draft status styles
+  // ✅ AUTO-SAVE HEP AÇIK: Basitleştirilmiş draft status styles
   draftStatusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -354,7 +318,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs / 2,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs / 2,
-    backgroundColor: Colors.warning + '15',
+    backgroundColor: Colors.success + '15',
     borderRadius: BorderRadius.sm,
   },
 
@@ -362,12 +326,12 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.warning,
+    backgroundColor: Colors.success,
   },
 
   draftText: {
     ...Typography.caption,
-    color: Colors.warning,
+    color: Colors.success,
     fontWeight: '500',
     fontSize: 10,
   },
@@ -391,33 +355,21 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
 
-  // ✅ YENİ: Auto-save styles
-  autoSaveButton: {
+  // ✅ AUTO-SAVE HEP AÇIK: Yeni otomatik kayıt bilgisi
+  autoSaveInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs / 2,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs / 2,
-    backgroundColor: Colors.gray100,
+    backgroundColor: Colors.success + '10',
     borderRadius: BorderRadius.sm,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-
-  autoSaveButtonActive: {
-    backgroundColor: Colors.success + '15',
-    borderColor: Colors.success + '30',
   },
 
   autoSaveText: {
     ...Typography.caption,
-    color: Colors.textSecondary,
+    color: Colors.success,
     fontWeight: '500',
     fontSize: 10,
-  },
-
-  autoSaveTextActive: {
-    color: Colors.success,
-    fontWeight: '600',
   },
 });

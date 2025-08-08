@@ -1,4 +1,4 @@
-// stores/useEnhancedEditorStore.ts - PHOTO-BASED DRAFT SYSTEM İLE TAM VERSİYON
+// stores/useEnhancedEditorStore.ts - AUTO-SAVE HEP AÇIK VERSİYON
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -59,7 +59,7 @@ export interface EditorSettings {
 }
 
 /**
- * YENİ: Her fotoğraf için ayrı draft sistemi
+ * Her fotoğraf için ayrı draft sistemi
  */
 export interface PhotoDraft {
   photoId: string;
@@ -67,7 +67,7 @@ export interface PhotoDraft {
   settings: EditorSettings;
   timestamp: number;
   autoSaved: boolean;
-  version: number; // Version control for conflicts
+  version: number;
 }
 
 interface UserPreset extends EditorSettings { 
@@ -91,13 +91,14 @@ interface EditorState {
   isSaving: boolean;
   userPresets: UserPreset[];
 
-  // YENİ: Draft system state
+  // Draft system state - AUTO-SAVE HEP AÇIK
   photoDrafts: Map<string, PhotoDraft>;
   hasDraftChanges: boolean;
   isUpdatingThumbnail: boolean;
   thumbnailError: string | null;
-  autoSaveEnabled: boolean;
-  autoSaveInterval: number; // milliseconds
+  // ✅ AUTO-SAVE HEP AÇIK: Bu ayarlar kaldırıldı
+  // autoSaveEnabled: boolean; 
+  // autoSaveInterval: number;
   lastAutoSave: number;
 }
 
@@ -112,13 +113,12 @@ interface EditorActions {
   addSnapshotToHistory: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
-  setAutoSaveEnabled: (enabled: boolean) => void;
   applyFilter: (filterKey: string, target: TargetType) => void;
   resetCropAndRotation: () => void;
   applyCrop: () => void;
   clearStore: () => void;
 
-  // YENİ: Draft system actions
+  // Draft system actions
   saveDraft: () => void;
   saveDraftForPhoto: (photoId: string) => void;
   loadDraftForPhoto: (photoId: string) => PhotoDraft | null;
@@ -128,10 +128,8 @@ interface EditorActions {
   getAllDrafts: () => PhotoDraft[];
   restoreFromDraft: (draft: PhotoDraft) => void;
   
-  // Auto-save actions
+  // ✅ AUTO-SAVE HEP AÇIK: Sadece performAutoSave kalıyor
   performAutoSave: () => void;
-  setAutoSaveEnabled: (enabled: boolean) => void;
-  setAutoSaveInterval: (intervalMs: number) => void;
   
   // Thumbnail actions
   updateThumbnailWithPreview: (previewRef: React.RefObject<any>) => Promise<void>;
@@ -151,7 +149,7 @@ const defaultSettings: EditorSettings = {
 };
 
 /**
- * Enhanced Editor Store with Photo-based Draft System
+ * ✅ AUTO-SAVE HEP AÇIK: Enhanced Editor Store with Always-On Auto-Save
  */
 export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
   persist(
@@ -166,22 +164,19 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       isSaving: false,
       userPresets: [],
 
-      // YENİ: Draft system state
+      // Draft system state - AUTO-SAVE HEP AÇIK
       photoDrafts: new Map<string, PhotoDraft>(),
       hasDraftChanges: false,
       isUpdatingThumbnail: false,
       thumbnailError: null,
-      autoSaveEnabled: true,
-      autoSaveInterval: 30000, // 30 seconds
       lastAutoSave: 0,
 
       // ===== TEMEL EDITOR ACTIONS =====
 
       setActivePhoto: (photo: ProductPhoto) => {
         const currentActivePhoto = get().activePhoto;
-        // Eğer zaten aktif olan fotoğraf gelen fotoğrafla aynıysa, gereksiz işlemi önle.
         if (currentActivePhoto && currentActivePhoto.id === photo.id) {
-          console.log('📸 Active photo already set to this photo, skipping re-initialization.');
+          console.log('📸 Active photo already set, skipping re-initialization.');
           return;
         }
         
@@ -193,15 +188,24 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           get().saveDraftForPhoto(currentPhoto.id);
         }
 
-        // Yeni photo için draft var mı kontrol et
+        // ✅ AUTO-SAVE HEP AÇIK: Yeni photo için draft var mı kontrol et ve otomatik yükle
         const existingDraft = get().loadDraftForPhoto(photo.id);
         let loadedSettings: EditorSettings;
 
         if (existingDraft) {
-          console.log('📂 Loading existing draft for photo:', photo.id);
+          console.log('📂 Auto-loading existing draft for photo:', photo.id);
           loadedSettings = existingDraft.settings;
+          
+          // ✅ KULLANICI BİLGİLENDİRME: Sessiz toast ile bildir
+          const age = Date.now() - existingDraft.timestamp;
+          const ageMinutes = Math.round(age / 60000);
+          
+          ToastService.show({
+            type: 'info',
+            text1: 'Taslak Yüklendi',
+            text2: `${ageMinutes} dakika önceki değişiklikler geri yüklendi`
+          });
         } else {
-          // Photo'nun kendi ayarları varsa kullan, yoksa default
           loadedSettings = { ...defaultSettings, ...(photo.editorSettings || {}) };
         }
 
@@ -230,18 +234,16 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           lastAutoSave: Date.now() 
         }));
 
-        // Auto-save trigger (debounced)
-        if (get().autoSaveEnabled) {
-          const currentPhoto = get().activePhoto;
-          if (currentPhoto) {
-            // 2 saniye sonra auto-save
-            setTimeout(() => {
-              const state = get();
-              if (state.activePhoto?.id === currentPhoto.id && state.hasDraftChanges) {
-                state.performAutoSave();
-              }
-            }, 2000);
-          }
+        // ✅ AUTO-SAVE HEP AÇIK: Her değişiklikte otomatik save trigger
+        const currentPhoto = get().activePhoto;
+        if (currentPhoto) {
+          // 2 saniye sonra auto-save (debounced)
+          setTimeout(() => {
+            const state = get();
+            if (state.activePhoto?.id === currentPhoto.id && state.hasDraftChanges) {
+              state.performAutoSave();
+            }
+          }, 2000);
         }
       },
 
@@ -469,16 +471,16 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         console.log('🔄 Restored from draft:', draft.photoId);
       },
 
-      // ===== AUTO-SAVE ACTIONS =====
+      // ===== AUTO-SAVE ACTIONS (SİMPLİFİED) =====
 
       performAutoSave: () => {
-        const { activePhoto, hasDraftChanges, autoSaveEnabled } = get();
+        const { activePhoto, hasDraftChanges } = get();
         
-        if (!autoSaveEnabled || !activePhoto || !hasDraftChanges) {
+        if (!activePhoto || !hasDraftChanges) {
           return;
         }
 
-        // Çok sık auto-save'i engelle (debounce)
+        // ✅ AUTO-SAVE HEP AÇIK: Çok sık auto-save'i engelle (debounce)
         const now = Date.now(); 
         const timeSinceLastSave = now - get().lastAutoSave;
         const minInterval = 5000; // En az 5 saniye
@@ -493,24 +495,6 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         } catch (error) {
           console.warn('⚠️ Auto-save failed:', error);
         }
-      },
-
-      setAutoSaveEnabled: (enabled: boolean) => {
-        set({ autoSaveEnabled: enabled });
-        console.log('🔄 Auto-save:', enabled ? 'enabled' : 'disabled');
-        
-        // Auto-save kapatılırken son bir kez kaydet
-        if (!enabled) {
-          const { activePhoto, hasDraftChanges } = get();
-          if (activePhoto && hasDraftChanges) {
-            console.log('💾 Final save before disabling auto-save');
-            get().saveDraftForPhoto(activePhoto.id);
-          }
-        }
-      },
-
-      setAutoSaveInterval: (intervalMs: number) => {
-        set({ autoSaveInterval: Math.max(10000, intervalMs) }); // Min 10 seconds
       },
 
       // ===== THUMBNAIL ACTIONS =====
@@ -615,7 +599,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       },
       
       clearStore: () => {
-        // Store'u temizlerken draft'ları da kaydet
+        // ✅ AUTO-SAVE HEP AÇIK: Store'u temizlerken draft'ları da kaydet
         const activePhoto = get().activePhoto;
         if (activePhoto && get().hasDraftChanges) {
           get().saveDraftForPhoto(activePhoto.id);
@@ -638,13 +622,12 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       setActiveFilterKey: (key) => set({ activeFilterKey: key }),
     }),
     {
-      name: 'enhanced-editor-storage-v3',
+      name: 'enhanced-editor-storage-v4', // Version artırıldı
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ 
         userPresets: state.userPresets,
         photoDrafts: Array.from(state.photoDrafts.entries()), // Map'i serialize et
-        autoSaveEnabled: state.autoSaveEnabled,
-        autoSaveInterval: state.autoSaveInterval
+        // ✅ AUTO-SAVE HEP AÇIK: autoSave ayarları kaldırıldı
       }),
       onRehydrateStorage: () => (state) => {
         if (state && Array.isArray(state.photoDrafts)) {

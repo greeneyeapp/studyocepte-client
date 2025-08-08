@@ -1,10 +1,9 @@
-// app/(tabs)/editor/[photoId].tsx - DİNAMİK DRAFT RESTORE İLE TAM KOD
+// app/(tabs)/editor/[photoId].tsx - PRODUCTION READY AUTO-SAVE VERSİYON
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, LayoutAnimation, UIManager, Platform, AppState, TouchableOpacity } from 'react-native';
+import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, LayoutAnimation, UIManager, Platform, AppState } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Feather } from '@expo/vector-icons';
 
 import { useEnhancedEditorStore } from '@/stores/useEnhancedEditorStore';
 import { useProductStore } from '@/stores/useProductStore';
@@ -24,16 +23,14 @@ import { FilterPreview } from '@/features/editor/components/FilterPreview';
 import { BackgroundButton } from '@/features/editor/components/BackgroundButton';
 import { CropToolbar } from '@/features/editor/components/CropToolbar';
 import { ExportToolbar } from '@/features/editor/components/ExportToolbar';
-import { DraftManager } from '@/features/editor/components/DraftManager';
 
 import { ToolType, TargetType } from '@/features/editor/config/tools';
 import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/features';
 import { ALL_FILTERS } from '@/features/editor/config/filters';
-import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
+import { Colors, Spacing, Typography } from '@/constants';
 import { ExportPreset } from '@/features/editor/config/exportTools';
 import { ToastService } from '@/components/Toast/ToastService';
 import { imageProcessor } from '@/services/imageProcessor';
-import { backgroundThumbnailManager }  from '@/services/backgroundThumbnailManager'; 
 
 import { DialogService } from '@/components/Dialog/DialogService';
 import { InputDialogService } from '@/components/Dialog/InputDialogService';
@@ -43,13 +40,39 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// Background tipini ve verisini yerel olarak tanımlıyoruz
-interface Background { id: string; name: string; thumbnailUrl: string; fullUrl: string; }
+// Background verisi - production için optimize edilmiş
+interface Background { 
+  id: string; 
+  name: string; 
+  thumbnailUrl: string; 
+  fullUrl: string; 
+}
+
 const staticBackgrounds: Background[] = [
-    {id: "bg1", name: "Studio White", thumbnailUrl: "https://images.pexels.com/photos/1762851/pexels-photo-1762851.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/1762851/pexels-photo-1762851.jpeg?auto=compress&cs=tinysrgb&w=800"},
-    {id: "bg2", name: "Concrete", thumbnailUrl: "https://images.pexels.com/photos/1191710/pexels-photo-1191710.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/1191710/pexels-photo-1191710.jpeg?auto=compress&cs=tinysrgb&w=800"},
-    {id: "bg3", name: "Warm Light", thumbnailUrl: "https://images.pexels.com/photos/2306281/pexels-photo-2306281.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/2306281/pexels-photo-2306281.jpeg?auto=compress&cs=tinysrgb&w=800"},
-    {id: "bg4", name: "Wooden Floor", thumbnailUrl: "https://images.pexels.com/photos/276583/pexels-photo-276583.jpeg?auto=compress&cs=tinysrgb&w=200", fullUrl: "https://images.pexels.com/photos/276583/pexels-photo-276583.jpeg?auto=compress&cs=tinysrgb&w=800"},
+    {
+      id: "bg1", 
+      name: "Studio White", 
+      thumbnailUrl: "https://images.pexels.com/photos/1762851/pexels-photo-1762851.jpeg?auto=compress&cs=tinysrgb&w=200", 
+      fullUrl: "https://images.pexels.com/photos/1762851/pexels-photo-1762851.jpeg?auto=compress&cs=tinysrgb&w=800"
+    },
+    {
+      id: "bg2", 
+      name: "Concrete", 
+      thumbnailUrl: "https://images.pexels.com/photos/1191710/pexels-photo-1191710.jpeg?auto=compress&cs=tinysrgb&w=200", 
+      fullUrl: "https://images.pexels.com/photos/1191710/pexels-photo-1191710.jpeg?auto=compress&cs=tinysrgb&w=800"
+    },
+    {
+      id: "bg3", 
+      name: "Warm Light", 
+      thumbnailUrl: "https://images.pexels.com/photos/2306281/pexels-photo-2306281.jpeg?auto=compress&cs=tinysrgb&w=200", 
+      fullUrl: "https://images.pexels.com/photos/2306281/pexels-photo-2306281.jpeg?auto=compress&cs=tinysrgb&w=800"
+    },
+    {
+      id: "bg4", 
+      name: "Wooden Floor", 
+      thumbnailUrl: "https://images.pexels.com/photos/276583/pexels-photo-276583.jpeg?auto=compress&cs=tinysrgb&w=200", 
+      fullUrl: "https://images.pexels.com/photos/276583/pexels-photo-276583.jpeg?auto=compress&cs=tinysrgb&w=800"
+    },
 ];
 
 export default function EnhancedEditorScreen() {
@@ -74,22 +97,18 @@ export default function EnhancedEditorScreen() {
       setActivePhoto, 
       setActiveFilterKey, 
       resetCropAndRotation,
-      // Draft system states
       isUpdatingThumbnail,
       thumbnailError,
       hasDraftChanges,
       resetAllSettings,
       saveDraft,
       clearDraft,
-      autoSaveEnabled, // ✅ ÖNEMLI: Auto-save durumu
-      performAutoSave,
-      setAutoSaveEnabled // ✅ ÖNEMLI: Auto-save control
     } = store;
     
     const applyCrop = useEnhancedEditorStore((state) => state.applyCrop);
     const getProductById = useProductStore(state => state.getProductById);
 
-    // ===== DRAFT SYSTEM HOOKS (DİNAMİK AYARLAR İLE) =====
+    // ===== HOOKS =====
     const autoSaveStatus = useEditorAutoSave({
       intervalMs: 30000,
       onAppBackground: true,
@@ -97,14 +116,10 @@ export default function EnhancedEditorScreen() {
       debounceMs: 2000
     });
     
-    // ✅ DİNAMİK DRAFT RESTORE AYARLARI
     const draftRestore = useDraftRestore({
-      autoRestore: autoSaveEnabled, // Auto-save açıksa otomatik restore
-      showNotification: !autoSaveEnabled, // Auto-save kapalıysa bildirim göster
       maxDraftAge: 7 * 24 * 60 * 60 * 1000 // 7 gün
     });
 
-    // ===== BACKGROUND PRELOADER HOOK =====
     const backgroundPreloader = useBackgroundPreloader(staticBackgrounds, {
       enabled: true,
       priority: 'low',
@@ -120,48 +135,16 @@ export default function EnhancedEditorScreen() {
     const [showOriginal, setShowOriginal] = useState(false);
     const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
     const [selectedPreset, setSelectedPreset] = useState<ExportPreset | null>(null);
-    const [showDraftManager, setShowDraftManager] = useState(false);
-    const [cacheStatus, setCacheStatus] = useState<any>(null);
 
     const { isExporting, shareWithOption, skiaViewRef } = useExportManager();
     const { currentScrollRef } = useScrollManager({ activeTool, activeTarget, activeFeature, isSliderActive });
     const previewRef = useRef<View>(null);
 
-    // ===== BACKGROUND CACHE MONITORING =====
-    useEffect(() => {
-      if (__DEV__) {
-        const initialStatus = backgroundThumbnailManager.getCacheStats();
-        setCacheStatus({
-          totalBackgrounds: staticBackgrounds?.length || 0,
-          cachedCount: initialStatus.itemCount,
-          cacheSize: initialStatus.totalSize,
-          isFullyCached: initialStatus.itemCount >= (staticBackgrounds?.length || 0),
-          cacheStats: initialStatus,
-          preloadStatus: backgroundPreloader.preloadStatus
-        });
-        console.log('📊 Background cache status (initial):', initialStatus);
-
-        const interval = setInterval(() => {
-          const currentStatus = backgroundThumbnailManager.getCacheStats();
-          setCacheStatus({
-            totalBackgrounds: staticBackgrounds?.length || 0,
-            cachedCount: currentStatus.itemCount,
-            cacheSize: currentStatus.totalSize,
-            isFullyCached: currentStatus.itemCount >= (staticBackgrounds?.length || 0),
-            cacheStats: currentStatus,
-            preloadStatus: backgroundPreloader.preloadStatus
-          });
-        }, 10000);
-
-        return () => clearInterval(interval);
-      }
-    }, [backgroundPreloader.preloadStatus]);
-
     // ===== MEMORY OPTIMIZATION =====
     useEffect(() => {
       const handleAppStateChange = (nextAppState: string) => {
         if (nextAppState === 'background') {
-          console.log('📱 App backgrounding, optimizing background cache...');
+          console.log('📱 App backgrounding, optimizing memory...');
           backgroundPreloader.optimizeCache();
         }
       };
@@ -172,17 +155,12 @@ export default function EnhancedEditorScreen() {
 
     // ===== PHOTO LOADING EFFECT =====
     useEffect(() => {
-        console.log('✨ EnhancedEditorScreen mounted!');
+        console.log('✨ Editor mounted');
         if (photoId && productId) {
           const product = getProductById(productId);
           const photo = product?.photos.find(p => p.id === photoId);
           if (photo) {
-            console.log('📸 Loading photo with systems:', {
-              photoId: photo.id,
-              draftSystem: 'enabled',
-              backgroundCache: 'enabled',
-              autoSave: autoSaveEnabled ? 'enabled' : 'disabled'
-            });
+            console.log('📸 Loading photo with auto-save enabled:', photo.id);
             setActivePhoto(photo);
           } else {
             router.back();
@@ -190,10 +168,10 @@ export default function EnhancedEditorScreen() {
         }
         
         return () => {
-          console.log('🗑️ EnhancedEditorScreen unmounted!');
+          console.log('🔄 Editor unmounting');
           const state = useEnhancedEditorStore.getState();
           if (state.activePhoto && state.hasDraftChanges) {
-            console.log('🔄 Component unmounting, saving draft...');
+            console.log('💾 Saving draft on unmount');
             state.saveDraft();
           }
           
@@ -204,7 +182,7 @@ export default function EnhancedEditorScreen() {
           ToastService.hide();
           BottomSheetService.hide();
         };
-    }, [photoId, productId, getProductById, setActivePhoto, clearStore, router, autoSaveEnabled]);
+    }, [photoId, productId, getProductById, setActivePhoto, clearStore, router]);
 
     // ===== HANDLERS =====
     const animateLayout = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -258,34 +236,14 @@ export default function EnhancedEditorScreen() {
     };
 
     const handleSave = async () => { 
-      console.log('💾 Save triggered - with thumbnail update');
+      console.log('💾 Save triggered');
       await store.saveChanges(previewRef); 
     };
 
     const handleResetAll = () => {
-      console.log('🔄 Reset all settings triggered');
+      console.log('🔄 Reset all settings');
       resetAllSettings();
       clearDraft();
-    };
-
-    const handleForceAutoSave = () => {
-      console.log('⚡ Force auto-save triggered');
-      autoSaveStatus.forceAutoSave();
-    };
-
-    // ✅ YENİ: Auto-save toggle handler
-    const handleAutoSaveToggle = () => {
-      const newState = !autoSaveEnabled;
-      setAutoSaveEnabled(newState);
-      console.log('🔄 Auto-save toggled:', newState ? 'ON' : 'OFF');
-      
-      ToastService.show({
-        type: 'info',
-        text1: 'Auto-Save ' + (newState ? 'Açıldı' : 'Kapatıldı'),
-        text2: newState 
-          ? 'Değişiklikler otomatik kaydedilecek' 
-          : 'Manuel kayıt gerekli'
-      });
     };
 
     const handleCancel = () => {
@@ -294,7 +252,7 @@ export default function EnhancedEditorScreen() {
           handleToolChange('adjust');
         } else {
           if (hasDraftChanges) {
-            console.log('📂 Saving draft before leaving...');
+            console.log('📂 Saving draft before exit');
             saveDraft();
           }
           router.back();
@@ -307,22 +265,6 @@ export default function EnhancedEditorScreen() {
 
       return (
         <View style={styles.backgroundSection}>
-          {__DEV__ && cacheStatus && (
-            <View style={styles.cacheStatusBar}>
-              <Text style={styles.cacheStatusText}>
-                🗂️ Cache: {cacheStatus.cachedCount}/{cacheStatus.totalBackgrounds} • 
-                {Math.round(cacheStatus.cacheSize / 1024)}KB
-                {cacheStatus.isFullyCached && ' ✅'}
-              </Text>
-              <TouchableOpacity 
-                style={styles.cacheOptimizeButton}
-                onPress={backgroundPreloader.optimizeCache}
-              >
-                <Feather name="refresh-cw" size={12} color={Colors.primary} />
-              </TouchableOpacity>
-            </View>
-          )}
-
           <ScrollView 
             ref={currentScrollRef} 
             horizontal 
@@ -342,44 +284,6 @@ export default function EnhancedEditorScreen() {
               />
             )}
           </ScrollView>
-
-          {__DEV__ && (
-            <View style={styles.backgroundControls}>
-              <TouchableOpacity 
-                style={styles.controlButton}
-                onPress={() => {
-                  console.log('🚀 Manual background preload triggered');
-                  backgroundPreloader.startPreloading();
-                }}
-              >
-                <Feather name="download" size={14} color={Colors.primary} />
-                <Text style={styles.controlButtonText}>Preload</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.controlButton, styles.dangerButton]}
-                onPress={() => {
-                  console.log('🗑️ Background cache clear triggered');
-                  backgroundPreloader.clearCache();
-                  setCacheStatus(null);
-                }}
-              >
-                <Feather name="trash-2" size={14} color={Colors.error} />
-                <Text style={[styles.controlButtonText, styles.dangerText]}>Clear Cache</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.controlButton}
-                onPress={() => {
-                  const status = backgroundPreloader.getCacheStatus(); 
-                  console.log('📊 Background cache info:', status);
-                }}
-              >
-                <Feather name="info" size={14} color={Colors.primary} />
-                <Text style={styles.controlButtonText}>Info</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
       );
     };
@@ -400,7 +304,7 @@ export default function EnhancedEditorScreen() {
     return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        {/* ✅ ENHANCED HEADER - AUTO-SAVE DURUMU İLE */}
+        {/* PRODUCTION HEADER */}
         <EditorHeader 
           onCancel={handleCancel} 
           onSave={handleSave} 
@@ -412,10 +316,6 @@ export default function EnhancedEditorScreen() {
           onResetAll={handleResetAll}
           isUpdatingThumbnail={isUpdatingThumbnail}
           hasDraftChanges={hasDraftChanges}
-          totalDraftsCount={draftRestore.totalDraftsCount}
-          onShowDraftManager={() => setShowDraftManager(true)}
-          autoSaveEnabled={autoSaveEnabled} // ✅ Auto-save durumu
-          onForceAutoSave={handleForceAutoSave}
         />
         
         <View style={styles.contentWrapper}>
@@ -434,43 +334,11 @@ export default function EnhancedEditorScreen() {
                 />
             </View>
 
-            {/* ✅ STATUS INDICATORS - GELİŞTİRİLMİŞ */}
+            {/* STATUS INDICATORS - PRODUCTION */}
             {isUpdatingThumbnail && (
               <View style={styles.thumbnailUpdateIndicator}>
                 <ActivityIndicator size="small" color={Colors.primary} />
                 <Text style={styles.thumbnailUpdateText}>Thumbnail güncelleniyor...</Text>
-              </View>
-            )}
-
-            {/* ✅ AUTO-SAVE STATUS INDICATOR */}
-            {__DEV__ && (
-              <View style={[
-                styles.autoSaveIndicator,
-                { backgroundColor: autoSaveEnabled ? Colors.success + '90' : Colors.warning + '90' }
-              ]}>
-                <Text style={styles.autoSaveText}>
-                  Auto-save: {autoSaveEnabled ? 'ON' : 'OFF'} • 
-                  Draft: {hasDraftChanges ? 'Var' : 'Yok'} • 
-                  Son: {autoSaveStatus.lastSaveAttempt ? new Date(autoSaveStatus.lastSaveAttempt).toLocaleTimeString() : 'Hiç'}
-                </Text>
-                <TouchableOpacity 
-                  style={styles.autoSaveToggle}
-                  onPress={handleAutoSaveToggle}
-                >
-                  <Text style={styles.autoSaveToggleText}>
-                    {autoSaveEnabled ? 'Kapat' : 'Aç'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* ✅ DRAFT INFO INDICATOR */}
-            {draftRestore.totalDraftsCount > 0 && (
-              <View style={styles.draftInfoIndicator}>
-                <Text style={styles.draftInfoText}>
-                  📄 {draftRestore.totalDraftsCount} taslak • 
-                  Auto-restore: {autoSaveEnabled ? 'Açık' : 'Kapalı'}
-                </Text>
               </View>
             )}
 
@@ -587,82 +455,96 @@ export default function EnhancedEditorScreen() {
               )}
             </View>
         </View>
-
-        <DraftManager 
-          visible={showDraftManager}
-          onClose={() => setShowDraftManager(false)}
-        />
       </SafeAreaView>
     </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  contentWrapper: { flex: 1, flexDirection: 'column' },
-  previewContainer: { flex: 1, width: '100%' },
-  bottomToolbarContainer: { backgroundColor: Colors.card, borderTopWidth: 1, borderTopColor: Colors.border },
-  dynamicToolContainer: { minHeight: 120, justifyContent: 'center', alignItems: 'center' },
-  fullScreenTool: { minHeight: 120 },
-  scrollContent: { paddingHorizontal: Spacing.lg, alignItems: 'center', gap: Spacing.lg, paddingVertical: Spacing.md },
-
-  // Status indicators
-  thumbnailUpdateIndicator: {
-    position: 'absolute', top: 80, left: 0, right: 0, flexDirection: 'row',
-    justifyContent: 'center', alignItems: 'center', gap: Spacing.sm,
-    backgroundColor: Colors.primary + '90', paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg, borderRadius: 20, marginHorizontal: Spacing.lg, zIndex: 100,
+  container: { 
+    flex: 1, 
+    backgroundColor: Colors.background 
   },
-  thumbnailUpdateText: { color: Colors.card, fontSize: 14, fontWeight: '600' },
+  loadingContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  contentWrapper: { 
+    flex: 1, 
+    flexDirection: 'column' 
+  },
+  previewContainer: { 
+    flex: 1, 
+    width: '100%' 
+  },
+  bottomToolbarContainer: { 
+    backgroundColor: Colors.card, 
+    borderTopWidth: 1, 
+    borderTopColor: Colors.border 
+  },
+  dynamicToolContainer: { 
+    minHeight: 120, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  fullScreenTool: { 
+    minHeight: 120 
+  },
+  scrollContent: { 
+    paddingHorizontal: Spacing.lg, 
+    alignItems: 'center', 
+    gap: Spacing.lg, 
+    paddingVertical: Spacing.md 
+  },
+
+  // Status indicators - PRODUCTION
+  thumbnailUpdateIndicator: {
+    position: 'absolute', 
+    top: 80, 
+    left: 0, 
+    right: 0, 
+    flexDirection: 'row',
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    gap: Spacing.sm,
+    backgroundColor: Colors.primary + '90', 
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg, 
+    borderRadius: 20, 
+    marginHorizontal: Spacing.lg, 
+    zIndex: 100,
+  },
+  thumbnailUpdateText: { 
+    color: Colors.card, 
+    fontSize: 14, 
+    fontWeight: '600' 
+  },
   
-  // ✅ GELİŞTİRİLMİŞ AUTO-SAVE INDICATOR
   autoSaveIndicator: {
-    position: 'absolute', top: 120, left: Spacing.lg, right: Spacing.lg,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 6, paddingHorizontal: Spacing.md, borderRadius: 12, zIndex: 90,
+    position: 'absolute', 
+    top: 120, 
+    left: Spacing.lg, 
+    right: Spacing.lg,
+    flexDirection: 'row', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    paddingVertical: 6, 
+    paddingHorizontal: Spacing.md, 
+    borderRadius: 12, 
+    zIndex: 90,
+    backgroundColor: Colors.success + '20',
+    gap: Spacing.xs,
   },
   autoSaveText: { 
-    color: Colors.card, fontSize: 11, fontWeight: '500', flex: 1 
-  },
-  autoSaveToggle: {
-    backgroundColor: Colors.card + '30', paddingHorizontal: 8, paddingVertical: 2,
-    borderRadius: 6, marginLeft: Spacing.sm,
-  },
-  autoSaveToggleText: {
-    color: Colors.card, fontSize: 10, fontWeight: '600',
+    color: Colors.success, 
+    fontSize: 12, 
+    fontWeight: '500' 
   },
 
-  // ✅ YENİ DRAFT INFO INDICATOR
-  draftInfoIndicator: {
-    position: 'absolute', top: 160, left: Spacing.lg, right: Spacing.lg,
-    backgroundColor: Colors.primary + '80', paddingVertical: 4,
-    paddingHorizontal: Spacing.md, borderRadius: 8, zIndex: 85,
+  // Background section
+  backgroundSection: { 
+    width: '100%', 
+    paddingVertical: Spacing.md 
   },
-  draftInfoText: { 
-    color: Colors.card, fontSize: 10, fontWeight: '500', textAlign: 'center' 
-  },
-
-  // Background section styles
-  backgroundSection: { width: '100%', paddingVertical: Spacing.md },
-  cacheStatusBar: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
-    backgroundColor: Colors.gray100, marginBottom: Spacing.sm,
-    borderRadius: BorderRadius.sm, marginHorizontal: Spacing.md,
-  },
-  cacheStatusText: { ...Typography.caption, color: Colors.textSecondary, fontSize: 11, fontWeight: '500' },
-  cacheOptimizeButton: { padding: Spacing.xs, borderRadius: BorderRadius.sm, backgroundColor: Colors.primary + '15' },
-  backgroundControls: {
-    flexDirection: 'row', justifyContent: 'center', gap: Spacing.md,
-    paddingHorizontal: Spacing.lg, paddingTop: Spacing.md,
-  },
-  controlButton: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.xs,
-    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
-    backgroundColor: Colors.gray100, borderRadius: BorderRadius.md,
-  },
-  dangerButton: { backgroundColor: Colors.error + '10' },
-  controlButtonText: { ...Typography.caption, color: Colors.textPrimary, fontWeight: '500', fontSize: 11 },
-  dangerText: { color: Colors.error },
 });
