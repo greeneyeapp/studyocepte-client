@@ -499,9 +499,17 @@ export const useProductStore = create<ProductStore>((set, get) => ({
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
   },
 
-  // YENİ: Photo thumbnail güncelleme
-  updatePhotoThumbnail: (productId: string, photoId: string, newThumbnailUri: string) => {
-    const updatedProducts = get().products.map(p => {
+  // YENİ: Photo thumbnail güncelleme - ASYNC DÜZELTMESİ
+  updatePhotoThumbnail: async (productId: string, photoId: string, newThumbnailUri: string) => {
+    console.log('🖼️ Starting thumbnail update:', { productId, photoId, newThumbnailUri });
+
+    // Önceki thumbnail URI'sini al (cache invalidation için)
+    const currentProducts = get().products;
+    const currentProduct = currentProducts.find(p => p.id === productId);
+    const currentPhoto = currentProduct?.photos.find(p => p.id === photoId);
+    const oldThumbnailUri = currentPhoto?.thumbnailUri;
+
+    const updatedProducts = currentProducts.map(p => {
       if (p.id === productId) {
         return {
           ...p,
@@ -518,13 +526,47 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       return p;
     });
 
+    // ÖNEMLİ: Önce state'i güncelle (UI hemen yansısın)
     set({ products: updatedProducts });
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
 
-    console.log('🖼️ Photo thumbnail updated:', {
+    try {
+      // ÖNEMLİ: AsyncStorage'ı await et
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
+      console.log('✅ AsyncStorage updated successfully');
+
+      // YENİ: Eski thumbnail dosyasını sil (disk temizliği)
+      if (oldThumbnailUri && oldThumbnailUri !== newThumbnailUri) {
+        try {
+          await fileSystemManager.deleteImage(oldThumbnailUri);
+          console.log('🗑️ Old thumbnail deleted:', oldThumbnailUri);
+        } catch (deleteError) {
+          console.warn('⚠️ Old thumbnail deletion failed (non-critical):', deleteError);
+        }
+      }
+
+      // YENİ: Force re-render trigger (image cache invalidation için)
+      // Micro-task ile component'leri force re-render et
+      setTimeout(() => {
+        const currentState = get();
+        set({
+          products: [...currentState.products] // Shallow copy ile re-render trigger
+        });
+        console.log('🔄 Force re-render triggered for thumbnail update');
+      }, 100);
+
+    } catch (storageError) {
+      console.error('❌ AsyncStorage update failed:', storageError);
+
+      // Storage hatası durumunda state'i geri al
+      set({ products: currentProducts });
+      throw new Error('Thumbnail güncelleme storage hatası: ' + storageError.message);
+    }
+
+    console.log('✅ Photo thumbnail update completed:', {
       productId,
       photoId,
-      newThumbnailUri
+      oldUri: oldThumbnailUri,
+      newUri: newThumbnailUri
     });
   },
 

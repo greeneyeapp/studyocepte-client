@@ -8,24 +8,24 @@ import { DialogService } from '@/components/Dialog/DialogService';
 
 interface EditorHeaderProps {
   onCancel: () => void;
-  onSave: () => void;
+  onSave: (withThumbnailUpdate?: boolean) => void;
   isSaving: boolean;
-  
+
   // Undo/Redo için proplar
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
-  
+
   // Reset ve thumbnail durumu
   onResetAll: () => void;
   isUpdatingThumbnail?: boolean;
   hasDraftChanges?: boolean;
-  
+
   // Draft Manager props
   totalDraftsCount?: number;
   onShowDraftManager?: () => void;
-  
+
   // ✅ AUTO-SAVE HEP AÇIK: Auto-save kontrol props'ları kaldırıldı
   // autoSaveEnabled?: boolean;
   // onForceAutoSave?: () => void;
@@ -53,17 +53,22 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
       title: 'Tüm Ayarları Sıfırla',
       message: 'Bu işlem tüm düzenleme ayarlarını varsayılan değerlere döndürecek. Bu işlem geri alınamaz. Emin misiniz?',
       buttons: [
-        { 
-          text: 'İptal', 
-          style: 'cancel' 
+        {
+          text: 'İptal',
+          style: 'cancel'
         },
-        { 
-          text: 'Sıfırla', 
-          style: 'destructive', 
-          onPress: onResetAll 
+        {
+          text: 'Sıfırla',
+          style: 'destructive',
+          onPress: onResetAll
         }
       ]
     });
+  };
+
+  const handleSavePress = () => {
+    console.log('💾 EditorHeader: Save button pressed with thumbnail update');
+    onSave(true); // ✅ Thumbnail güncellemesi ile kaydet
   };
 
   const getSaveButtonTitle = () => {
@@ -82,7 +87,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
   // ✅ AUTO-SAVE HEP AÇIK: Sadece draft status badge
   const DraftStatusBadge = () => {
     if (!hasDraftChanges && totalDraftsCount === 0) return null;
-    
+
     return (
       <View style={styles.draftStatusContainer}>
         {/* Active draft indicator - ✅ AUTO-SAVE HEP AÇIK: Sadece bilgi amaçlı */}
@@ -92,10 +97,10 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
             <Text style={styles.draftText}>Otomatik Kaydediliyor</Text>
           </View>
         )}
-        
+
         {/* Total drafts count */}
         {totalDraftsCount > 0 && onShowDraftManager && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.draftsCountBadge}
             onPress={onShowDraftManager}
             activeOpacity={0.7}
@@ -116,32 +121,32 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
           <Text style={styles.cancelText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
       </View>
-      
+
       {/* Orta kısım - History, Reset ve Draft controls */}
       <View style={styles.centerSection}>
         {/* History controls */}
         <View style={styles.historyButtons}>
-          <TouchableOpacity 
-            onPress={onUndo} 
-            disabled={!canUndo} 
+          <TouchableOpacity
+            onPress={onUndo}
+            disabled={!canUndo}
             style={[styles.historyButton, !canUndo && styles.disabledButton]}
           >
-            <Feather 
-              name="rotate-ccw" 
-              size={18} 
-              color={canUndo ? Colors.textPrimary : Colors.border} 
+            <Feather
+              name="rotate-ccw"
+              size={18}
+              color={canUndo ? Colors.textPrimary : Colors.border}
             />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            onPress={onRedo} 
-            disabled={!canRedo} 
+
+          <TouchableOpacity
+            onPress={onRedo}
+            disabled={!canRedo}
             style={[styles.historyButton, !canRedo && styles.disabledButton]}
           >
-            <Feather 
-              name="rotate-cw" 
-              size={18} 
-              color={canRedo ? Colors.textPrimary : Colors.border} 
+            <Feather
+              name="rotate-cw"
+              size={18}
+              color={canRedo ? Colors.textPrimary : Colors.border}
             />
           </TouchableOpacity>
         </View>
@@ -149,19 +154,19 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
         {/* ✅ AUTO-SAVE HEP AÇIK: Sadeleştirilmiş control row */}
         <View style={styles.controlRow}>
           {/* Reset All butonu */}
-          <TouchableOpacity 
-            onPress={handleResetAllPress} 
+          <TouchableOpacity
+            onPress={handleResetAllPress}
             style={styles.resetButton}
             disabled={isSaving || isUpdatingThumbnail}
           >
-            <Feather 
-              name="refresh-ccw" 
-              size={14} 
-              color={isSaving || isUpdatingThumbnail ? Colors.border : Colors.error} 
+            <Feather
+              name="refresh-ccw"
+              size={14}
+              color={isSaving || isUpdatingThumbnail ? Colors.border : Colors.error}
             />
-            <Text 
+            <Text
               style={[
-                styles.resetText, 
+                styles.resetText,
                 (isSaving || isUpdatingThumbnail) && styles.disabledText
               ]}
             >
@@ -171,22 +176,22 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
 
           {/* ✅ AUTO-SAVE HEP AÇIK: Sadece draft status indicators */}
           <DraftStatusBadge />
-      
+
         </View>
       </View>
-      
+
       {/* Sağ taraf - Save butonu */}
       <View style={styles.rightSection}>
-        <TouchableOpacity 
-          onPress={onSave} 
-          disabled={isSaving || isUpdatingThumbnail} 
+        <TouchableOpacity
+          onPress={handleSavePress}
+          disabled={isSaving || isUpdatingThumbnail}
           style={[styles.button, styles.saveButton]}
         >
           <View style={styles.saveButtonContent}>
             {getSaveButtonIcon()}
-            <Text 
+            <Text
               style={[
-                styles.doneText, 
+                styles.doneText,
                 (isSaving || isUpdatingThumbnail) && styles.disabledText
               ]}
             >
@@ -211,55 +216,55 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
     minHeight: 64,
   },
-  
+
   leftSection: {
     flex: 1,
     alignItems: 'flex-start',
   },
-  
+
   centerSection: {
     flex: 2,
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  
+
   rightSection: {
     flex: 1,
     alignItems: 'flex-end',
   },
-  
+
   button: {
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
     minWidth: 60,
   },
-  
+
   saveButton: {
     alignItems: 'flex-end',
   },
-  
+
   saveButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
   },
-  
+
   cancelText: {
     ...Typography.body,
     color: Colors.primary,
     textAlign: 'left',
   },
-  
+
   doneText: {
     ...Typography.bodyMedium,
     color: Colors.primary,
     textAlign: 'right',
   },
-  
+
   disabledText: {
     opacity: 0.5,
   },
-  
+
   historyButtons: {
     flexDirection: 'row',
     gap: Spacing.sm,
@@ -267,12 +272,12 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     padding: 2,
   },
-  
+
   historyButton: {
     padding: Spacing.sm,
     borderRadius: BorderRadius.sm,
   },
-  
+
   disabledButton: {
     opacity: 0.3,
   },
@@ -297,7 +302,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.error + '30',
   },
-  
+
   resetText: {
     ...Typography.caption,
     color: Colors.error,

@@ -70,14 +70,14 @@ export interface PhotoDraft {
   version: number;
 }
 
-interface UserPreset extends EditorSettings { 
-  id: string; 
-  name: string; 
+interface UserPreset extends EditorSettings {
+  id: string;
+  name: string;
 }
 
-interface EditorHistoryEntry { 
-  settings: EditorSettings; 
-  timestamp: number; 
+interface EditorHistoryEntry {
+  settings: EditorSettings;
+  timestamp: number;
 }
 
 interface EditorState {
@@ -127,13 +127,13 @@ interface EditorActions {
   hasDraftForPhoto: (photoId: string) => boolean;
   getAllDrafts: () => PhotoDraft[];
   restoreFromDraft: (draft: PhotoDraft) => void;
-  
+
   // ✅ AUTO-SAVE HEP AÇIK: Sadece performAutoSave kalıyor
   performAutoSave: () => void;
-  
+
   // Thumbnail actions
   updateThumbnailWithPreview: (previewRef: React.RefObject<any>) => Promise<void>;
-  
+
   // Settings reset
   resetAllSettings: () => void;
 }
@@ -179,9 +179,9 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           console.log('📸 Active photo already set, skipping re-initialization.');
           return;
         }
-        
+
         console.log('📸 Setting active photo:', photo.id);
-        
+
         // Önce mevcut photo için draft kaydet
         const currentPhoto = get().activePhoto;
         if (currentPhoto && get().hasDraftChanges) {
@@ -195,11 +195,11 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         if (existingDraft) {
           console.log('📂 Auto-loading existing draft for photo:', photo.id);
           loadedSettings = existingDraft.settings;
-          
+
           // ✅ KULLANICI BİLGİLENDİRME: Sessiz toast ile bildir
           const age = Date.now() - existingDraft.timestamp;
           const ageMinutes = Math.round(age / 60000);
-          
+
           ToastService.show({
             type: 'info',
             text1: 'Taslak Yüklendi',
@@ -209,7 +209,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           loadedSettings = { ...defaultSettings, ...(photo.editorSettings || {}) };
         }
 
-        const initialEntry = { settings: loadedSettings, timestamp: Date.now() }; 
+        const initialEntry = { settings: loadedSettings, timestamp: Date.now() };
         set({
           activePhoto: photo,
           settings: loadedSettings,
@@ -225,13 +225,13 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
       updateSettings: (newSettings: Partial<EditorSettings>) => {
         const updatedSettings = { ...get().settings, ...newSettings };
-        
+
         set(state => ({
           settings: updatedSettings,
           hasUnsavedChanges: true,
           hasDraftChanges: true,
           activeFilterKey: 'custom',
-          lastAutoSave: Date.now() 
+          lastAutoSave: Date.now()
         }));
 
         // ✅ AUTO-SAVE HEP AÇIK: Her değişiklikte otomatik save trigger
@@ -274,14 +274,14 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
             (currentSettings as any)[key] = value;
           }
         }
-        
-        set({ 
-          settings: currentSettings, 
-          activeFilterKey: filterKey, 
+
+        set({
+          settings: currentSettings,
+          activeFilterKey: filterKey,
           hasUnsavedChanges: true,
           hasDraftChanges: true
         });
-        
+
         get().addSnapshotToHistory();
       },
 
@@ -290,75 +290,88 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       saveChanges: async (previewRef?: React.RefObject<any>) => {
         const { activePhoto, settings, isSaving } = get();
         if (!activePhoto || isSaving) return;
-        
+
         set({ isSaving: true, thumbnailError: null });
-        
+        console.log('💾 saveChanges started:', {
+          photoId: activePhoto.id,
+          withThumbnailUpdate: !!previewRef,
+          hasPreviewRef: !!previewRef?.current
+        });
+
         try {
-          console.log('💾 Saving changes for photo:', activePhoto.id);
-          
           // 1. Ana ayarları kaydet
           useProductStore.getState().updatePhotoSettings(
-            activePhoto.productId, 
-            activePhoto.id, 
+            activePhoto.productId,
+            activePhoto.id,
             settings
           );
-          
-          // 2. Thumbnail güncelle (opsiyonel)
-          if (previewRef) {
+          console.log('✅ Photo settings updated in product store');
+
+          // 2. ✅ GÜNCELLEME: Thumbnail güncelle (previewRef varsa)
+          if (previewRef && previewRef.current) {
+            console.log('🖼️ Starting thumbnail update with preview ref');
             await get().updateThumbnailWithPreview(previewRef);
+            console.log('✅ Thumbnail update completed');
+          } else {
+            console.log('⏭️ Skipping thumbnail update (no preview ref)');
           }
-          
+
           // 3. Draft'ı temizle
           get().clearDraftForPhoto(activePhoto.id);
-          
-          set({ 
-            isSaving: false, 
+          console.log('🗑️ Draft cleared');
+
+          set({
+            isSaving: false,
             hasUnsavedChanges: false,
             hasDraftChanges: false
           });
-          
-          ToastService.show({ 
-            type: 'success', 
-            text1: 'Kaydedildi', 
-            text2: 'Değişiklikler başarıyla kaydedildi.' 
+
+          ToastService.show({
+            type: 'success',
+            text1: 'Kaydedildi',
+            text2: previewRef ? 'Değişiklikler ve thumbnail kaydedildi' : 'Ayarlar kaydedildi'
           });
-          
+
+          console.log('✅ saveChanges completed successfully');
+
         } catch (error: any) {
           console.error('❌ Save failed:', error);
-          set({ 
+          set({
             isSaving: false,
-            thumbnailError: 'Thumbnail güncellenemedi'
+            thumbnailError: error.message || 'Kayıt başarısız'
           });
-          
-          ToastService.show({ 
-            type: 'error', 
-            text1: 'Kayıt Hatası', 
-            text2: error.message || 'Değişiklikler kaydedilemedi.' 
+
+          ToastService.show({
+            type: 'error',
+            text1: 'Kayıt Hatası',
+            text2: error.message || 'Değişiklikler kaydedilemedi.'
           });
+
+          throw error; // Re-throw for debugging
         }
       },
 
       addSnapshotToHistory: () => {
         const { settings, history, currentHistoryIndex } = get();
         const currentSnapshot = history[currentHistoryIndex]?.settings;
-        
+
         // Aynı ayarları tekrar ekleme
         if (currentSnapshot && JSON.stringify(currentSnapshot) === JSON.stringify(settings)) {
           return;
         }
-        
+
         const newHistory = history.slice(0, currentHistoryIndex + 1);
-        newHistory.push({ settings: { ...settings }, timestamp: Date.now() }); 
-        
+        newHistory.push({ settings: { ...settings }, timestamp: Date.now() });
+
         // History size'ı sınırla (memory için)
         const maxHistorySize = 50;
         if (newHistory.length > maxHistorySize) {
           newHistory.shift();
         }
-        
-        set({ 
-          history: newHistory, 
-          currentHistoryIndex: newHistory.length - 1 
+
+        set({
+          history: newHistory,
+          currentHistoryIndex: newHistory.length - 1
         });
       },
 
@@ -366,9 +379,9 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         const { history, currentHistoryIndex } = get();
         if (currentHistoryIndex > 0) {
           const newIndex = currentHistoryIndex - 1;
-          set({ 
-            settings: { ...history[newIndex].settings }, 
-            currentHistoryIndex: newIndex, 
+          set({
+            settings: { ...history[newIndex].settings },
+            currentHistoryIndex: newIndex,
             hasUnsavedChanges: true,
             hasDraftChanges: true
           });
@@ -379,9 +392,9 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         const { history, currentHistoryIndex } = get();
         if (currentHistoryIndex < history.length - 1) {
           const newIndex = currentHistoryIndex + 1;
-          set({ 
-            settings: { ...history[newIndex].settings }, 
-            currentHistoryIndex: newIndex, 
+          set({
+            settings: { ...history[newIndex].settings },
+            currentHistoryIndex: newIndex,
             hasUnsavedChanges: true,
             hasDraftChanges: true
           });
@@ -408,17 +421,17 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           photoId,
           productId: activePhoto.productId,
           settings: { ...settings },
-          timestamp: Date.now(), 
+          timestamp: Date.now(),
           autoSaved: true,
-          version: Date.now() 
+          version: Date.now()
         };
 
         const newDrafts = new Map(photoDrafts);
         newDrafts.set(photoId, draft);
-        
-        set({ 
+
+        set({
           photoDrafts: newDrafts,
-          lastAutoSave: Date.now() 
+          lastAutoSave: Date.now()
         });
 
         console.log('💾 Draft saved for photo:', photoId);
@@ -439,12 +452,12 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         const { photoDrafts } = get();
         const newDrafts = new Map(photoDrafts);
         newDrafts.delete(photoId);
-        
-        set({ 
+
+        set({
           photoDrafts: newDrafts,
           hasDraftChanges: false
         });
-        
+
         console.log('🗑️ Draft cleared for photo:', photoId);
       },
 
@@ -457,8 +470,8 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       },
 
       restoreFromDraft: (draft: PhotoDraft) => {
-        const initialEntry = { settings: draft.settings, timestamp: Date.now() }; 
-        
+        const initialEntry = { settings: draft.settings, timestamp: Date.now() };
+
         set({
           settings: draft.settings,
           history: [initialEntry],
@@ -467,7 +480,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           hasDraftChanges: true,
           activeFilterKey: 'custom'
         });
-        
+
         console.log('🔄 Restored from draft:', draft.photoId);
       },
 
@@ -475,16 +488,16 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
       performAutoSave: () => {
         const { activePhoto, hasDraftChanges } = get();
-        
+
         if (!activePhoto || !hasDraftChanges) {
           return;
         }
 
         // ✅ AUTO-SAVE HEP AÇIK: Çok sık auto-save'i engelle (debounce)
-        const now = Date.now(); 
+        const now = Date.now();
         const timeSinceLastSave = now - get().lastAutoSave;
         const minInterval = 5000; // En az 5 saniye
-        
+
         if (timeSinceLastSave < minInterval) {
           return;
         }
@@ -504,39 +517,102 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         if (!activePhoto || !previewRef.current) return;
 
         set({ isUpdatingThumbnail: true, thumbnailError: null });
+        console.log('🖼️ Starting thumbnail update with cache busting for photo:', activePhoto.id);
 
         try {
-          console.log('🖼️ Updating thumbnail for photo:', activePhoto.id);
-
-          // Preview'dan thumbnail capture et
+          // 1. Preview'dan thumbnail capture et
           const capturedUri = await imageProcessor.captureFilteredThumbnail(previewRef, {
             width: 300,
             height: 300
           });
+          console.log('📸 Preview captured:', capturedUri);
 
-          // Kalıcı thumbnail olarak kaydet
+          // 2. Cache-busted kalıcı thumbnail olarak kaydet
           const newThumbnailUri = await imageProcessor.saveFilteredThumbnail(
             activePhoto.productId,
             activePhoto.id,
             capturedUri
           );
+          console.log('💾 Cache-busted thumbnail saved:', newThumbnailUri);
 
-          // Product store'da thumbnail'i güncelle
-          useProductStore.getState().updatePhotoThumbnail(
+          // 3. ÖNEMLİ: Product store'da thumbnail'i AWAIT ile güncelle
+          await useProductStore.getState().updatePhotoThumbnail(
             activePhoto.productId,
             activePhoto.id,
             newThumbnailUri
           );
+          console.log('🔄 Product store updated with new thumbnail');
 
-          set({ isUpdatingThumbnail: false });
-          console.log('✅ Thumbnail updated successfully');
+          // 4. YENİ: Local state'te de activePhoto'yu güncelle (immediate UI feedback)
+          const updatedPhoto = {
+            ...activePhoto,
+            thumbnailUri: newThumbnailUri,
+            modifiedAt: new Date().toISOString()
+          };
+
+          set({
+            activePhoto: updatedPhoto,
+            isUpdatingThumbnail: false
+          });
+
+          // 5. YENİ: Force UI refresh (cache invalidation)
+          setTimeout(() => {
+            // Micro-task ile diğer component'lerin re-render olmasını sağla
+            const productStore = useProductStore.getState();
+            productStore.loadProducts(); // Force reload products
+            console.log('🔄 Forced product store refresh for UI update');
+          }, 200);
+
+          console.log('✅ Thumbnail update completed successfully with cache busting');
 
         } catch (error: any) {
           console.error('❌ Thumbnail update failed:', error);
-          set({ 
+          set({
             isUpdatingThumbnail: false,
-            thumbnailError: error.message
+            thumbnailError: error.message || 'Thumbnail güncellenemedi'
           });
+
+          // YENİ: Hata durumunda da cache'i temizle
+          try {
+            await imageProcessor.clearImageCache();
+          } catch (cacheError) {
+            console.warn('⚠️ Cache clear after error failed:', cacheError);
+          }
+
+          throw error; // Re-throw for upper level handling
+        }
+      },
+
+      refreshActiveThumbnail: async () => {
+        const { activePhoto } = get();
+        if (!activePhoto?.thumbnailUri) return;
+
+        try {
+          console.log('🔄 Manually refreshing active thumbnail:', activePhoto.id);
+
+          // Cache-busted URI oluştur
+          const refreshedUri = await imageProcessor.refreshThumbnail(activePhoto.thumbnailUri);
+
+          // Product store'u güncelle
+          await useProductStore.getState().updatePhotoThumbnail(
+            activePhoto.productId,
+            activePhoto.id,
+            refreshedUri
+          );
+
+          // Local state'i güncelle
+          set({
+            activePhoto: {
+              ...activePhoto,
+              thumbnailUri: refreshedUri,
+              modifiedAt: new Date().toISOString()
+            }
+          });
+
+          console.log('✅ Active thumbnail refreshed successfully');
+
+        } catch (error) {
+          console.warn('⚠️ Thumbnail refresh failed:', error);
         }
       },
 
@@ -544,8 +620,8 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
       resetAllSettings: () => {
         const resetSettings = { ...defaultSettings };
-        const initialEntry = { settings: resetSettings, timestamp: Date.now() }; 
-        
+        const initialEntry = { settings: resetSettings, timestamp: Date.now() };
+
         set({
           settings: resetSettings,
           history: [initialEntry],
@@ -566,11 +642,11 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
       resetCropAndRotation: () => {
         get().updateSettings({
-          cropAspectRatio: 'original', 
+          cropAspectRatio: 'original',
           photoRotation: 0,
-          cropX: 0, 
-          cropY: 0, 
-          cropWidth: 1, 
+          cropX: 0,
+          cropY: 0,
+          cropWidth: 1,
           cropHeight: 1,
           visualCrop: undefined,
         });
@@ -581,23 +657,23 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         const { settings } = get();
         const visualCrop = {
           aspectRatio: settings.cropAspectRatio || 'original',
-          x: settings.cropX || 0, 
+          x: settings.cropX || 0,
           y: settings.cropY || 0,
-          width: settings.cropWidth || 1, 
+          width: settings.cropWidth || 1,
           height: settings.cropHeight || 1,
           isApplied: true,
         };
-        
+
         get().updateSettings({ visualCrop });
         get().addSnapshotToHistory();
-        
-        ToastService.show({ 
-          type: 'success', 
+
+        ToastService.show({
+          type: 'success',
           text1: 'Kırpma Uygulandı',
           text2: 'Kırpma ayarları başarıyla uygulandı'
         });
       },
-      
+
       clearStore: () => {
         // ✅ AUTO-SAVE HEP AÇIK: Store'u temizlerken draft'ları da kaydet
         const activePhoto = get().activePhoto;
@@ -606,11 +682,11 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         }
 
         set({
-          activePhoto: null, 
-          settings: { ...defaultSettings }, 
+          activePhoto: null,
+          settings: { ...defaultSettings },
           history: [],
-          currentHistoryIndex: -1, 
-          hasUnsavedChanges: false, 
+          currentHistoryIndex: -1,
+          hasUnsavedChanges: false,
           hasDraftChanges: false,
           isSaving: false,
           isUpdatingThumbnail: false,
@@ -624,7 +700,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
     {
       name: 'enhanced-editor-storage-v4', // Version artırıldı
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ 
+      partialize: (state) => ({
         userPresets: state.userPresets,
         photoDrafts: Array.from(state.photoDrafts.entries()), // Map'i serialize et
         // ✅ AUTO-SAVE HEP AÇIK: autoSave ayarları kaldırıldı

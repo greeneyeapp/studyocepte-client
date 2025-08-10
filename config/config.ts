@@ -8,7 +8,7 @@
 // Geliştirme ortamı için yerel API'nizin IP adresini buraya yazın.
 // ÖNEMLİ: 'localhost' KULLANMAYIN. Mobil cihazınızın, bilgisayarınızla
 // aynı ağda olduğunu varsayarak bilgisayarınızın yerel IP adresini kullanın.
-const DEVELOPMENT_API_URL = 'http://192.168.1.10:8000';
+const DEVELOPMENT_API_URL = 'http://192.168.1.2:8000';
 
 // Üretim ortamı için sunucunuzun alan adını buraya yazacaksınız.
 const PRODUCTION_API_URL = 'https://api.studyocepte.com'; // Örnek

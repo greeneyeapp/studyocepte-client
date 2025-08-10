@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/images/splash-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#fcfbf7"
+      "backgroundColor": "#fcf9f1"
     },
     "android": {
       "package": "com.greeneyeapp.studyocepte",

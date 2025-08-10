@@ -9,7 +9,7 @@ class ImageCache {
   private loading = new Map<string, Promise<string>>();
   private priorities = new Map<string, number>();
   private maxCacheSize = 100; // Maksimum cache boyutu
-  
+
   async getImage(uri: string, priority: 'low' | 'normal' | 'high' = 'normal'): Promise<string> {
     // Cache'de varsa hemen döndür
     if (this.cache.has(uri)) {
@@ -40,10 +40,10 @@ class ImageCache {
   private async loadImage(uri: string, priority: 'low' | 'normal' | 'high'): Promise<string> {
     return new Promise((resolve, reject) => {
       const priorityValue = { low: 1, normal: 2, high: 3 }[priority];
-      
+
       // Priority'ye göre delay ekle (low priority için daha yavaş yükle)
       const delay = priority === 'low' ? 100 : priority === 'normal' ? 50 : 0;
-      
+
       setTimeout(() => {
         Image.prefetch(uri)
           .then(() => resolve(uri))
@@ -63,7 +63,7 @@ class ImageCache {
     // Priority ve kullanım sırasına göre cache temizle
     const entries = Array.from(this.cache.entries());
     const priorities = Array.from(this.priorities.entries());
-    
+
     // En düşük priority'li ve en eski olanları sil
     entries
       .sort((a, b) => {
@@ -146,6 +146,7 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
   const [hasError, setHasError] = useState(false);
   const [isVisible, setIsVisible] = useState(!lazyLoad);
   const [currentRetry, setCurrentRetry] = useState(0);
+  const [cacheKey, setCacheKey] = useState(0);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const componentRef = useRef<View>(null);
@@ -154,7 +155,7 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
   // YENİ: Intersection observer benzeri visibility detection
   const checkVisibility = useCallback(() => {
     if (!lazyLoad || isVisible) return;
-    
+
     componentRef.current?.measure((x, y, width, height, pageX, pageY) => {
       // Basit visibility check (ekranda görünüyor mu?)
       if (pageY < 1000 && pageY + height > -100) { // 1000px tolerance
@@ -162,6 +163,33 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
       }
     });
   }, [lazyLoad, isVisible]);
+
+  useEffect(() => {
+    if (uri && mountedRef.current) {
+      // URI değişti, cache'i refresh et
+      setCacheKey(prev => prev + 1);
+      setHasError(false);
+      setCurrentRetry(0);
+
+      console.log('🔄 LazyImage URI changed, invalidating cache:', {
+        uri: uri.substring(0, 50) + '...',
+        cacheKey: cacheKey + 1
+      });
+    }
+  }, [uri]);
+
+  const getCacheBustedUri = useCallback((originalUri: string): string => {
+    if (!originalUri) return originalUri;
+
+    // Eğer URI'de zaten cache buster varsa kullan
+    if (originalUri.includes('?cb=') || originalUri.includes('&cb=')) {
+      return originalUri;
+    }
+
+    // Cache buster ekle
+    const separator = originalUri.includes('?') ? '&' : '?';
+    return `${originalUri}${separator}cb=${cacheKey}`;
+  }, [cacheKey]);
 
   // Visibility check effect
   useEffect(() => {
@@ -171,7 +199,6 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
     }
   }, [lazyLoad, isVisible, checkVisibility]);
 
-  // Image loading effect
   useEffect(() => {
     if (!uri || !isVisible) {
       setIsLoading(false);
@@ -179,19 +206,21 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
     }
 
     let isMounted = true;
+    const cacheBustedUri = getCacheBustedUri(uri);
 
     const loadImage = async () => {
       try {
         setIsLoading(true);
         setHasError(false);
-        
+
         // Sibling images'ları preload et
         if (siblingUris.length > 0) {
           imageCache.preloadImages(siblingUris, 'low');
         }
-        
-        const cachedUri = await imageCache.getImage(uri, priority);
-        
+
+        // YENİ: Cache-busted URI ile yükle
+        const cachedUri = await imageCache.getImage(cacheBustedUri, priority);
+
         if (isMounted && mountedRef.current) {
           setImageUri(cachedUri);
           setIsLoading(false);
@@ -207,16 +236,22 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
           } else {
             fadeAnim.setValue(1);
           }
+
+          console.log('✅ LazyImage loaded with cache busting:', {
+            original: uri.substring(0, 30) + '...',
+            cacheBusted: cacheBustedUri.substring(0, 30) + '...',
+            cacheKey
+          });
         }
       } catch (error) {
         if (isMounted && mountedRef.current) {
-          console.warn(`LazyImage load failed for ${uri}:`, error);
-          
+          console.warn(`❌ LazyImage load failed for ${uri}:`, error);
+
           // Retry logic
           if (currentRetry < retryCount) {
             setTimeout(() => {
               setCurrentRetry(prev => prev + 1);
-            }, 1000 * (currentRetry + 1)); // Exponential backoff
+            }, 1000 * (currentRetry + 1));
           } else {
             setHasError(true);
             setIsLoading(false);
@@ -231,7 +266,7 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
     return () => {
       isMounted = false;
     };
-  }, [uri, isVisible, priority, onLoad, onError, fadeIn, currentRetry, retryCount, siblingUris]);
+  }, [uri, isVisible, priority, onLoad, onError, fadeIn, currentRetry, retryCount, siblingUris, getCacheBustedUri, cacheKey]);
 
   // Component unmount cleanup
   useEffect(() => {
@@ -244,6 +279,7 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
   const handleRetry = useCallback(() => {
     setCurrentRetry(0);
     setHasError(false);
+    setCacheKey(prev => prev + 1);
   }, []);
 
   if (hasError) {
@@ -283,6 +319,7 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
         resizeMode={resizeMode}
         onLoad={onLoad}
         onError={onError}
+        key={`image-${cacheKey}`}
       />
     </View>
   );
@@ -302,12 +339,22 @@ export const LazyImageUtils = {
     return imageCache.getCacheInfo();
   },
 
-  // YENİ: Memory optimization
   optimizeMemory: () => {
     const info = imageCache.getCacheInfo();
     if (info.cached > 50) {
       console.log('🧹 Optimizing LazyImage memory usage...');
       imageCache.clearCache();
+    }
+  },
+
+  // YENİ: Force refresh all images
+  forceRefreshAll: () => {
+    console.log('🔄 Force refreshing all LazyImages...');
+    imageCache.clearCache();
+
+    // Global cache invalidation event
+    if (typeof global !== 'undefined') {
+      global.LAZY_IMAGE_CACHE_VERSION = (global.LAZY_IMAGE_CACHE_VERSION || 0) + 1;
     }
   }
 };
@@ -317,21 +364,21 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gray100,
     overflow: 'hidden',
   },
-  
+
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.gray100,
   },
-  
+
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.gray50,
   },
-  
+
   errorPlaceholder: {
     width: '80%',
     height: '80%',

@@ -42,7 +42,7 @@ export const imageProcessor = {
   moveToDocuments: async (tempUri: string, filename: string): Promise<string> => {
     try {
       const documentsDir = FileSystem.documentDirectory + 'temp_images/';
-      
+
       // Documents içinde temp klasörü oluştur
       const dirInfo = await FileSystem.getInfoAsync(documentsDir);
       if (!dirInfo.exists) {
@@ -90,14 +90,14 @@ export const imageProcessor = {
       const tempResized = await manipulateAsync(
         originalUri,
         [{ resize: { width: 300, height: 300 } }],
-        { 
-          compress: 0.8, 
+        {
+          compress: 0.8,
           format: SaveFormat.PNG
         }
       );
 
       // Temel filter'ları uygula
-      const tempFiltered = await imageProcessor.applyBasicFilters( 
+      const tempFiltered = await imageProcessor.applyBasicFilters(
         tempResized.uri,
         editorSettings
       );
@@ -123,7 +123,7 @@ export const imageProcessor = {
     } catch (error) {
       console.error('❌ Filtered thumbnail creation failed:', error);
       // Fallback: normal thumbnail oluştur
-      return await imageProcessor.createThumbnail(originalUri, 'png'); 
+      return await imageProcessor.createThumbnail(originalUri, 'png');
     }
   },
 
@@ -149,9 +149,9 @@ export const imageProcessor = {
         const tempResult = await manipulateAsync(
           imageUri,
           actions,
-          { 
-            compress: 0.8, 
-            format: SaveFormat.PNG 
+          {
+            compress: 0.8,
+            format: SaveFormat.PNG
           }
         );
 
@@ -163,7 +163,7 @@ export const imageProcessor = {
 
         return permanentUri;
       }
-      
+
       return imageUri; // Değişiklik yoksa orijinal URI döndür
 
     } catch (error) {
@@ -222,37 +222,105 @@ export const imageProcessor = {
     try {
       // fileSystemManager'ı dynamic import ile al
       const { fileSystemManager } = await import('@/services/fileSystemManager');
-      
-      // Filtered thumbnail için özel dosya adı
-      const thumbnailFilename = `thumb_filtered_${photoId}.png`;
-      
-      // DÜZELTME: fileSystemManager kullanarak kalıcı ürün klasörüne kaydet
+
+      // Filtered thumbnail için timestamp'li dosya adı (unique olması için)
+      const timestamp = Date.now();
+      const thumbnailFilename = `thumb_filtered_${photoId}_${timestamp}.png`;
+
+      console.log('💾 Saving cache-busted filtered thumbnail:', {
+        photoId,
+        filename: thumbnailFilename,
+        sourceUri: sourceUri.substring(0, 50) + '...'
+      });
+
+      // fileSystemManager kullanarak kalıcı ürün klasörüne kaydet
       const permanentUri = await fileSystemManager.saveImage(
         productId,
         sourceUri,
         thumbnailFilename
       );
 
-      // Kaynak dosya geçici konumdaysa sil
+      // ✅ DÜZELTME: Kaynak dosya geçici konumdaysa sil - doğru import ile
       if (sourceUri.includes('temp_images/') || sourceUri.includes('cache/')) {
         try {
-          await FileSystem.deleteAsync(sourceUri, { idempotent: true });
+          await FileSystem.deleteAsync(sourceUri, { idempotent: true }); // ✅ Doğru import kullanımı
         } catch (cleanupError) {
           console.warn('⚠️ Source cleanup warning:', cleanupError);
         }
       }
 
-      console.log('💾 Filtered thumbnail saved permanently:', {
+      console.log('✅ Cache-busted filtered thumbnail saved permanently:', {
         photoId,
         filename: thumbnailFilename,
-        uri: permanentUri
+        uri: permanentUri,
+        timestamp
       });
 
-      return permanentUri;
+      // Cache-busted URI döndür
+      return imageProcessor.createCacheBustedUri(permanentUri);
 
     } catch (error) {
       console.error('❌ Filtered thumbnail save failed:', error);
-      throw new Error('Filtered thumbnail kaydedilemedi');
+      throw new Error('Filtered thumbnail kaydedilemedi: ' + error.message);
+    }
+  },
+
+  refreshThumbnail: async (originalThumbnailUri: string): Promise<string> => {
+    try {
+      // Cache-busted version oluştur
+      const cacheBustedUri = imageProcessor.createCacheBustedUri(originalThumbnailUri);
+
+      // React Native Image cache'ini temizle (platform-specific)
+      if (typeof global !== 'undefined' && global.__turboModuleProxy) {
+        // Turbo Modules varsa
+        try {
+          const { Image } = await import('react-native');
+          if (Image.getSize) {
+            // getSize çağrısı cache'i refresh eder
+            await new Promise((resolve, reject) => {
+              Image.getSize(
+                cacheBustedUri,
+                () => resolve(true),
+                () => resolve(false) // Error'ı ignore et
+              );
+            });
+          }
+        } catch (error) {
+          console.warn('⚠️ Image cache refresh warning:', error);
+        }
+      }
+
+      console.log('🔄 Thumbnail refreshed with cache busting:', {
+        original: originalThumbnailUri,
+        cacheBusted: cacheBustedUri
+      });
+
+      return cacheBustedUri;
+
+    } catch (error) {
+      console.warn('⚠️ Thumbnail refresh failed, returning original:', error);
+      return originalThumbnailUri;
+    }
+  },
+
+  clearImageCache: async (): Promise<void> => {
+    try {
+      // React Native'de image cache temizliği
+      const { Image } = await import('react-native');
+
+      // Platform-specific cache clearing
+      if (typeof Image.clearMemoryCache === 'function') {
+        await Image.clearMemoryCache();
+        console.log('🧹 React Native image memory cache cleared');
+      }
+
+      if (typeof Image.clearDiskCache === 'function') {
+        await Image.clearDiskCache();
+        console.log('🧹 React Native image disk cache cleared');
+      }
+
+    } catch (error) {
+      console.warn('⚠️ Image cache clearing failed:', error);
     }
   },
 
@@ -263,7 +331,7 @@ export const imageProcessor = {
     try {
       // DÜZELTME: Documents klasörüne kaydet, cache'e değil
       const documentsDir = FileSystem.documentDirectory + 'temp_images/';
-      
+
       // Klasörü oluştur
       const dirInfo = await FileSystem.getInfoAsync(documentsDir);
       if (!dirInfo.exists) {
@@ -300,7 +368,7 @@ export const imageProcessor = {
       const cacheDir = FileSystem.cacheDirectory;
       if (cacheDir) {
         const cacheFiles = await FileSystem.readDirectoryAsync(cacheDir);
-        const tempCacheFiles = cacheFiles.filter(file => 
+        const tempCacheFiles = cacheFiles.filter(file =>
           file.includes('ImageManipulator') ||
           file.startsWith('temp_') ||
           file.startsWith('captured_')
@@ -317,7 +385,7 @@ export const imageProcessor = {
       // Documents/temp_images klasöründeki eski dosyaları temizle (7 günden eski)
       const tempImagesDir = FileSystem.documentDirectory + 'temp_images/';
       const dirInfo = await FileSystem.getInfoAsync(tempImagesDir);
-      
+
       if (dirInfo.exists) {
         const tempFiles = await FileSystem.readDirectoryAsync(tempImagesDir);
         const now = Date.now();
@@ -327,7 +395,7 @@ export const imageProcessor = {
           try {
             const fileUri = tempImagesDir + file;
             const fileInfo = await FileSystem.getInfoAsync(fileUri);
-            
+
             if (fileInfo.exists && fileInfo.modificationTime) {
               const fileAge = now - fileInfo.modificationTime * 1000;
               if (fileAge > maxAge) {
@@ -357,7 +425,7 @@ export const imageProcessor = {
     try {
       // Geçici dosyaları temizle
       await imageProcessor.cleanupTempFiles();
-      
+
       // JavaScript garbage collection'ı tetikle (sadece debug için)
       if (__DEV__ && global.gc) {
         global.gc();
@@ -366,6 +434,19 @@ export const imageProcessor = {
     } catch (error) {
       console.warn('⚠️ Image processor memory optimization failed:', error);
     }
+  },
+
+  createCacheBustedUri: (originalUri: string): string => {
+    if (!originalUri) return originalUri;
+
+    // Zaten cache-buster varsa güncelle
+    if (originalUri.includes('?cb=')) {
+      return originalUri.replace(/\?cb=\d+/, `?cb=${Date.now()}`);
+    }
+
+    // Yeni cache-buster ekle
+    const separator = originalUri.includes('?') ? '&' : '?';
+    return `${originalUri}${separator}cb=${Date.now()}`;
   },
 
   /**
@@ -381,7 +462,7 @@ export const imageProcessor = {
       }
 
       console.warn('⚠️ File not found, attempting recovery:', uri);
-      
+
       // Dosya yoksa null döndür (recovery logic gelecekte eklenebilir)
       return null;
 

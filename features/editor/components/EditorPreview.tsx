@@ -53,12 +53,19 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
     if (hasVisualCrop && !isCropping && settings.visualCrop && previewSize.width > 0) {
       const crop = settings.visualCrop;
       let cropAspectRatio;
-      if (!crop.aspectRatio || crop.aspectRatio === 'original') { cropAspectRatio = previewSize.width / previewSize.height; }
-      else { const [w, h] = crop.aspectRatio.split(':').map(Number); cropAspectRatio = w && h ? w / h : previewSize.width / previewSize.height; }
+      if (!crop.aspectRatio || crop.aspectRatio === 'original') { 
+        cropAspectRatio = previewSize.width / previewSize.height; 
+      } else { 
+        const [w, h] = crop.aspectRatio.split(':').map(Number); 
+        cropAspectRatio = w && h ? w / h : previewSize.width / previewSize.height; 
+      }
       
       let containerWidth = previewSize.width;
       let containerHeight = containerWidth / cropAspectRatio;
-      if (containerHeight > previewSize.height) { containerHeight = previewSize.height; containerWidth = containerHeight * cropAspectRatio; }
+      if (containerHeight > previewSize.height) { 
+        containerHeight = previewSize.height; 
+        containerWidth = containerHeight * cropAspectRatio; 
+      }
       
       baseContainerStyle.push({ width: containerWidth, height: containerHeight, alignSelf: 'center' });
       
@@ -74,41 +81,62 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
 
   return (
     <View style={styles.container} onLayout={onLayout}>
-      <Pressable style={styles.pressable} onPressIn={() => onShowOriginalChange(true)} onPressOut={() => onShowOriginalChange(false)}>
-        <View style={containerStyle}>
+      <Pressable 
+        style={styles.pressable} 
+        onPressIn={() => onShowOriginalChange(true)} 
+        onPressOut={() => onShowOriginalChange(false)}
+      >
+        {/* ✅ GÜNCELLEME: Ana container'a ref ekle */}
+        <View style={containerStyle} ref={ref} collapsable={false}>
           {previewSize.width > 0 && imageUriToShow ? (
             <Animated.View style={contentStyle}>
-                <View style={styles.imageContainer}>
-                  {backgroundUri && (
-                    <View style={styles.backgroundContainer}>
-                      <Image source={{ uri: backgroundUri }} style={[styles.backgroundImage, backgroundFilterStyle]} resizeMode="cover" />
-                      {vignetteIntensity > 0 && <SimpleVignetteOverlay intensity={vignetteIntensity} />}
-                    </View>
-                  )}
-                  <GestureDetector gesture={combinedGesture}>
-                    <Animated.View style={[styles.productContainer, productAnimatedStyle]}>
-                      <Image source={{ uri: imageUriToShow }} style={[styles.productImage, productFilterStyle]} resizeMode="contain" />
-                    </Animated.View>
-                  </GestureDetector>
-                  {isCropping && (
-                    <View style={styles.cropOverlayContainer} pointerEvents="none">
-                      <CropOverlay previewSize={previewSize} aspectRatioString={settings.cropAspectRatio || 'original'}/>
-                    </View>
-                  )}
-                  {/* YENİLİK: "Kırpıldı" bilgi balonu kaldırıldı. */}
-                  {showOriginal && (
-                    <View style={styles.originalOverlay}><Text style={styles.originalText}>Orijinal</Text></View>
-                  )}
-                </View>
+              <View style={styles.imageContainer}>
+                {backgroundUri && (
+                  <View style={styles.backgroundContainer}>
+                    <Image 
+                      source={{ uri: backgroundUri }} 
+                      style={[styles.backgroundImage, backgroundFilterStyle]} 
+                      resizeMode="cover" 
+                    />
+                    {vignetteIntensity > 0 && <SimpleVignetteOverlay intensity={vignetteIntensity} />}
+                  </View>
+                )}
+                <GestureDetector gesture={combinedGesture}>
+                  <Animated.View style={[styles.productContainer, productAnimatedStyle]}>
+                    <Image 
+                      source={{ uri: imageUriToShow }} 
+                      style={[styles.productImage, productFilterStyle]} 
+                      resizeMode="contain" 
+                    />
+                  </Animated.View>
+                </GestureDetector>
+                {isCropping && (
+                  <View style={styles.cropOverlayContainer} pointerEvents="none">
+                    <CropOverlay 
+                      previewSize={previewSize} 
+                      aspectRatioString={settings.cropAspectRatio || 'original'}
+                    />
+                  </View>
+                )}
+                {showOriginal && (
+                  <View style={styles.originalOverlay}>
+                    <Text style={styles.originalText}>Orijinal</Text>
+                  </View>
+                )}
+              </View>
             </Animated.View>
           ) : (
-            <View style={styles.loadingContainer}><ActivityIndicator size="large" color={Colors.primary} /></View>
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
           )}
         </View>
       </Pressable>
     </View>
   );
 });
+
+EditorPreview.displayName = 'EditorPreview';
 
 // Stiller aynı kalabilir, değişiklik yok.
 const styles = StyleSheet.create({
