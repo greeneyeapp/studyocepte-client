@@ -200,11 +200,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           const age = Date.now() - existingDraft.timestamp;
           const ageMinutes = Math.round(age / 60000);
 
-          ToastService.show({
-            type: 'info',
-            text1: 'Taslak Yüklendi',
-            text2: `${ageMinutes} dakika önceki değişiklikler geri yüklendi`
-          });
+          ToastService.show(`${ageMinutes} dakika önceki değişiklikler geri yüklendi`);
         } else {
           loadedSettings = { ...defaultSettings, ...(photo.editorSettings || {}) };
         }
@@ -326,11 +322,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
             hasDraftChanges: false
           });
 
-          ToastService.show({
-            type: 'success',
-            text1: 'Kaydedildi',
-            text2: previewRef ? 'Değişiklikler ve thumbnail kaydedildi' : 'Ayarlar kaydedildi'
-          });
+          ToastService.show(previewRef ? 'Değişiklikler ve thumbnail kaydedildi' : 'Ayarlar kaydedildi');
 
           console.log('✅ saveChanges completed successfully');
 
@@ -341,11 +333,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
             thumbnailError: error.message || 'Kayıt başarısız'
           });
 
-          ToastService.show({
-            type: 'error',
-            text1: 'Kayıt Hatası',
-            text2: error.message || 'Değişiklikler kaydedilemedi.'
-          });
+          ToastService.show(error.message || 'Değişiklikler kaydedilemedi.');
 
           throw error; // Re-throw for debugging
         }
@@ -667,11 +655,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         get().updateSettings({ visualCrop });
         get().addSnapshotToHistory();
 
-        ToastService.show({
-          type: 'success',
-          text1: 'Kırpma Uygulandı',
-          text2: 'Kırpma ayarları başarıyla uygulandı'
-        });
+        ToastService.show('Kırpma ayarları başarıyla uygulandı');
       },
 
       clearStore: () => {

@@ -26,11 +26,7 @@ export const useSecurityValidation = () => {
       const result = await api.validateFile(imageUri); // Artık doğru parametreyi gönderiyor
       return result;
     } catch (error: any) {
-      ToastService.show({
-        type: 'error',
-        text1: 'File Validation Failed',
-        text2: error.message
-      });
+      ToastService.show(error.message);
       return null;
     } finally {
       setIsValidating(false);
@@ -51,18 +47,10 @@ export const useSecurityValidation = () => {
   const reportSecurityIssue = useCallback(async (description: string) => {
     try {
       const result = await api.reportSecurityIssue(description); // Artık hata vermeyecek
-      ToastService.show({
-        type: 'success',
-        text1: 'Report Submitted',
-        text2: `Reference ID: ${result.reference_id}`
-      });
+      ToastService.show(`Reference ID: ${result.reference_id}`);
       return result;
     } catch (error: any) {
-      ToastService.show({
-        type: 'error',
-        text1: 'Report Failed',
-        text2: error.message
-      });
+      ToastService.show(error.message);
       throw error;
     }
   }, []);

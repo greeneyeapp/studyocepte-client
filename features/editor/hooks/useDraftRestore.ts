@@ -117,19 +117,11 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
       restoreFromDraft(draft);
       const age = Date.now() - draft.timestamp;
       
-      ToastService.show({
-        type: 'success',
-        text1: 'Taslak Geri Yüklendi',
-        text2: `${Math.round(age / 60000)} dakika önceki değişiklikler geri yüklendi`
-      });
+      ToastService.show( `${Math.round(age / 60000)} dakika önceki değişiklikler geri yüklendi`);
       
     } catch (error) {
       console.error('❌ Draft restore failed:', error);
-      ToastService.show({
-        type: 'error',
-        text1: 'Restore Hatası',
-        text2: 'Taslak geri yüklenemedi'
-      });
+      ToastService.show('Taslak geri yüklenemedi');
     }
   }, [restoreFromDraft]);
 

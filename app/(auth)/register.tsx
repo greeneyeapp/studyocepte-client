@@ -57,20 +57,20 @@ export default function RegisterScreen() {
     // Validasyonlar
     const nameValidation = validateName(name);
     if (!nameValidation.isValid) {
-      ToastService.show({ type: 'error', text1: 'Geçersiz Ad Soyad', text2: nameValidation.message });
+      ToastService.show(nameValidation.message );
       return;
     }
     if (!email.trim()) {
-      ToastService.show({ type: 'error', text1: t('auth.emptyFieldsTitle'), text2: 'E-posta alanı boş bırakılamaz.' });
+      ToastService.show('E-posta alanı boş bırakılamaz.');
       return;
     }
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
-      ToastService.show({ type: 'error', text1: 'Güçsüz Şifre', text2: passwordValidation.message });
+      ToastService.show(passwordValidation.message);
       return;
     }
     if (password !== confirmPassword) {
-      ToastService.show({ type: 'error', text1: t('auth.passwordMismatchTitle'), text2: t('auth.passwordMismatchMessage') });
+      ToastService.show(t('auth.passwordMismatchMessage') );
       return;
     }
 
@@ -82,7 +82,7 @@ export default function RegisterScreen() {
     // Eğer işlem BAŞARISIZ olursa, toast göster ve butonu tekrar aktif hale getir.
     if (!success) {
       const error = useAuthStore.getState().error;
-      ToastService.show({ type: 'error', text1: t('auth.registerFailed'), text2: error || t('auth.tryAgain') });
+      ToastService.show( error || t('auth.tryAgain') );
       setRegistering(false); // Butonu tekrar kullanılabilir yap
     }
     // Başarılı olursa hiçbir şey yapma. _layout.tsx geçişi yönetecek.

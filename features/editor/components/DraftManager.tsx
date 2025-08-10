@@ -71,11 +71,7 @@ export const DraftManager: React.FC<DraftManagerProps> = ({ visible, onClose }) 
   const handleDelete = useCallback((photoId: string) => {
     clearDraftForPhoto(photoId);
     refreshDrafts();
-    ToastService.show({
-      type: 'success',
-      text1: 'Taslak Silindi',
-      text2: 'Taslak başarıyla silindi'
-    });
+    ToastService.show('Taslak başarıyla silindi');
   }, [clearDraftForPhoto, refreshDrafts]);
 
   const handleClearAll = useCallback(() => {
@@ -83,11 +79,7 @@ export const DraftManager: React.FC<DraftManagerProps> = ({ visible, onClose }) 
       clearDraftForPhoto(draft.photoId);
     });
     refreshDrafts();
-    ToastService.show({
-      type: 'success',
-      text1: 'Tüm Taslaklar Silindi',
-      text2: `${availableDrafts.length} taslak temizlendi`
-    });
+    ToastService.show(`${availableDrafts.length} taslak temizlendi`);
     onClose();
   }, [availableDrafts, clearDraftForPhoto, refreshDrafts, onClose]);
 

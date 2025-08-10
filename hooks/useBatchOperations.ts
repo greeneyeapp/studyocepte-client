@@ -40,11 +40,7 @@ export const useBatchOperations = () => {
       
       return result;
     } catch (error: any) {
-      ToastService.show({
-        type: 'error',
-        text1: 'Batch Operation Failed',
-        text2: error.message
-      });
+      ToastService.show(error.message);
       throw error;
     } finally {
       setIsStarting(false);
@@ -72,17 +68,9 @@ export const useBatchOperations = () => {
         return newMap;
       });
       
-      ToastService.show({
-        type: 'success',
-        text1: 'Operation Cancelled',
-        text2: 'Batch operation was cancelled successfully'
-      });
+      ToastService.show('Batch operation was cancelled successfully');
     } catch (error: any) {
-      ToastService.show({
-        type: 'error',
-        text1: 'Cancellation Failed',
-        text2: error.message
-      });
+      ToastService.show(error.message);
     }
   }, []);
 

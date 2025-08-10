@@ -123,7 +123,7 @@ export default function SettingsScreen() {
             <ModernSettingCard
               icon="credit-card" title="Abonelik"
               subtitle={isGuest ? "Abone olmak için hesap oluşturun" : "Premium özelliklere erişin"}
-              onPress={() => ToastService.show({ type: 'info', text1: isGuest ? 'Lütfen önce kayıt olun.' : 'Yakında gelecek!' })}
+              onPress={() => ToastService.show(isGuest ? 'Lütfen önce kayıt olun.' : 'Yakında gelecek!')}
               iconColor={Colors.accent} isLast
             />
           </Card>

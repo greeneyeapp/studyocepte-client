@@ -31,7 +31,7 @@ export default function LoginScreen() {
 
     // Giriş yapma eylemi için validasyon
     if (actionType === 'login' && (!email.trim() || !password.trim())) {
-      ToastService.show({ type: 'error', text1: t('auth.emptyFieldsTitle'), text2: t('auth.emptyFieldsMessage') });
+      ToastService.show(t('auth.emptyFieldsMessage'));
       return;
     }
     
@@ -47,7 +47,7 @@ export default function LoginScreen() {
     if (!success) {
       const error = useAuthStore.getState().error;
       const defaultMessage = actionType === 'login' ? t('auth.loginFailed') : 'Misafir Girişi Başarısız';
-      ToastService.show({ type: 'error', text1: defaultMessage, text2: error || t('auth.tryAgain') });
+      ToastService.show( t('auth.tryAgain'));
       setActiveAction(null); // Butonları tekrar kullanılabilir yap
     }
     // Başarılı olursa hiçbir şey yapma. _layout.tsx geçişi yönetecek ve bu component zaten yok olacak.

@@ -390,11 +390,7 @@ export default function HomeScreen() {
 
     if (!name?.trim()) { // name null veya boş olabilir, bu yüzden kontrol ediyoruz
       if (name !== null) { // Eğer kullanıcı iptal etmediyse (yani null değilse) ve boşsa hata göster
-        ToastService.show({
-          type: 'error',
-          text1: 'İsim Gerekli',
-          text2: 'Lütfen ürün için bir isim girin.'
-        });
+        ToastService.show('Lütfen ürün için bir isim girin.');
       }
       return;
     }
@@ -408,11 +404,7 @@ export default function HomeScreen() {
         params: { productId: newProduct.id }
       });
     } catch (e: any) {
-      ToastService.show({
-        type: 'error',
-        text1: 'Hata',
-        text2: e.message
-      });
+      ToastService.show(e.message );
     } finally {
       loadingRef.current?.hide(); // İşlem bitince animasyonu gizle
     }

@@ -16,12 +16,12 @@ export const useExportManager = () => {
 
   const shareWithOption = async (shareOption: ShareOption, preset?: ExportPreset) => {
     if (!preset && shareOption.type !== 'quick_custom') {
-      ToastService.show({ type: 'error', text1: 'Hata', text2: 'Lütfen bir format seçin' });
+      ToastService.show('Lütfen bir format seçin');
       return;
     }
 
     if (!viewRef.current) {
-      ToastService.show({ type: 'error', text1: 'Hata', text2: 'Önizleme hazır değil.' });
+      ToastService.show('Önizleme hazır değil.');
       return;
     }
 
@@ -78,11 +78,11 @@ export const useExportManager = () => {
         successMessage = `${exportPreset.name} formatında paylaşım başarılı`;
       }
 
-      ToastService.show({ type: 'success', text1: 'Başarılı', text2: successMessage });
+      ToastService.show(successMessage);
 
     } catch (error: any) {
       console.error('❌ Export failed:', error);
-      ToastService.show({ type: 'error', text1: 'Export Başarısız', text2: error.message || 'Bilinmeyen bir hata oluştu' });
+      ToastService.show(error.message || 'Bilinmeyen bir hata oluştu');
     } finally {
       setIsExporting(false);
       LoadingService.hide();

@@ -128,7 +128,7 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
         const parts = cleanInput.split(separators).filter(s => s.trim());
 
         if (parts.length !== 2) {
-           ToastService.show({ type: 'error', text1: 'Geçersiz Format', text2: 'Lütfen genişlik ve yükseklik olmak üzere iki değer girin.' });
+           ToastService.show('Lütfen genişlik ve yükseklik olmak üzere iki değer girin.');
           return;
         }
 
@@ -136,7 +136,7 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
         const height = parseInt(parts[1], 10);
 
         if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0 || width > 10000 || height > 10000) {
-          ToastService.show({ type: 'error', text1: 'Geçersiz Değerler', text2: 'Lütfen 1-10000 arası geçerli sayılar girin.' });
+          ToastService.show('Lütfen 1-10000 arası geçerli sayılar girin.');
           return;
         }
 
@@ -162,7 +162,7 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
       handleQuickCustomExport();
     } else {
       if (!selectedPreset) {
-        ToastService.show({ type: 'error', text1: 'Format Seçin', text2: 'Lütfen önce bir dışa aktarma formatı seçin.' });
+        ToastService.show('Lütfen önce bir dışa aktarma formatı seçin.');
         return;
       }
       await shareWithOption(option, selectedPreset);

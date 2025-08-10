@@ -379,14 +379,6 @@ export default function EnhancedEditorScreen() {
             />
           </View>
 
-          {/* STATUS INDICATORS - PRODUCTION */}
-          {isUpdatingThumbnail && (
-            <View style={styles.thumbnailUpdateIndicator}>
-              <ActivityIndicator size="small" color={Colors.primary} />
-              <Text style={styles.thumbnailUpdateText}>Thumbnail güncelleniyor...</Text>
-            </View>
-          )}
-
           <View style={styles.bottomToolbarContainer}>
             {activeTool === 'crop' && (
               <CropToolbar
