@@ -1,10 +1,11 @@
 // client/features/editor/components/EditorPreview.tsx - "KIRPILDI" BİLGİSİ KALDIRILMIŞ TAM KOD
+// backgroundDisplayUri prop'u eklendi ve debug logları eklendi.
 
 import React, { forwardRef, useMemo } from 'react';
 import { View, Pressable, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { ProductPhoto, Background, EditorSettings } from '@/services/api';
+import { ProductPhoto, Background, EditorSettings } from '@/services/api'; // Background tipini Api'den veya Backgrounds.ts'den import edin
 import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
 import { useEditorGestures } from '../hooks/useEditorGestures';
 import { SimpleVignetteOverlay } from './VignetteOverlay';
@@ -13,7 +14,8 @@ import { CropOverlay } from './CropOverlay';
 
 interface EditorPreviewProps {
   activePhoto: ProductPhoto;
-  selectedBackground?: Background;
+  selectedBackground?: Background; // Metadata için hala gerekebilir
+  backgroundDisplayUri?: string; // YENİ PROP: Bu string URI olacaktır
   settings: EditorSettings;
   showOriginal: boolean;
   onShowOriginalChange: (show: boolean) => void;
@@ -24,7 +26,7 @@ interface EditorPreviewProps {
 }
 
 export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
-  activePhoto, selectedBackground, settings, showOriginal,
+  activePhoto, selectedBackground, backgroundDisplayUri, settings, showOriginal, // backgroundDisplayUri'yi kullanın
   onShowOriginalChange, onLayout, updateSettings, previewSize, isCropping
 }, ref) => {
   const { photoX, photoY, photoScale, combinedGesture } = useEditorGestures({ settings, previewSize, updateSettings });
@@ -43,8 +45,21 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   const productFilterStyle = useMemo(() => generateAdvancedImageStyle(settings, 'product', showOriginal), [settings, showOriginal]);
   const backgroundFilterStyle = useMemo(() => generateAdvancedImageStyle(settings, 'background', showOriginal), [settings, showOriginal]);
   const imageUriToShow = activePhoto?.processedImageUrl || activePhoto?.thumbnailUrl;
-  const backgroundUri = selectedBackground?.fullUrl;
+  
+  // ÖNEMLİ: Artık doğrudan selectedBackground?.fullUrl yerine backgroundDisplayUri kullanılıyor
+  const backgroundUri = backgroundDisplayUri; 
+  
   const vignetteIntensity = (settings as any).background_vignette || 0;
+
+  // Debug logları: Görüntü URI'larını kontrol et
+  if (__DEV__) {
+    console.log('EditorPreview Render - URIs:', {
+      product: imageUriToShow ? imageUriToShow.substring(0, 50) + '...' : 'N/A',
+      background: backgroundUri ? backgroundUri.substring(0, 50) + '...' : 'N/A',
+      showOriginal,
+      previewSize,
+    });
+  }
 
   const { containerStyle, contentStyle } = useMemo(() => {
     const baseContainerStyle = [styles.previewWrapper];
@@ -86,27 +101,32 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
         onPressIn={() => onShowOriginalChange(true)} 
         onPressOut={() => onShowOriginalChange(false)}
       >
-        {/* ✅ GÜNCELLEME: Ana container'a ref ekle */}
+        {/* Ana container'a ref ekle */}
         <View style={containerStyle} ref={ref} collapsable={false}>
+          {/* Sadece imageUriToShow ve previewSize geçerliyse içeriği render et */}
           {previewSize.width > 0 && imageUriToShow ? (
             <Animated.View style={contentStyle}>
               <View style={styles.imageContainer}>
-                {backgroundUri && (
+                {backgroundUri && ( // backgroundUri artık her zaman string olacak
                   <View style={styles.backgroundContainer}>
+                    {/* Hata olasılığını azaltmak için backgroundUri boş değilse render et */}
                     <Image 
                       source={{ uri: backgroundUri }} 
                       style={[styles.backgroundImage, backgroundFilterStyle]} 
                       resizeMode="cover" 
+                      onError={(e) => console.error('Background Image Load Error:', backgroundUri, e.nativeEvent.error)} // Hata yakalama
                     />
                     {vignetteIntensity > 0 && <SimpleVignetteOverlay intensity={vignetteIntensity} />}
                   </View>
                 )}
                 <GestureDetector gesture={combinedGesture}>
                   <Animated.View style={[styles.productContainer, productAnimatedStyle]}>
+                    {/* Hata olasılığını azaltmak için imageUriToShow boş değilse render et */}
                     <Image 
                       source={{ uri: imageUriToShow }} 
                       style={[styles.productImage, productFilterStyle]} 
                       resizeMode="contain" 
+                      onError={(e) => console.error('Product Image Load Error:', imageUriToShow, e.nativeEvent.error)} // Hata yakalama
                     />
                   </Animated.View>
                 </GestureDetector>
@@ -126,8 +146,10 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
               </View>
             </Animated.View>
           ) : (
+            // URI veya boyutlar henüz hazır değilse yükleme göstergesi
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={Colors.primary} />
+              {!imageUriToShow && <Text style={styles.loadingText}>Görsel Yükleniyor...</Text>}
             </View>
           )}
         </View>
@@ -138,7 +160,6 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
 
 EditorPreview.displayName = 'EditorPreview';
 
-// Stiller aynı kalabilir, değişiklik yok.
 const styles = StyleSheet.create({
   container: { flex: 1, width: '100%', backgroundColor: Colors.background, padding: Spacing.sm, justifyContent: 'center', alignItems: 'center' },
   pressable: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
@@ -150,6 +171,7 @@ const styles = StyleSheet.create({
   productImage: { width: '100%', height: '100%', backgroundColor: 'transparent' },
   cropOverlayContainer: { ...StyleSheet.absoluteFillObject, zIndex: 10 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { ...Typography.body, color: Colors.textSecondary, marginTop: Spacing.sm }, // Yeni stil
   originalOverlay: { position: 'absolute', bottom: Spacing.lg, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: BorderRadius.full, zIndex: 100 },
   originalText: { ...Typography.caption, color: Colors.card },
 });

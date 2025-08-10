@@ -1,7 +1,8 @@
-// services/backgroundThumbnailManager.ts - IMPORT HATASI DÜZELTİLMİŞ VERSİYON
+// services/backgroundThumbnailManager.ts - IMPORT HATASI DÜZELTİLMİŞ VE DİREK ASSET ÇÖZÜMLEMESİ EKLENMİŞ VERSİYON
 import * as FileSystem from 'expo-file-system';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator'; // DÜZELTME: Doğru import
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { imageProcessor } from './imageProcessor';
+import { Asset } from 'expo-asset'; // YENİ: Bu satırı ekleyin
 
 interface BackgroundThumbnail {
   id: string;
@@ -139,8 +140,9 @@ class BackgroundThumbnailManager {
 
   /**
    * Belirli bir background için thumbnail oluştur veya cache'den getir
+   * fullImageModule: network URI dizesi veya require() tarafından döndürülen yerel varlık kimliği (sayı)
    */
-  async getThumbnail(backgroundId: string, fullImageUri: string): Promise<string | null> {
+  async getThumbnail(backgroundId: string, fullImageModule: any): Promise<string | null> {
     try {
       // İlk initialize et
       await this.initializeCache();
@@ -160,9 +162,23 @@ class BackgroundThumbnailManager {
         }
       }
 
+      // YENİ: fullImageModule'u bir URI dizesine çözümle
+      let fullImageUriString: string;
+      if (typeof fullImageModule === 'number') { // Eğer yerel bir asset kimliği ise
+          const asset = Asset.fromModule(fullImageModule);
+          // ensureLoadedAsync veya downloadAsync ile varlığın yerel bir URI'ye sahip olduğundan emin ol
+          await asset.downloadAsync(); // Eğer halihazırda yoksa indir
+          fullImageUriString = asset.localUri || asset.uri; // localUri'yi tercih et, uri'ye fallback yap
+          if (!fullImageUriString) {
+              throw new Error(`Failed to resolve asset URI for module: ${fullImageModule}`);
+          }
+      } else { // Zaten bir dize URI (ağdan veya önceden kaydedilmiş bir dosyadan)
+          fullImageUriString = fullImageModule;
+      }
+
       // Yeni thumbnail oluştur
       console.log('🖼️ Creating background thumbnail:', backgroundId);
-      const thumbnailUri = await this.createThumbnail(backgroundId, fullImageUri);
+      const thumbnailUri = await this.createThumbnail(backgroundId, fullImageUriString); // Çözümlenmiş dize URI'yi geçir
       
       if (thumbnailUri) {
         // Cache'e ekle
@@ -186,7 +202,7 @@ class BackgroundThumbnailManager {
   }
 
   /**
-   * Background thumbnail oluştur - DÜZELTME: Doğru import kullanımı
+   * Background thumbnail oluştur
    */
   private async createThumbnail(backgroundId: string, fullImageUri: string): Promise<string | null> {
     try {
@@ -194,12 +210,11 @@ class BackgroundThumbnailManager {
       const thumbnailPath = this.cacheDirectory + thumbnailFilename;
 
       console.log('🔧 Creating thumbnail with manipulateAsync:', {
-        input: fullImageUri,
+        input: fullImageUri, // Bu artık her zaman bir URI dizesi olmalı
         output: thumbnailPath,
         size: this.thumbnailSize
       });
 
-      // DÜZELTME: Doğru import ile manipulateAsync kullan
       const result = await manipulateAsync(
         fullImageUri,
         [
@@ -315,9 +330,9 @@ class BackgroundThumbnailManager {
   }
 
   /**
-   * Belirli background'lar için pre-cache yap - GÜVENLİ VERSİYON
+   * Belirli background'lar için pre-cache yap
    */
-  async preloadThumbnails(backgrounds: { id: string; fullUrl: string }[]): Promise<void> {
+  async preloadThumbnails(backgrounds: { id: string; fullUrl: any }[]): Promise<void> {
     if (!backgrounds || backgrounds.length === 0) return;
     
     console.log('🚀 Preloading background thumbnails:', backgrounds.length, 'items');
@@ -326,6 +341,7 @@ class BackgroundThumbnailManager {
     const results = await Promise.allSettled(
       backgrounds.map(async (bg) => {
         try {
+          // fullUrl'ın yerel asset kimliği olabileceğini unutmayın, getThumbnail onu işleyecektir.
           const result = await this.getThumbnail(bg.id, bg.fullUrl);
           if (result) {
             console.log('✅ Preloaded:', bg.id);

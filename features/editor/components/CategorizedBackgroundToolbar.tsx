@@ -1,11 +1,13 @@
 // features/editor/components/CategorizedBackgroundToolbar.tsx - YENİ KATEGORİLİ BACKGROUND TOOLBAR
+// OptimizedBackgroundButton kullanacak şekilde güncellendi.
 
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { BACKGROUND_CATEGORIES, Background } from '../config/backgrounds';
-import { BackgroundButton } from './BackgroundButton';
+// import { BackgroundButton } from './BackgroundButton'; // Bu satırı kaldırın
+import { OptimizedBackgroundButton } from './OptimizedBackgroundButton'; // YENİ: Bu satırı ekleyin
 
 interface CategorizedBackgroundToolbarProps {
   selectedBackgroundId?: string;
@@ -68,7 +70,7 @@ export const CategorizedBackgroundToolbar: React.FC<CategorizedBackgroundToolbar
           contentContainerStyle={styles.backgroundScrollContent}
         >
           {activeCategoryData?.backgrounds.map(background => (
-            <BackgroundButton
+            <OptimizedBackgroundButton // BURADA OptimizedBackgroundButton KULLANILIYOR
               key={background.id}
               background={background}
               isSelected={selectedBackgroundId === background.id}
