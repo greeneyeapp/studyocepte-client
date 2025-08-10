@@ -1,4 +1,4 @@
-// features/editor/config/exportTools.ts - HIZLI EXPORT EKLENMİŞ VERSİYON
+// features/editor/config/exportTools.ts - HIZLI EXPORT KALDIRILMIŞ VERSİYON
 
 export interface ExportPreset {
   id: string;
@@ -15,7 +15,7 @@ export interface ShareOption {
   id: string;
   name: string;
   icon: string;
-  type: 'gallery' | 'generic' | 'quick_custom'; // Yeni type eklendi
+  type: 'gallery' | 'generic'; // quick_custom kaldırıldı
 }
 
 export const EXPORT_PRESETS: ExportPreset[] = [
@@ -54,22 +54,4 @@ export const EXPORT_PRESETS: ExportPreset[] = [
 
   // --- ÖZEL (6 Seçenek) ---
   { id: 'custom_widescreen', name: 'Geniş Ekran (16:9)', description: '1920x1080 - TV ve Monitör oranı', dimensions: { width: 1920, height: 1080 }, format: 'png', quality: 0.95, category: 'custom', icon: 'tv' },
-  { id: 'custom_classic_photo', name: 'Klasik Fotoğraf (3:2)', description: '1080x720 - 35mm film oranı', dimensions: { width: 1080, height: 720 }, format: 'png', quality: 0.95, category: 'custom', icon: 'camera' },
-  { id: 'custom_portrait', name: 'Dikey Portre (2:3)', description: '720x1080 - Dikey fotoğraf oranı', dimensions: { width: 720, height: 1080 }, format: 'png', quality: 0.95, category: 'custom', icon: 'user' },
-  { id: 'custom_cinematic', name: 'Sinematik (21:9)', description: '2560x1080 - Ultra geniş ekran', dimensions: { width: 2560, height: 1080 }, format: 'png', quality: 0.95, category: 'custom', icon: 'film' },
-  { id: 'custom_A4_yatay', name: 'A4 Yatay', description: '3508x2480px - Yatay belge/sunum', dimensions: { width: 3508, height: 2480 }, format: 'png', quality: 0.95, category: 'custom', icon: 'file-text' },
-];
-
-export const SHARE_OPTIONS: ShareOption[] = [
-  { id: 'gallery', name: 'Galeriye Kaydet', icon: 'download', type: 'gallery' },
-  { id: 'share', name: 'Paylaş...', icon: 'share-2', type: 'generic' },
-  { id: 'quick_custom', name: 'Hızlı Boyut', icon: 'zap', type: 'quick_custom' } // YENİ SEÇENEK
-];
-
-export const EXPORT_CATEGORIES = [
-  { key: 'social', name: 'Sosyal Medya', icon: 'share-2' },
-  { key: 'marketplace', name: 'E-ticaret', icon: 'shopping-cart' },
-  { key: 'web', name: 'Web', icon: 'globe' },
-  { key: 'print', name: 'Baskı', icon: 'printer' },
-  { key: 'custom', name: 'Özel', icon: 'settings' }
-] as const;
+  { id: 'custom_classic_photo', name: 'Klasik Fotoğraf (3:2)', description: '1080x720 - 35mm film oranı', dimensions: { width: 1080, height: 720 }, format: 'png', quality:

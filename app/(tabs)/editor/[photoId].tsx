@@ -1,4 +1,5 @@
-// app/(tabs)/editor/[photoId].tsx - PRODUCTION READY AUTO-SAVE VERSİYON
+// app/(tabs)/editor/[photoId].tsx - YENİ KATEGORİLİ BACKGROUND SİSTEMİ İLE GÜNCELLENMİŞ
+
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, LayoutAnimation, UIManager, Platform, AppState } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -11,7 +12,9 @@ import { useExportManager } from '@/features/editor/hooks/useExportManager';
 import { useScrollManager } from '@/features/editor/hooks/useScrollManager';
 import { useEditorAutoSave } from '@/features/editor/hooks/useEditorAutoSave';
 import { useDraftRestore } from '@/features/editor/hooks/useDraftRestore';
-import { useBackgroundPreloader } from '@/features/editor/hooks/useBackgroundPreloader';
+
+// YENİ: Background config'den import
+import { BACKGROUND_CATEGORIES, getBackgroundById, Background } from '@/features/editor/config/backgrounds';
 
 import { EditorHeader } from '@/features/editor/components/EditorHeader';
 import { TargetSelector } from '@/features/editor/components/TargetSelector';
@@ -20,9 +23,10 @@ import { FeatureButton } from '@/features/editor/components/FeatureButton';
 import { CustomSlider } from '@/features/editor/components/CustomSlider';
 import { MainToolbar } from '@/features/editor/components/MainToolbar';
 import { FilterPreview } from '@/features/editor/components/FilterPreview';
-import { BackgroundButton } from '@/features/editor/components/BackgroundButton';
 import { CropToolbar } from '@/features/editor/components/CropToolbar';
 import { ExportToolbar } from '@/features/editor/components/ExportToolbar';
+// YENİ: Kategorili background toolbar
+import { CategorizedBackgroundToolbar } from '@/features/editor/components/CategorizedBackgroundToolbar';
 
 import { ToolType, TargetType } from '@/features/editor/config/tools';
 import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/features';
@@ -40,42 +44,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// Background verisi - production için optimize edilmiş
-interface Background {
-  id: string;
-  name: string;
-  thumbnailUrl: string;
-  fullUrl: string;
-}
-
 const previewRef = useRef<View>(null);
-
-const staticBackgrounds: Background[] = [
-  {
-    id: "bg1",
-    name: "Studio White",
-    thumbnailUrl: "https://images.pexels.com/photos/1762851/pexels-photo-1762851.jpeg?auto=compress&cs=tinysrgb&w=200",
-    fullUrl: "https://images.pexels.com/photos/1762851/pexels-photo-1762851.jpeg?auto=compress&cs=tinysrgb&w=800"
-  },
-  {
-    id: "bg2",
-    name: "Concrete",
-    thumbnailUrl: "https://images.pexels.com/photos/1191710/pexels-photo-1191710.jpeg?auto=compress&cs=tinysrgb&w=200",
-    fullUrl: "https://images.pexels.com/photos/1191710/pexels-photo-1191710.jpeg?auto=compress&cs=tinysrgb&w=800"
-  },
-  {
-    id: "bg3",
-    name: "Warm Light",
-    thumbnailUrl: "https://images.pexels.com/photos/2306281/pexels-photo-2306281.jpeg?auto=compress&cs=tinysrgb&w=200",
-    fullUrl: "https://images.pexels.com/photos/2306281/pexels-photo-2306281.jpeg?auto=compress&cs=tinysrgb&w=800"
-  },
-  {
-    id: "bg4",
-    name: "Wooden Floor",
-    thumbnailUrl: "https://images.pexels.com/photos/276583/pexels-photo-276583.jpeg?auto=compress&cs=tinysrgb&w=200",
-    fullUrl: "https://images.pexels.com/photos/276583/pexels-photo-276583.jpeg?auto=compress&cs=tinysrgb&w=800"
-  },
-];
 
 export default function EnhancedEditorScreen() {
   const { t } = useTranslation();
@@ -122,13 +91,6 @@ export default function EnhancedEditorScreen() {
     maxDraftAge: 7 * 24 * 60 * 60 * 1000 // 7 gün
   });
 
-  const backgroundPreloader = useBackgroundPreloader(staticBackgrounds, {
-    enabled: true,
-    priority: 'low',
-    maxConcurrent: 2,
-    delayMs: 2000
-  });
-
   // ===== STATE =====
   const [activeTool, setActiveTool] = useState<ToolType>('adjust');
   const [activeTarget, setActiveTarget] = useState<TargetType>('product');
@@ -147,13 +109,13 @@ export default function EnhancedEditorScreen() {
     const handleAppStateChange = (nextAppState: string) => {
       if (nextAppState === 'background') {
         console.log('📱 App backgrounding, optimizing memory...');
-        backgroundPreloader.optimizeCache();
+        imageProcessor.optimizeMemoryUsage();
       }
     };
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription?.remove();
-  }, [backgroundPreloader]);
+  }, []);
 
   // ===== PHOTO LOADING EFFECT =====
   useEffect(() => {
@@ -249,10 +211,8 @@ export default function EnhancedEditorScreen() {
         await store.saveChanges();
       }
 
-      // ✅ YENİ: Save başarılı olduktan sonra product sayfasına dön
       console.log('🚀 Save successful, navigating back to product page');
 
-      // Kısa bir delay ile smooth transition
       setTimeout(() => {
         if (productId) {
           console.log('📱 Navigating to product:', productId);
@@ -261,15 +221,13 @@ export default function EnhancedEditorScreen() {
             params: { productId }
           });
         } else {
-          // Fallback: Sadece geri git
           console.log('📱 No productId, going back');
           router.back();
         }
-      }, 500); // 500ms delay - toast mesajının görünmesi için
+      }, 500);
 
     } catch (error) {
       console.error('❌ Save failed, staying on editor:', error);
-      // Hata durumunda sayfada kal (zaten ToastService hata gösterecek)
     }
   };
 
@@ -281,11 +239,9 @@ export default function EnhancedEditorScreen() {
 
   const handleCancel = () => {
     if (activeTool === 'crop' || activeTool === 'export' || activeFeature) {
-      // Alt toolbar'dan çık
       setActiveFeature(null);
       handleToolChange('adjust');
     } else {
-      // ✅ GÜNCELLEME: Draft kaydet ve product sayfasına dön
       if (hasDraftChanges) {
         console.log('📂 Saving draft before exit');
         saveDraft();
@@ -304,32 +260,27 @@ export default function EnhancedEditorScreen() {
     }
   };
 
-  // ===== BACKGROUND SECTION RENDER =====
+  // ===== YENİ: BACKGROUND HANDLER =====
+  const handleBackgroundSelect = (background: Background) => {
+    console.log('🖼️ Background selected:', background.name);
+    updateSettings({ backgroundId: background.id });
+    addSnapshotToHistory();
+  };
+
+  // ===== YENİ: SELECTED BACKGROUND =====
+  const selectedBackground = useMemo(() => {
+    return getBackgroundById(settings.backgroundId);
+  }, [settings.backgroundId]);
+
+  // ===== BACKGROUND SECTION RENDER - YENİ =====
   const renderBackgroundSection = () => {
     if (activeTool !== 'background') return null;
 
     return (
-      <View style={styles.backgroundSection}>
-        <ScrollView
-          ref={currentScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {staticBackgrounds.map(bg =>
-            <BackgroundButton
-              key={bg.id}
-              background={bg}
-              isSelected={settings.backgroundId === bg.id}
-              onPress={() => {
-                console.log('🖼️ Background selected:', bg.name);
-                updateSettings({ backgroundId: bg.id });
-                addSnapshotToHistory();
-              }}
-            />
-          )}
-        </ScrollView>
-      </View>
+      <CategorizedBackgroundToolbar
+        selectedBackgroundId={settings.backgroundId}
+        onBackgroundSelect={handleBackgroundSelect}
+      />
     );
   };
 
@@ -349,7 +300,6 @@ export default function EnhancedEditorScreen() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        {/* PRODUCTION HEADER */}
         <EditorHeader
           onCancel={handleCancel}
           onSave={handleSave}
@@ -368,7 +318,7 @@ export default function EnhancedEditorScreen() {
             <EditorPreview
               ref={previewRef}
               activePhoto={{ ...activePhoto, processedImageUrl: activePhoto.processedUri }}
-              selectedBackground={staticBackgrounds.find(bg => bg.id === settings.backgroundId)}
+              selectedBackground={selectedBackground}
               settings={settings}
               showOriginal={showOriginal}
               onShowOriginalChange={setShowOriginal}
@@ -399,7 +349,6 @@ export default function EnhancedEditorScreen() {
             {activeTool === 'export' && (
               <View style={styles.fullScreenTool}>
                 <ExportToolbar
-                  activeTool={activeTool}
                   selectedPreset={selectedPreset}
                   isExporting={isExporting}
                   setSelectedPreset={setSelectedPreset}
@@ -469,7 +418,7 @@ export default function EnhancedEditorScreen() {
                               key={f.key}
                               filter={f}
                               imageUri={activePhoto.processedUri!}
-                              backgroundUri={staticBackgrounds.find(bg => bg.id === settings.backgroundId)?.fullUrl!}
+                              backgroundUri={selectedBackground?.fullUrl}
                               isSelected={activeFilterKey === f.key}
                               onPress={() => applyFilter(f.key, activeTarget)}
                             />
@@ -477,6 +426,7 @@ export default function EnhancedEditorScreen() {
                         </ScrollView>
                       )}
 
+                      {/* YENİ: Kategorili background section */}
                       {renderBackgroundSection()}
                     </>
                   )}
@@ -532,56 +482,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     alignItems: 'center',
     gap: Spacing.lg,
-    paddingVertical: Spacing.md
-  },
-
-  // Status indicators - PRODUCTION
-  thumbnailUpdateIndicator: {
-    position: 'absolute',
-    top: 80,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.primary + '90',
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: 20,
-    marginHorizontal: Spacing.lg,
-    zIndex: 100,
-  },
-  thumbnailUpdateText: {
-    color: Colors.card,
-    fontSize: 14,
-    fontWeight: '600'
-  },
-
-  autoSaveIndicator: {
-    position: 'absolute',
-    top: 120,
-    left: Spacing.lg,
-    right: Spacing.lg,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: Spacing.md,
-    borderRadius: 12,
-    zIndex: 90,
-    backgroundColor: Colors.success + '20',
-    gap: Spacing.xs,
-  },
-  autoSaveText: {
-    color: Colors.success,
-    fontSize: 12,
-    fontWeight: '500'
-  },
-
-  // Background section
-  backgroundSection: {
-    width: '100%',
     paddingVertical: Spacing.md
   },
 });
