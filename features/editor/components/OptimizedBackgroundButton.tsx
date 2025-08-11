@@ -1,15 +1,14 @@
-// features/editor/components/OptimizedBackgroundButton.tsx - BEYAZ EKRAN SORUNU DÜZELTİLMİŞ
+// features/editor/components/OptimizedBackgroundButton.tsx - SORUNLAR DÜZELTİLMİŞ
 import React, { useState, useEffect, useRef } from 'react';
 import { TouchableOpacity, Image, View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, BorderRadius, Spacing } from '@/constants';
-import { backgroundThumbnailManager } from '@/services/backgroundThumbnailManager';
 
 interface Background {
   id: string;
   name: string;
-  thumbnailUrl: string;
-  fullUrl: string;
+  thumbnailUrl: any; // require() için any type
+  fullUrl: any;
 }
 
 interface OptimizedBackgroundButtonProps {
@@ -19,7 +18,7 @@ interface OptimizedBackgroundButtonProps {
 }
 
 /**
- * ✅ BEYAZ EKRAN SORUNU DÜZELTİLMİŞ - Defensive programming ile
+ * ✅ SORUNLAR DÜZELTİLMİŞ: Daha basit ve güvenilir background button
  */
 export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps> = ({
   background,
@@ -29,126 +28,103 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
   const mountedRef = useRef(true);
-  const timeoutRef = useRef<NodeJS.Timeout>();
 
   // Component unmount cleanup
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
     };
   }, []);
 
-  // ✅ DÜZELTME: Hemen fallback URI'yi set et, async yükleme paralel çalışsın
-  useEffect(() => {
-    // Hemen fallback olarak normal thumbnailUrl'i kullan
-    if (typeof background.thumbnailUrl === 'string') {
-      setThumbnailUri(background.thumbnailUrl);
-      setIsLoading(false);
-    } else {
-      // Eğer thumbnailUrl bir require() ise fallback göster
-      setThumbnailUri(null);
-      setIsLoading(true);
-    }
-  }, [background.id]);
-
-  // ✅ DÜZELTME: Async yükleme için ayrı effect (non-blocking)
+  // ✅ DÜZELTİLMİŞ: Daha basit asset resolving
   useEffect(() => {
     let isCancelled = false;
 
-    const loadOptimizedThumbnail = async () => {
+    const resolveAsset = async () => {
       try {
-        console.log('🖼️ Loading optimized thumbnail for background:', background.id);
+        setIsLoading(true);
+        setHasError(false);
 
-        // ✅ DÜZELTME: Timeout koruması daha kısa
-        const timeoutPromise = new Promise<string | null>((_, reject) => {
-          timeoutRef.current = setTimeout(() => {
-            reject(new Error('Thumbnail load timeout'));
-          }, 3000); // 3 saniye (8'den düşürüldü)
-        });
-
-        const thumbnailPromise = backgroundThumbnailManager.getThumbnail(
-          background.id,
-          background.fullUrl
-        );
-
-        const optimizedUri = await Promise.race([thumbnailPromise, timeoutPromise]);
-
-        // Clear timeout
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = undefined;
+        // Eğer thumbnailUrl zaten string ise direkt kullan
+        if (typeof background.thumbnailUrl === 'string') {
+          if (!isCancelled && mountedRef.current) {
+            setThumbnailUri(background.thumbnailUrl);
+            setIsLoading(false);
+          }
+          return;
         }
 
-        if (isCancelled || !mountedRef.current) return;
-
-        if (optimizedUri && optimizedUri !== thumbnailUri) {
-          console.log('✅ Optimized thumbnail loaded:', background.id);
-          setThumbnailUri(optimizedUri);
-          setHasError(false);
-        }
-
-      } catch (error) {
-        console.warn('⚠️ Optimized thumbnail failed (using fallback):', background.id, error);
-        
-        if (!isCancelled && mountedRef.current) {
-          // ✅ DÜZELTME: Hata durumunda fallback kullan, hiç yoksa placeholder
-          if (!thumbnailUri) {
-            // Fallback olarak normal thumbnailUrl'i dene
-            if (typeof background.thumbnailUrl === 'string') {
-              setThumbnailUri(background.thumbnailUrl);
-            } else {
+        // Asset ise resolve et
+        if (typeof background.thumbnailUrl === 'number') {
+          try {
+            // Dynamic import ile Asset'i yükle
+            const { Asset } = await import('expo-asset');
+            const asset = Asset.fromModule(background.thumbnailUrl);
+            
+            // Asset'i download et
+            await asset.downloadAsync();
+            
+            const resolvedUri = asset.localUri || asset.uri;
+            
+            if (!isCancelled && mountedRef.current) {
+              if (resolvedUri) {
+                setThumbnailUri(resolvedUri);
+                setIsLoading(false);
+                console.log('✅ Asset resolved:', background.id, resolvedUri);
+              } else {
+                throw new Error('Asset URI could not be resolved');
+              }
+            }
+          } catch (assetError) {
+            console.warn('⚠️ Asset resolution failed:', background.id, assetError);
+            if (!isCancelled && mountedRef.current) {
               setHasError(true);
+              setIsLoading(false);
             }
           }
+        } else {
+          // Diğer durumlar için hata
+          if (!isCancelled && mountedRef.current) {
+            setHasError(true);
+            setIsLoading(false);
+          }
         }
-      } finally {
-        if (mountedRef.current && !isCancelled) {
+      } catch (error) {
+        console.error('❌ Background asset resolution failed:', background.id, error);
+        if (!isCancelled && mountedRef.current) {
+          setHasError(true);
           setIsLoading(false);
         }
       }
     };
 
-    // ✅ DÜZELTME: Sadece thumbnailUrl string değilse optimize et
-    if (typeof background.thumbnailUrl !== 'string') {
-      loadOptimizedThumbnail();
-    }
+    resolveAsset();
 
     return () => {
       isCancelled = true;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
     };
-  }, [background.id, background.fullUrl]);
+  }, [background.id, background.thumbnailUrl]);
 
   const handleImageError = () => {
     console.warn('🖼️ Image render error for:', background.id);
     if (mountedRef.current) {
       setHasError(true);
-      
-      // ✅ DÜZELTME: Fallback stratejisi
-      if (typeof background.thumbnailUrl === 'string' && thumbnailUri !== background.thumbnailUrl) {
-        setThumbnailUri(background.thumbnailUrl);
-        setHasError(false);
-      }
+      setIsLoading(false);
     }
   };
 
   const handleImageLoad = () => {
     if (mountedRef.current) {
       console.log('✅ Image successfully rendered for:', background.id);
+      setIsLoading(false);
       setHasError(false);
     }
   };
 
-  // ✅ DÜZELTME: Error state için daha güvenli render
-  if (hasError || (!thumbnailUri && !isLoading)) {
+  // ✅ DÜZELTİLMİŞ: Error state için placeholder
+  if (hasError) {
     return (
       <TouchableOpacity 
         style={[
@@ -171,8 +147,8 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
     );
   }
 
-  // ✅ DÜZELTME: Loading state sadece gerçekten loading ise
-  if (isLoading && !thumbnailUri) {
+  // ✅ DÜZELTİLMİŞ: Loading state
+  if (isLoading || !thumbnailUri) {
     return (
       <TouchableOpacity 
         style={[
@@ -195,7 +171,7 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
     );
   }
 
-  // ✅ DÜZELTME: Normal render - thumbnailUri kesin var
+  // ✅ DÜZELTİLMİŞ: Normal render
   return (
     <TouchableOpacity 
       style={[
@@ -211,7 +187,7 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
           style={styles.backgroundImage}
           onError={handleImageError}
           onLoad={handleImageLoad}
-          cache="force-cache"
+          resizeMode="cover"
         />
       </View>
       
@@ -219,13 +195,6 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
       {isSelected && (
         <View style={styles.selectionIndicator}>
           <Feather name="check" size={12} color={Colors.card} />
-        </View>
-      )}
-
-      {/* Loading overlay sadece optimize ederken */}
-      {isLoading && thumbnailUri && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="small" color={Colors.card} />
         </View>
       )}
     </TouchableOpacity>
@@ -259,7 +228,6 @@ const styles = StyleSheet.create({
   backgroundImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   loadingContainer: {
     width: '100%',
@@ -267,17 +235,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.gray100,
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   errorContainer: {
     width: '100%',

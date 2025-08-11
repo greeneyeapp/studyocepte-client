@@ -434,13 +434,34 @@ export default function EnhancedEditorScreen() {
 
   // ===== BACKGROUND SECTION RENDER - YENİ =====
   const renderBackgroundSection = () => {
-    if (activeTool !== 'background') return null;
+    console.log('🖼️ renderBackgroundSection called:', {
+      activeTool,
+      toolIsBackground: activeTool === 'background',
+      selectedBackgroundConfig: selectedBackgroundConfig?.name,
+      resolvedUri: resolvedBackgroundUri
+    });
+
+    if (activeTool !== 'background') {
+      console.log('⏭️ Background section skipped - tool is not background');
+      return null;
+    }
+
+    console.log('✅ Background section rendering...');
 
     return (
-      <CategorizedBackgroundToolbar
-        selectedBackgroundId={settings.backgroundId}
-        onBackgroundSelect={handleBackgroundSelect}
-      />
+      <View style={{
+        backgroundColor: 'red', // ✅ DEBUG: Kırmızı arka plan ekle
+        minHeight: 200,         // ✅ DEBUG: Minimum yükseklik garanti et
+        padding: 10             // ✅ DEBUG: Padding ekle
+      }}>
+        <Text style={{ color: 'white', fontSize: 16, textAlign: 'center' }}>
+          🔴 DEBUG: Background Toolbar Burası
+        </Text>
+        <CategorizedBackgroundToolbar
+          selectedBackgroundId={settings.backgroundId}
+          onBackgroundSelect={handleBackgroundSelect}
+        />
+      </View>
     );
   };
 
@@ -640,8 +661,31 @@ export default function EnhancedEditorScreen() {
                         </ScrollView>
                       )}
 
-                      {activeTool === 'background' && renderBackgroundSection()}
-                    </>
+                      {activeTool === 'background' && (
+                        <View style={{
+                          backgroundColor: '#ff0000', // Kırmızı debug arka plan
+                          minHeight: 200,
+                          padding: 20,
+                          justifyContent: 'center',
+                          alignItems: 'center'
+                        }}>
+                          <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>
+                            🚨 BACKGROUND TOOLBAR TEST 🚨
+                          </Text>
+                          <Text style={{ color: 'white', marginTop: 10 }}>
+                            Active Tool: {activeTool}
+                          </Text>
+                          <Text style={{ color: 'white', marginTop: 5 }}>
+                            Background ID: {settings.backgroundId}
+                          </Text>
+
+                          {/* Gerçek component */}
+                          <CategorizedBackgroundToolbar
+                            selectedBackgroundId={settings.backgroundId}
+                            onBackgroundSelect={handleBackgroundSelect}
+                          />
+                        </View>
+                      )}                    </>
                   )}
                 </View>
               </>
