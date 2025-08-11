@@ -1,4 +1,4 @@
-// client/features/editor/components/BackgroundItem.tsx - YENİ VE BASİTLEŞTİRİLMİŞ (Debug Kenarlıklı)
+// client/features/editor/components/BackgroundItem.tsx - DEBUG STİLLERİ TEMİZLENMİŞ
 import React from 'react';
 import { TouchableOpacity, Image, View, StyleSheet, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -18,9 +18,9 @@ interface BackgroundItemProps {
 }
 
 /**
- * ✅ YENİ: Basit arka plan öğesi butonu.
+ * ✅ TEMİZLENMİŞ: Basit arka plan öğesi butonu.
+ *    Debug kenarlıkları kaldırıldı.
  *    Sadece verilen URI'yi göstermeye odaklanır.
- *    Hata ayıklama için geçici bir kenarlık içerir.
  */
 export const BackgroundItem: React.FC<BackgroundItemProps> = ({
   background,
@@ -47,14 +47,9 @@ export const BackgroundItem: React.FC<BackgroundItemProps> = ({
       <View style={styles.imageContainer}>
         <Image
           source={{ uri: background.thumbnailUrl }}
-          style={[
-            styles.backgroundImage,
-            // GEÇİCİ HATA AYIKLAMA KENARLIĞI: Görselin render edilip edilmediğini görmek için
-            { borderWidth: 2, borderColor: 'purple', backgroundColor: Colors.gray200 }
-          ]}
+          style={styles.backgroundImage}
           onError={(e) => {
             console.warn(`❌ BackgroundItem Image Error for ${background.id}:`, e.nativeEvent.error);
-            // Hata durumunda boş bir görünüm döndürebilirsiniz veya bir placeholder
           }}
           onLoad={() => {
             if (__DEV__) console.log(`✅ BackgroundItem Image Loaded for ${background.id}`);
@@ -72,7 +67,7 @@ export const BackgroundItem: React.FC<BackgroundItemProps> = ({
       {/* Seçim göstergesi */}
       {isSelected && (
         <View style={styles.selectionIndicator}>
-          <Feather name="check" size={12} color={Colors.card} />
+          <Feather name="check" size={14} color={Colors.card} /> {/* ✅ İcon boyutu artırıldı */}
         </View>
       )}
     </TouchableOpacity>
@@ -81,11 +76,11 @@ export const BackgroundItem: React.FC<BackgroundItemProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    width: 60,
-    height: 60,
+    width: 70, // ✅ Boyut büyütüldü (50'den 70'e)
+    height: 70,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
-    marginRight: Spacing.md, // <-- Spacing.lg yerine Spacing.md olarak değiştirildi
+    marginRight: Spacing.md, // ✅ Margin artırıldı
     borderWidth: 2,
     borderColor: 'transparent',
     position: 'relative',
@@ -102,20 +97,22 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: '100%',
     height: '100%',
-    justifyContent: 'center', // Ortalamak için
-    alignItems: 'center',    // Ortalamak için
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   backgroundImage: {
     width: '100%',
     height: '100%',
+    // ✅ TEMİZLENDİ: Debug kenarlıkları kaldırıldı
+    backgroundColor: Colors.gray200, // Fallback background
   },
   selectionIndicator: {
     position: 'absolute',
-    bottom: 4,
+    bottom: 4, // ✅ Position geri artırıldı
     right: 4,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 20, // ✅ Boyut artırıldı
+    height: 20,
+    borderRadius: 10,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',

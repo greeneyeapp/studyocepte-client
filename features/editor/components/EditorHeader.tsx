@@ -174,9 +174,6 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
             </Text>
           </TouchableOpacity>
 
-          {/* ✅ AUTO-SAVE HEP AÇIK: Sadece draft status indicators */}
-          <DraftStatusBadge />
-
         </View>
       </View>
 
