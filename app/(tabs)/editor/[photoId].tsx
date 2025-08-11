@@ -154,8 +154,97 @@ export default function EnhancedEditorScreen() {
   // ===== ARKA PLAN URI ÇÖZÜMLEMESİ (Double to String hatası için) =====
   // selectedBackground'ın fullUrl'unu string URI'ye çevirip EditorPreview'a iletmek için
   const selectedBackgroundConfig = useMemo(() => {
-    return getBackgroundById(settings.backgroundId);
+    console.log('🎨 Current background ID:', settings.backgroundId);
+    const config = getBackgroundById(settings.backgroundId);
+    console.log('🎨 Found background config:', config ? config.name : 'NOT FOUND');
+    return config;
   }, [settings.backgroundId]);
+
+
+  // ✅ DÜZELTME: Effect'i basitleştir ve sync/async karışıklığını çöz
+  useEffect(() => {
+    let isMounted = true;
+
+    const resolveBackgroundUri = async () => {
+      if (!selectedBackgroundConfig) {
+        console.log('🎨 No background config, clearing URI');
+        if (isMounted) {
+          setResolvedBackgroundUri(undefined);
+        }
+        return;
+      }
+
+      console.log('🎨 Starting background URI resolution for:', selectedBackgroundConfig.id);
+
+      try {
+        // ✅ DÜZELTME: Önce direkt thumbnail kullanmayı dene
+        if (typeof selectedBackgroundConfig.thumbnailUrl === 'string') {
+          console.log('🎨 Using direct string thumbnail URL');
+          if (isMounted) {
+            setResolvedBackgroundUri(selectedBackgroundConfig.thumbnailUrl);
+          }
+          return;
+        }
+
+        // ✅ DÜZELTME: Asset ise resolve et - ama timeout ile
+        console.log('🎨 Resolving asset-based thumbnail');
+
+        // Promise with timeout
+        const resolvePromise = backgroundThumbnailManager.getThumbnail(
+          selectedBackgroundConfig.id,
+          selectedBackgroundConfig.fullUrl
+        );
+
+        const timeoutPromise = new Promise<string | null>((_, reject) => {
+          setTimeout(() => reject(new Error('Resolution timeout')), 2000); // 2 saniye max
+        });
+
+        const resolvedUri = await Promise.race([resolvePromise, timeoutPromise]);
+
+        if (isMounted) {
+          if (resolvedUri) {
+            console.log('✅ Background URI resolved:', selectedBackgroundConfig.id);
+            setResolvedBackgroundUri(resolvedUri);
+          } else {
+            console.warn('⚠️ Background URI resolution returned null, using fallback');
+            // ✅ DÜZELTME: Fallback strateji - Asset'i direkt dene
+            try {
+              const Asset = require('expo-asset').Asset;
+              const asset = Asset.fromModule(selectedBackgroundConfig.thumbnailUrl);
+              await asset.downloadAsync();
+              const fallbackUri = asset.localUri || asset.uri;
+
+              if (fallbackUri && isMounted) {
+                console.log('✅ Using fallback asset URI:', selectedBackgroundConfig.id);
+                setResolvedBackgroundUri(fallbackUri);
+              } else {
+                setResolvedBackgroundUri(undefined);
+              }
+            } catch (fallbackError) {
+              console.warn('⚠️ Fallback asset resolution failed:', fallbackError);
+              if (isMounted) {
+                setResolvedBackgroundUri(undefined);
+              }
+            }
+          }
+        }
+
+      } catch (error) {
+        console.error('❌ Background URI resolution failed:', selectedBackgroundConfig.id, error);
+        if (isMounted) {
+          setResolvedBackgroundUri(undefined);
+        }
+      }
+    };
+
+    resolveBackgroundUri();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedBackgroundConfig]);
+
+
 
   const [resolvedBackgroundUri, setResolvedBackgroundUri] = useState<string | undefined>(undefined);
 
@@ -224,8 +313,28 @@ export default function EnhancedEditorScreen() {
 
   const handlePreviewLayout = (event: any) => {
     const { width, height } = event.nativeEvent.layout;
-    if (width > 0 && height > 0 && (width !== previewSize.width || height !== previewSize.height)) {
+
+    // ✅ DÜZELTME: Çok daha agresif filtering
+    const isValidLayout = width > 200 && height > 200; // Minimum 200x200
+    const isSizeChanged = Math.abs(width - previewSize.width) > 5 || Math.abs(height - previewSize.height) > 5;
+
+    if (isValidLayout && isSizeChanged) {
+      console.log('📐 Preview layout updated:', {
+        width,
+        height,
+        previous: previewSize,
+        activeTool
+      });
       setPreviewSize({ width, height });
+    } else {
+      console.log('📐 Layout event filtered:', {
+        width,
+        height,
+        isValidLayout,
+        isSizeChanged,
+        activeTool,
+        reason: !isValidLayout ? 'Invalid size' : 'Size not changed significantly'
+      });
     }
   };
 
@@ -295,11 +404,31 @@ export default function EnhancedEditorScreen() {
     }
   };
 
-  // ===== YENİ: BACKGROUND HANDLER =====
+  useEffect(() => {
+    console.log('🎨 Background state update:', {
+      selectedBackgroundId: settings.backgroundId,
+      hasConfig: !!selectedBackgroundConfig,
+      configName: selectedBackgroundConfig?.name,
+      resolvedUri: resolvedBackgroundUri ? 'RESOLVED' : 'NOT_RESOLVED',
+      activeTool
+    });
+  }, [settings.backgroundId, selectedBackgroundConfig, resolvedBackgroundUri, activeTool]);
+
+  // ===== YENİ: BACKGROUND HANDLER - DEBUG İLE =====
   const handleBackgroundSelect = (background: Background) => {
-    console.log('🖼️ Background selected:', background.name);
-    updateSettings({ backgroundId: background.id });
-    addSnapshotToHistory();
+    console.log('🖼️ Background selection started:', background.name, background.id);
+
+    try {
+      // Settings'i güncelle
+      updateSettings({ backgroundId: background.id });
+
+      // History'ye ekle  
+      addSnapshotToHistory();
+
+      console.log('✅ Background selection completed:', background.name);
+    } catch (error) {
+      console.error('❌ Background selection failed:', error);
+    }
   };
 
 
@@ -316,16 +445,51 @@ export default function EnhancedEditorScreen() {
   };
 
   // ===== DİNAMİK STİL HESAPLAMALARI (Export ekranı için) =====
-  const previewContainerStyle = useMemo(() => ([
-    styles.previewContainer,
-    // ÖNEMLİ DEĞİŞİKLİK: Export modundayken önizlemeyi görünmez yap ama layoutta tut
-    activeTool === 'export' && styles.previewContainerInvisible,
-  ]), [activeTool]);
+  const previewContainerStyle = useMemo(() => {
+    const baseStyle = {
+      flex: 1,
+      width: '100%',
+      position: 'relative' as const,
+      minHeight: 300, // ✅ DÜZELTME: Daha yüksek minimum
+    };
 
-  const bottomToolbarStyle = useMemo(() => ([
-    styles.bottomToolbarContainer,
-    activeTool === 'export' && styles.bottomToolbarContainerExpanded, // Export modunda araç çubuğunu genişlet
-  ]), [activeTool]);
+    // ✅ DÜZELTME: Export modunda farklı davranış
+    if (activeTool === 'export') {
+      return {
+        ...baseStyle,
+        position: 'absolute' as const,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        opacity: 0,
+        zIndex: -1, // ✅ DÜZELTME: Z-index ile arkaya gönder
+        pointerEvents: 'none' as const, // ✅ DÜZELTME: Touch event'leri engelle
+      };
+    }
+
+    return baseStyle;
+  }, [activeTool]);
+
+  const bottomToolbarStyle = useMemo(() => {
+    const baseStyle = {
+      backgroundColor: Colors.card,
+      borderTopWidth: 1,
+      borderTopColor: Colors.border,
+      minHeight: 120, // ✅ DÜZELTME: Minimum yükseklik
+    };
+
+    // ✅ DÜZELTME: Export modunda tam ekran
+    if (activeTool === 'export') {
+      return {
+        ...baseStyle,
+        flex: 1,
+        minHeight: 400, // ✅ DÜZELTME: Export için daha yüksek
+      };
+    }
+
+    return baseStyle;
+  }, [activeTool]);
 
 
   // ===== LOADING STATE =====
@@ -355,18 +519,18 @@ export default function EnhancedEditorScreen() {
           onResetAll={handleResetAll}
           isUpdatingThumbnail={isUpdatingThumbnail}
           hasDraftChanges={hasDraftChanges}
-          totalDraftsCount={availableDrafts.length} // draft hook'tan gelen bilgiyi kullan
-          onShowDraftManager={() => setIsDraftManagerVisible(true)} // Draft Manager'ı açma işlevi
+          totalDraftsCount={availableDrafts.length}
+          onShowDraftManager={() => setIsDraftManagerVisible(true)}
         />
 
         <View style={styles.contentWrapper}>
-          {/* Önizleme alanı - dinamik stil */}
+          {/* ✅ DÜZELTME: Preview container - export modunda gizli ama var */}
           <View style={previewContainerStyle} ref={skiaViewRef} collapsable={false}>
             <EditorPreview
               ref={previewRef}
               activePhoto={{ ...activePhoto, processedImageUrl: activePhoto.processedUri }}
-              selectedBackground={selectedBackgroundConfig} // Metadata için config'i geçirin
-              backgroundDisplayUri={resolvedBackgroundUri} // Çözümlenmiş string URI'yi geçirin
+              selectedBackground={selectedBackgroundConfig}
+              backgroundDisplayUri={resolvedBackgroundUri}
               settings={settings}
               showOriginal={showOriginal}
               onShowOriginalChange={setShowOriginal}
@@ -377,7 +541,7 @@ export default function EnhancedEditorScreen() {
             />
           </View>
 
-          {/* Alt araç çubuğu kapsayıcısı - dinamik stil */}
+          {/* ✅ DÜZELTME: Bottom toolbar - her zaman görünür */}
           <View style={bottomToolbarStyle}>
             {activeTool === 'crop' && (
               <CropToolbar
@@ -396,7 +560,6 @@ export default function EnhancedEditorScreen() {
             )}
 
             {activeTool === 'export' && (
-              // ExportToolbar için tam alanı doldurmasını sağla
               <View style={styles.exportToolbarWrapper}>
                 <ExportToolbar
                   selectedPreset={selectedPreset}
@@ -407,6 +570,7 @@ export default function EnhancedEditorScreen() {
               </View>
             )}
 
+            {/* ✅ DÜZELTME: Normal tool content - export ve crop dışında */}
             {activeTool !== 'export' && activeTool !== 'crop' && (
               <>
                 {(activeTool === 'adjust' || activeTool === 'filter') && !activeFeature && (
@@ -468,7 +632,7 @@ export default function EnhancedEditorScreen() {
                               key={f.key}
                               filter={f}
                               imageUri={activePhoto.processedUri!}
-                              backgroundUri={resolvedBackgroundUri} // Çözümlenmiş string URI'yi buraya da geçirin
+                              backgroundUri={resolvedBackgroundUri}
                               isSelected={activeFilterKey === f.key}
                               onPress={() => applyFilter(f.key, activeTarget)}
                             />
@@ -476,14 +640,14 @@ export default function EnhancedEditorScreen() {
                         </ScrollView>
                       )}
 
-                      {/* YENİ: Kategorili background section */}
-                      {renderBackgroundSection()}
+                      {activeTool === 'background' && renderBackgroundSection()}
                     </>
                   )}
                 </View>
               </>
             )}
 
+            {/* ✅ DÜZELTME: Main toolbar - sadece crop olmadığında */}
             {activeTool !== 'crop' && (
               <MainToolbar
                 activeTool={activeTool}
@@ -492,14 +656,15 @@ export default function EnhancedEditorScreen() {
             )}
           </View>
         </View>
+
+        {/* Draft Manager Modal */}
+        {isDraftManagerVisible && (
+          <DraftManager
+            visible={isDraftManagerVisible}
+            onClose={() => setIsDraftManagerVisible(false)}
+          />
+        )}
       </SafeAreaView>
-      {/* Draft Manager Modal */}
-      {isDraftManagerVisible && (
-        <DraftManager
-          visible={isDraftManagerVisible}
-          onClose={() => setIsDraftManagerVisible(false)}
-        />
-      )}
     </GestureHandlerRootView>
   );
 }
@@ -518,11 +683,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'column'
   },
-  previewContainer: {
-    flex: 1, // Varsayılan olarak tüm kalan alanı kaplar
-    width: '100%',
-    position: 'relative', // `position: 'absolute'` için ebeveyn olarak ayarlandı
-  },
+
   // ÖNEMLİ DEĞİŞİKLİK: Export modundayken önizlemeyi görünmez yap ama layoutta tut
   previewContainerInvisible: {
     position: 'absolute', // Layout akışından çıkar
@@ -538,11 +699,13 @@ const styles = StyleSheet.create({
   bottomToolbarContainer: {
     backgroundColor: Colors.card,
     borderTopWidth: 1,
-    borderTopColor: Colors.border
+    borderTopColor: Colors.border,
+    minHeight: 120, // ✅ DÜZELTME: Minimum yükseklik
   },
   // YENİ STİL: Export modundayken araç çubuğunu genişletir
   bottomToolbarContainerExpanded: {
-    flex: 1, // Tüm kalan alanı kaplar
+    flex: 1,
+    minHeight: 300, // ✅ DÜZELTME: Export modunda minimum yükseklik
   },
   exportToolbarWrapper: {
     flex: 1, // ExportToolbar'ın container'ının tüm alanı kaplamasını sağlar

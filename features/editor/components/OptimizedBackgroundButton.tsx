@@ -1,4 +1,4 @@
-// features/editor/components/OptimizedBackgroundButton.tsx - DÜZELTİLMİŞ VERSİYON
+// features/editor/components/OptimizedBackgroundButton.tsx - BEYAZ EKRAN SORUNU DÜZELTİLMİŞ
 import React, { useState, useEffect, useRef } from 'react';
 import { TouchableOpacity, Image, View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -19,7 +19,7 @@ interface OptimizedBackgroundButtonProps {
 }
 
 /**
- * Optimize edilmiş background button - HATA DİRENÇLİ VERSİYON
+ * ✅ BEYAZ EKRAN SORUNU DÜZELTİLMİŞ - Defensive programming ile
  */
 export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps> = ({
   background,
@@ -44,33 +44,40 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
     };
   }, []);
 
-  // Load thumbnail with comprehensive error handling
+  // ✅ DÜZELTME: Hemen fallback URI'yi set et, async yükleme paralel çalışsın
+  useEffect(() => {
+    // Hemen fallback olarak normal thumbnailUrl'i kullan
+    if (typeof background.thumbnailUrl === 'string') {
+      setThumbnailUri(background.thumbnailUrl);
+      setIsLoading(false);
+    } else {
+      // Eğer thumbnailUrl bir require() ise fallback göster
+      setThumbnailUri(null);
+      setIsLoading(true);
+    }
+  }, [background.id]);
+
+  // ✅ DÜZELTME: Async yükleme için ayrı effect (non-blocking)
   useEffect(() => {
     let isCancelled = false;
 
-    const loadThumbnail = async () => {
-      if (!mountedRef.current) return;
-
+    const loadOptimizedThumbnail = async () => {
       try {
-        setIsLoading(true);
-        setHasError(false);
+        console.log('🖼️ Loading optimized thumbnail for background:', background.id);
 
-        console.log('🖼️ Loading thumbnail for background:', background.id);
-
-        // Timeout için promise wrapper
+        // ✅ DÜZELTME: Timeout koruması daha kısa
         const timeoutPromise = new Promise<string | null>((_, reject) => {
           timeoutRef.current = setTimeout(() => {
             reject(new Error('Thumbnail load timeout'));
-          }, 8000); // 8 saniye timeout
+          }, 3000); // 3 saniye (8'den düşürüldü)
         });
 
-        // Cache'lenmiş thumbnail'i al
         const thumbnailPromise = backgroundThumbnailManager.getThumbnail(
           background.id,
           background.fullUrl
         );
 
-        const cachedUri = await Promise.race([thumbnailPromise, timeoutPromise]);
+        const optimizedUri = await Promise.race([thumbnailPromise, timeoutPromise]);
 
         // Clear timeout
         if (timeoutRef.current) {
@@ -80,35 +87,24 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
 
         if (isCancelled || !mountedRef.current) return;
 
-        if (cachedUri) {
-          setThumbnailUri(cachedUri);
-          console.log('✅ Thumbnail loaded for:', background.id);
-        } else {
-          throw new Error('Cache returned null');
+        if (optimizedUri && optimizedUri !== thumbnailUri) {
+          console.log('✅ Optimized thumbnail loaded:', background.id);
+          setThumbnailUri(optimizedUri);
+          setHasError(false);
         }
 
       } catch (error) {
-        console.warn('⚠️ Background thumbnail load error:', background.id, error);
+        console.warn('⚠️ Optimized thumbnail failed (using fallback):', background.id, error);
         
         if (!isCancelled && mountedRef.current) {
-          // Retry logic - maksimum 2 kez dene
-          if (retryCount < 2) {
-            console.log('🔄 Retrying thumbnail load for:', background.id, 'attempt:', retryCount + 1);
-            setRetryCount(prev => prev + 1);
-            
-            // Exponential backoff ile retry
-            const retryDelay = Math.min(2000 * Math.pow(2, retryCount), 8000);
-            timeoutRef.current = setTimeout(() => {
-              if (mountedRef.current && !isCancelled) {
-                loadThumbnail();
-              }
-            }, retryDelay);
-            return;
-          } else {
-            // Max retry'a ulaşılmış, fallback'e geç
-            console.log('❌ Max retries reached for:', background.id, 'using fallback');
-            setThumbnailUri(background.thumbnailUrl);
-            setHasError(true);
+          // ✅ DÜZELTME: Hata durumunda fallback kullan, hiç yoksa placeholder
+          if (!thumbnailUri) {
+            // Fallback olarak normal thumbnailUrl'i dene
+            if (typeof background.thumbnailUrl === 'string') {
+              setThumbnailUri(background.thumbnailUrl);
+            } else {
+              setHasError(true);
+            }
           }
         }
       } finally {
@@ -118,8 +114,10 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
       }
     };
 
-    // İlk yükleme
-    loadThumbnail();
+    // ✅ DÜZELTME: Sadece thumbnailUrl string değilse optimize et
+    if (typeof background.thumbnailUrl !== 'string') {
+      loadOptimizedThumbnail();
+    }
 
     return () => {
       isCancelled = true;
@@ -127,15 +125,17 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [background.id, background.fullUrl, background.thumbnailUrl, retryCount]);
+  }, [background.id, background.fullUrl]);
 
   const handleImageError = () => {
     console.warn('🖼️ Image render error for:', background.id);
-    if (mountedRef.current && !hasError) {
+    if (mountedRef.current) {
       setHasError(true);
-      // Fallback olarak orijinal thumbnail URL'ini kullan
-      if (thumbnailUri !== background.thumbnailUrl) {
+      
+      // ✅ DÜZELTME: Fallback stratejisi
+      if (typeof background.thumbnailUrl === 'string' && thumbnailUri !== background.thumbnailUrl) {
         setThumbnailUri(background.thumbnailUrl);
+        setHasError(false);
       }
     }
   };
@@ -143,10 +143,35 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
   const handleImageLoad = () => {
     if (mountedRef.current) {
       console.log('✅ Image successfully rendered for:', background.id);
+      setHasError(false);
     }
   };
 
-  // Render loading state
+  // ✅ DÜZELTME: Error state için daha güvenli render
+  if (hasError || (!thumbnailUri && !isLoading)) {
+    return (
+      <TouchableOpacity 
+        style={[
+          styles.container, 
+          isSelected && styles.containerSelected
+        ]} 
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        <View style={styles.errorContainer}>
+          <Feather name="image" size={20} color={Colors.gray400} />
+        </View>
+        
+        {isSelected && (
+          <View style={styles.selectionIndicator}>
+            <Feather name="check" size={12} color={Colors.card} />
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  }
+
+  // ✅ DÜZELTME: Loading state sadece gerçekten loading ise
   if (isLoading && !thumbnailUri) {
     return (
       <TouchableOpacity 
@@ -160,10 +185,17 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={Colors.primary} />
         </View>
+        
+        {isSelected && (
+          <View style={styles.selectionIndicator}>
+            <Feather name="check" size={12} color={Colors.card} />
+          </View>
+        )}
       </TouchableOpacity>
     );
   }
 
+  // ✅ DÜZELTME: Normal render - thumbnailUri kesin var
   return (
     <TouchableOpacity 
       style={[
@@ -174,20 +206,13 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
       activeOpacity={0.7}
     >
       <View style={styles.imageContainer}>
-        {thumbnailUri ? (
-          <Image 
-            source={{ uri: thumbnailUri }} 
-            style={styles.backgroundImage}
-            onError={handleImageError}
-            onLoad={handleImageLoad}
-            // Cache control
-            cache="force-cache"
-          />
-        ) : (
-          <View style={styles.errorContainer}>
-            <Feather name="image" size={20} color={Colors.gray400} />
-          </View>
-        )}
+        <Image 
+          source={{ uri: thumbnailUri }} 
+          style={styles.backgroundImage}
+          onError={handleImageError}
+          onLoad={handleImageLoad}
+          cache="force-cache"
+        />
       </View>
       
       {/* Selection indicator */}
@@ -197,21 +222,7 @@ export const OptimizedBackgroundButton: React.FC<OptimizedBackgroundButtonProps>
         </View>
       )}
 
-      {/* Error indicator */}
-      {hasError && !isLoading && (
-        <View style={styles.errorIndicator}>
-          <Feather name="alert-triangle" size={8} color={Colors.error} />
-        </View>
-      )}
-
-      {/* Cache indicator (sadece development'ta) */}
-      {__DEV__ && thumbnailUri && thumbnailUri.includes('bg_thumbnails') && (
-        <View style={styles.cacheIndicator}>
-          <Feather name="database" size={8} color={Colors.success} />
-        </View>
-      )}
-
-      {/* Loading overlay for retry states */}
+      {/* Loading overlay sadece optimize ederken */}
       {isLoading && thumbnailUri && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="small" color={Colors.card} />
@@ -258,10 +269,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gray100,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   errorContainer: {
     width: '100%',
@@ -270,8 +286,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.gray200,
     borderWidth: 1,
-    borderColor: Colors.error + '30',
-    borderStyle: 'dashed',
+    borderColor: Colors.border,
   },
   selectionIndicator: {
     position: 'absolute',
@@ -288,31 +303,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 2,
     elevation: 2,
-  },
-  errorIndicator: {
-    position: 'absolute',
-    top: 2,
-    left: 2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: Colors.error,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.card,
-  },
-  cacheIndicator: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: Colors.success + '90',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.card,
   },
 });

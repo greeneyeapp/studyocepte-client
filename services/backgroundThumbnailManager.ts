@@ -37,7 +37,7 @@ class BackgroundThumbnailManager {
    */
   private async initializeCache(): Promise<void> {
     if (this.isInitialized) return;
-    
+
     // Eğer zaten initialize ediliyorsa, bekle
     if (this.initPromise) {
       return this.initPromise;
@@ -57,7 +57,7 @@ class BackgroundThumbnailManager {
 
       await this.loadCacheIndex();
       await this.cleanupOldThumbnails();
-      
+
       this.isInitialized = true;
       console.log('✅ Background thumbnail cache initialized');
     } catch (error) {
@@ -74,7 +74,7 @@ class BackgroundThumbnailManager {
     try {
       const indexPath = this.cacheDirectory + 'cache_index.json';
       const indexInfo = await FileSystem.getInfoAsync(indexPath);
-      
+
       if (indexInfo.exists) {
         const indexContent = await FileSystem.readAsStringAsync(indexPath);
         this.cache = JSON.parse(indexContent);
@@ -109,7 +109,7 @@ class BackgroundThumbnailManager {
     // Yaş kontrolü ve boyut hesaplama
     for (const [backgroundId, thumbnail] of Object.entries(this.cache)) {
       const age = now - thumbnail.createdAt;
-      
+
       if (age > this.maxThumbnailAge) {
         toDelete.push(backgroundId);
       } else {
@@ -126,7 +126,7 @@ class BackgroundThumbnailManager {
     if (totalSize > this.maxCacheSize) {
       const sortedThumbnails = Object.entries(this.cache)
         .sort(([, a], [, b]) => a.createdAt - b.createdAt);
-      
+
       while (totalSize > this.maxCacheSize && sortedThumbnails.length > 0) {
         const [backgroundId, thumbnail] = sortedThumbnails.shift()!;
         await this.deleteThumbnail(backgroundId);
@@ -138,15 +138,11 @@ class BackgroundThumbnailManager {
     console.log('🧹 Background thumbnail cleanup completed');
   }
 
-  /**
-   * Belirli bir background için thumbnail oluştur veya cache'den getir
-   * fullImageModule: network URI dizesi veya require() tarafından döndürülen yerel varlık kimliği (sayı)
-   */
   async getThumbnail(backgroundId: string, fullImageModule: any): Promise<string | null> {
     try {
       // İlk initialize et
       await this.initializeCache();
-      
+
       // Cache'de var mı kontrol et
       const cached = this.cache[backgroundId];
       if (cached) {
@@ -162,24 +158,43 @@ class BackgroundThumbnailManager {
         }
       }
 
-      // YENİ: fullImageModule'u bir URI dizesine çözümle
+      // ✅ DÜZELTME: fullImageModule'u bir URI dizesine çözümle
       let fullImageUriString: string;
-      if (typeof fullImageModule === 'number') { // Eğer yerel bir asset kimliği ise
+      if (typeof fullImageModule === 'number') {
+        try {
           const asset = Asset.fromModule(fullImageModule);
-          // ensureLoadedAsync veya downloadAsync ile varlığın yerel bir URI'ye sahip olduğundan emin ol
-          await asset.downloadAsync(); // Eğer halihazırda yoksa indir
-          fullImageUriString = asset.localUri || asset.uri; // localUri'yi tercih et, uri'ye fallback yap
+
+          // ✅ DÜZELTME: Asset yükleme için timeout ekle
+          const assetPromise = asset.downloadAsync();
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Asset download timeout')), 2000); // 2 saniye
+          });
+
+          await Promise.race([assetPromise, timeoutPromise]);
+
+          fullImageUriString = asset.localUri || asset.uri;
           if (!fullImageUriString) {
-              throw new Error(`Failed to resolve asset URI for module: ${fullImageModule}`);
+            throw new Error(`Failed to resolve asset URI for module: ${fullImageModule}`);
           }
-      } else { // Zaten bir dize URI (ağdan veya önceden kaydedilmiş bir dosyadan)
-          fullImageUriString = fullImageModule;
+        } catch (assetError) {
+          console.warn('⚠️ Asset loading failed, using fallback:', backgroundId, assetError);
+          // ✅ DÜZELTME: Asset yüklenemezse fallback stratejisi
+          fullImageUriString = `android.resource://com.greeneyeapp.studyocepte/${fullImageModule}`;
+        }
+      } else {
+        fullImageUriString = fullImageModule;
       }
 
-      // Yeni thumbnail oluştur
+      // ✅ DÜZELTME: Thumbnail oluşturma için daha kısa timeout
       console.log('🖼️ Creating background thumbnail:', backgroundId);
-      const thumbnailUri = await this.createThumbnail(backgroundId, fullImageUriString); // Çözümlenmiş dize URI'yi geçir
-      
+
+      const thumbnailPromise = this.createThumbnail(backgroundId, fullImageUriString);
+      const timeoutPromise = new Promise<string | null>((_, reject) => {
+        setTimeout(() => reject(new Error('Thumbnail creation timeout')), 3000); // 3 saniye
+      });
+
+      const thumbnailUri = await Promise.race([thumbnailPromise, timeoutPromise]);
+
       if (thumbnailUri) {
         // Cache'e ekle
         const fileInfo = await FileSystem.getInfoAsync(thumbnailUri);
@@ -189,15 +204,15 @@ class BackgroundThumbnailManager {
           createdAt: Date.now(),
           size: fileInfo.size || 0
         };
-        
+
         await this.saveCacheIndex();
         console.log('✅ Background thumbnail created and cached:', backgroundId);
       }
 
       return thumbnailUri;
     } catch (error) {
-      console.error('❌ Failed to get background thumbnail for', backgroundId, ':', error);
-      return null; // Hata durumunda null döndür, döngüye girmesin
+      console.warn('⚠️ Background thumbnail failed, returning null:', backgroundId, error);
+      return null; // ✅ DÜZELTME: Hata durumunda null döndür, crash etme
     }
   }
 
@@ -210,19 +225,20 @@ class BackgroundThumbnailManager {
       const thumbnailPath = this.cacheDirectory + thumbnailFilename;
 
       console.log('🔧 Creating thumbnail with manipulateAsync:', {
-        input: fullImageUri, // Bu artık her zaman bir URI dizesi olmalı
+        input: fullImageUri,
         output: thumbnailPath,
         size: this.thumbnailSize
       });
 
-      const result = await manipulateAsync(
+      // ✅ DÜZELTME: manipulateAsync için timeout wrapper
+      const manipulatePromise = manipulateAsync(
         fullImageUri,
         [
-          { 
-            resize: { 
-              width: this.thumbnailSize.width, 
-              height: this.thumbnailSize.height 
-            } 
+          {
+            resize: {
+              width: this.thumbnailSize.width,
+              height: this.thumbnailSize.height
+            }
           }
         ],
         {
@@ -230,6 +246,12 @@ class BackgroundThumbnailManager {
           format: SaveFormat.JPEG,
         }
       );
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Image manipulation timeout')), 5000); // 5 saniye
+      });
+
+      const result = await Promise.race([manipulatePromise, timeoutPromise]);
 
       console.log('✅ manipulateAsync completed:', result.uri);
 
@@ -251,17 +273,7 @@ class BackgroundThumbnailManager {
       return thumbnailPath;
     } catch (error) {
       console.error('❌ Failed to create background thumbnail for', backgroundId, ':', error);
-      
-      // Specific hata mesajlarını logla
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          message: error.message,
-          name: error.name,
-          stack: error.stack?.substring(0, 200)
-        });
-      }
-      
-      return null; // Hata durumunda null döndür
+      return null;
     }
   }
 
@@ -289,17 +301,17 @@ class BackgroundThumbnailManager {
   async clearCache(): Promise<void> {
     try {
       await this.initializeCache();
-      
+
       // Tüm dosyaları sil
       const files = await FileSystem.readDirectoryAsync(this.cacheDirectory);
-      
-      const deletePromises = files.map(file => 
+
+      const deletePromises = files.map(file =>
         FileSystem.deleteAsync(this.cacheDirectory + file, { idempotent: true })
           .catch(error => console.warn('⚠️ Failed to delete cache file:', file, error))
       );
-      
+
       await Promise.allSettled(deletePromises);
-      
+
       this.cache = {};
       await this.saveCacheIndex();
       console.log('🧹 Background thumbnail cache cleared');
@@ -334,9 +346,9 @@ class BackgroundThumbnailManager {
    */
   async preloadThumbnails(backgrounds: { id: string; fullUrl: any }[]): Promise<void> {
     if (!backgrounds || backgrounds.length === 0) return;
-    
+
     console.log('🚀 Preloading background thumbnails:', backgrounds.length, 'items');
-    
+
     // Her background için ayrı ayrı, hata durumunda diğerlerini etkilemesin
     const results = await Promise.allSettled(
       backgrounds.map(async (bg) => {
@@ -355,7 +367,7 @@ class BackgroundThumbnailManager {
         }
       })
     );
-    
+
     const successful = results.filter(r => r.status === 'fulfilled' && r.value !== null).length;
     console.log('✅ Background thumbnail preloading completed:', successful, '/', backgrounds.length);
   }
@@ -366,7 +378,7 @@ class BackgroundThumbnailManager {
   async optimizeMemory(): Promise<void> {
     try {
       await this.cleanupOldThumbnails();
-      
+
       // JavaScript garbage collection'ı tetikle (sadece debug için)
       if (__DEV__ && global.gc) {
         global.gc();
@@ -383,9 +395,9 @@ class BackgroundThumbnailManager {
   async validateCache(): Promise<void> {
     try {
       await this.initializeCache();
-      
+
       const idsToRemove: string[] = [];
-      
+
       // Her cache entry'sini kontrol et
       for (const [backgroundId, thumbnail] of Object.entries(this.cache)) {
         try {
@@ -397,12 +409,12 @@ class BackgroundThumbnailManager {
           idsToRemove.push(backgroundId);
         }
       }
-      
+
       // Bozuk entry'leri temizle
       for (const id of idsToRemove) {
         delete this.cache[id];
       }
-      
+
       if (idsToRemove.length > 0) {
         await this.saveCacheIndex();
         console.log('🔧 Cache validation completed, removed', idsToRemove.length, 'invalid entries');

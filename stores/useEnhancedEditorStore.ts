@@ -139,7 +139,7 @@ interface EditorActions {
 }
 
 const defaultSettings: EditorSettings = {
-  backgroundId: 'bg1',
+  backgroundId: 'home_1', // ✅ DÜZELTME: 'bg1' yerine gerçek ID kullan
   photoX: 0.5, photoY: 0.5, photoScale: 1.0, photoRotation: 0,
   product_exposure: 0, product_brightness: 0, product_contrast: 0, product_saturation: 0,
   product_vibrance: 0, product_warmth: 0, product_clarity: 0, product_highlights: 0, product_shadows: 0,
