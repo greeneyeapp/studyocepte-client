@@ -1,7 +1,7 @@
 // features/editor/components/EditorPreview.tsx - LAYOUT VE REF SORUNU KESİN DÜZELTİLMİŞ VERSİYON
 
 import React, { forwardRef, useMemo, useState, useEffect } from 'react';
-import { View, Pressable, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import { View, Pressable, Text, StyleSheet, ActivityIndicator, Image, ViewStyle } from 'react-native'; // ViewStyle import edildi
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { ProductPhoto, Background, EditorSettings } from '@/services/api';
@@ -22,11 +22,13 @@ interface EditorPreviewProps {
   updateSettings: (newSettings: Partial<EditorSettings>) => void;
   previewSize: { width: number; height: number };
   isCropping: boolean;
+  style?: ViewStyle; // <<< YENİ: Style prop'u eklendi
 }
 
 export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   activePhoto, selectedBackground, backgroundDisplayUri, settings, showOriginal,
-  onShowOriginalChange, onLayout, updateSettings, previewSize, isCropping
+  onShowOriginalChange, onLayout, updateSettings, previewSize, isCropping,
+  style // <<< YENİ: Style prop'u props'lardan alındı
 }, ref) => {
   const [isLayoutStable, setIsLayoutStable] = useState(false);
   const [stablePreviewSize, setStablePreviewSize] = useState({ width: 0, height: 0 });
@@ -128,7 +130,7 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   // KESİN ÇÖZÜM: Layout stable değilse veya görsel yoksa loading göster
   if (!isLayoutStable || stablePreviewSize.width === 0 || !imageUriToShow) {
     return (
-      <View style={styles.container} onLayout={handleLayoutEvent}>
+      <View style={[styles.container, style]} onLayout={handleLayoutEvent}> {/* Style buraya uygulandı */}
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Görsel Yükleniyor...</Text>
@@ -138,14 +140,14 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   }
 
   return (
-    <View style={styles.container} onLayout={handleLayoutEvent}>
+    // DÜZELTME: Gelen 'style' prop'unu root View'e uyguluyoruz
+    <View style={[styles.container, style]} onLayout={handleLayoutEvent}> 
       <Pressable 
         style={styles.pressable} 
         onPressIn={() => onShowOriginalChange(true)} 
         onPressOut={() => onShowOriginalChange(false)}
       >
-        {/* KESİN ÇÖZÜM: previewWrapper stilini doğrudan kullan, ref'i ve collapsable'ı buraya taşı */}
-        {/* KESİN ÇÖZÜM: visualCropAnimatedStyle'ı bu Animated.View'e uygula */}
+        {/* 'previewWrapper' Animated.View'ine ref atanacak */}
         <Animated.View style={[styles.previewWrapper, visualCropAnimatedStyle]} ref={ref} collapsable={false}>
           {imageUriToShow ? (
             <View style={styles.imageContainer}>

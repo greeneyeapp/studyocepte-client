@@ -26,7 +26,7 @@ import { FilterPreview } from '@/features/editor/components/FilterPreview';
 import { CropToolbar } from '@/features/editor/components/CropToolbar';
 import { ExportToolbar } from '@/features/editor/components/ExportToolbar';
 import { BackgroundPickerToolbar } from '@/features/editor/components/BackgroundPickerToolbar';
-import { DraftManager } from '@/features/editor/components/DraftManager';
+import { DraftManager } from '@/features/editor/components/DraftManager'; // DÜZELTİLDİ: Hatalı import düzeltildi.
 
 import { ToolType, TargetType } from '@/features/editor/config/tools';
 import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/features';
@@ -100,7 +100,7 @@ export default function EnhancedEditorScreen() {
 
   const { isExporting, shareWithOption, skiaViewRef } = useExportManager();
   const { currentScrollRef } = useScrollManager({ activeTool, activeTarget, activeFeature, isSliderActive });
-  const previewRef = useRef<View>(null);
+  // REMOVED: const previewRef = useRef<View>(null); // Bu artık kullanılmıyor, skiaViewRef doğrudan kullanılacak
 
   // ===== MEMORY OPTIMIZATION =====
   useEffect(() => {
@@ -316,9 +316,10 @@ export default function EnhancedEditorScreen() {
     console.log('💾 Save triggered with thumbnail update:', withThumbnailUpdate);
 
     try {
-      if (withThumbnailUpdate && previewRef.current) {
+      // DÜZELTME: previewRef yerine skiaViewRef kullanıyoruz
+      if (withThumbnailUpdate && skiaViewRef.current) { 
         console.log('🖼️ Saving with thumbnail update');
-        await store.saveChanges(previewRef);
+        await store.saveChanges(skiaViewRef);
       } else {
         console.log('💾 Saving without thumbnail update');
         await store.saveChanges();
@@ -400,21 +401,20 @@ export default function EnhancedEditorScreen() {
   };
 
   // ===== STİL HESAPLAMALARI =====
-  // KESİN ÇÖZÜM: previewContainerStyle'ı, Export modunda ekran dışına taşıyarak var olmasını ama görünmemesini sağla
-  const previewContainerStyle = useMemo(() => {
+  // Çözüm: EditorPreview'ın kendi içinde style prop'unu kullanacağız.
+  const previewComponentStyle = useMemo(() => {
     if (activeTool === 'export') {
       return {
-        // Ekran dışına taşı
+        // Ekran içinde kalmasını sağla, ancak görünmez yap
         position: 'absolute' as const,
-        left: -9999,
-        top: -9999,
-        // Görsel olarak gizle
-        opacity: 0,
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        opacity: 0, // Görsel olarak gizle
+        pointerEvents: 'none' as const, // Etkileşimi engelle
         overflow: 'hidden' as const,
-        // Yer kaplamamasını sağla (ancak layout almasını engelleme)
-        width: '100%', 
-        height: '100%', 
-        flex: 1, // CaptureRef için önemli: hala flex-layout'ta olsun
+        flex: 1, // CaptureRef için hala flex-layout'ta olsun
         zIndex: -1, // Diğer elemanların altına insin
       };
     }
@@ -425,6 +425,7 @@ export default function EnhancedEditorScreen() {
       position: 'relative' as const,
     };
   }, [activeTool]);
+
 
   const bottomToolbarStyle = useMemo(() => {
     const baseStyle = {
@@ -484,22 +485,22 @@ export default function EnhancedEditorScreen() {
         />
 
         <View style={styles.contentWrapper}>
-          {/* KESİN ÇÖZÜM: EditorPreview her zaman render ediliyor, pozisyonu ve görünürlüğü style ile yönetiliyor */}
-          <View style={previewContainerStyle} ref={skiaViewRef} collapsable={false}>
-            <EditorPreview
-              ref={previewRef}
-              activePhoto={{ ...activePhoto, processedImageUrl: activePhoto.processedUri }}
-              selectedBackground={selectedBackgroundConfig}
-              backgroundDisplayUri={resolvedBackgroundUri}
-              settings={settings}
-              showOriginal={showOriginal}
-              onShowOriginalChange={setShowOriginal}
-              onLayout={handlePreviewLayout}
-              updateSettings={updateSettings}
-              previewSize={previewSize}
-              isCropping={activeTool === 'crop'}
-            />
-          </View>
+          {/* EditorPreview her zaman render ediliyor, pozisyonu ve görünürlüğü style ile yönetiliyor */}
+          {/* DÜZELTME: skiaViewRef'i doğrudan EditorPreview'a atıyoruz ve style prop'unu ona geçiriyoruz */}
+          <EditorPreview
+            ref={skiaViewRef} // <<< skiaViewRef buraya eklendi
+            style={previewComponentStyle} // <<< previewComponentStyle buraya eklendi
+            activePhoto={{ ...activePhoto, processedImageUrl: activePhoto.processedUri }}
+            selectedBackground={selectedBackgroundConfig}
+            backgroundDisplayUri={resolvedBackgroundUri}
+            settings={settings}
+            showOriginal={showOriginal}
+            onShowOriginalChange={setShowOriginal}
+            onLayout={handlePreviewLayout}
+            updateSettings={updateSettings}
+            previewSize={previewSize}
+            isCropping={activeTool === 'crop'}
+          />
 
           <View style={bottomToolbarStyle}>
             {/* Export Toolbar - Export seçiliyse tam alanı kapla */}

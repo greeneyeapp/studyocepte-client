@@ -1,4 +1,4 @@
-// client/features/editor/hooks/useExportManager.ts - DÜZELTİLMİŞ
+// client/features/editor/hooks/useExportManager.ts - DÜZELTİLMİŞ VE ROBUST REF KONTROLÜ EKLENDİ
 import { useState, createRef } from 'react';
 import { View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
@@ -11,7 +11,7 @@ import { useEnhancedEditorStore } from '@/stores/useEnhancedEditorStore';
 
 export const useExportManager = () => {
   const [isExporting, setIsExporting] = useState(false);
-  const viewRef = createRef<View>();
+  const viewRef = createRef<View>(); // Bu ref, EditorPreview'ın root Animated.View'ine atanacak.
   const settings = useEnhancedEditorStore(state => state.settings);
 
   const shareWithOption = async (shareOption: ShareOption, preset?: ExportPreset) => {
@@ -20,21 +20,36 @@ export const useExportManager = () => {
       return;
     }
 
-    if (!viewRef.current) {
-      ToastService.show('Önizleme hazır değil.');
-      return;
-    }
-
-    const exportPreset = preset || {
-      id: 'quick_default', name: 'Hızlı Export', description: 'Varsayılan boyut',
-      dimensions: { width: 1080, height: 1080 }, format: 'png' as const, quality: 0.95,
-      category: 'custom' as const, icon: 'zap',
-    };
-
     setIsExporting(true);
-    LoadingService.show(); // Text parametresi kaldırıldı
+    LoadingService.show(); // Yükleme animasyonunu göster
 
     try {
+      // YENİ ROBUST REF BEKLEME MEKANİZMASI
+      let retries = 0;
+      const maxRetries = 100; // Yaklaşık 5 saniye (50ms * 100)
+      const retryInterval = 50; // Her 50ms'de bir kontrol et
+
+      console.log('🔍 Waiting for viewRef.current to be available...');
+      while (!viewRef.current && retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryInterval));
+        retries++;
+      }
+
+      // viewRef.current'in hala null olup olmadığını tekrar kontrol et
+      if (!viewRef.current) {
+        console.error('❌ Error: viewRef.current is still null after waiting.');
+        ToastService.show('Önizleme hazır değil. Lütfen tekrar deneyin.');
+        throw new Error('Preview view reference is null.'); // Hata fırlat ki finally bloğu çalışsın
+      } else {
+        console.log(`✅ viewRef.current is available after ${retries * retryInterval}ms.`);
+      }
+
+      const exportPreset = preset || {
+        id: 'quick_default', name: 'Hızlı Export', description: 'Varsayılan boyut',
+        dimensions: { width: 1080, height: 1080 }, format: 'png' as const, quality: 0.95,
+        category: 'custom' as const, icon: 'zap',
+      };
+
       console.log('🖼️ Capturing view with settings:', {
         format: exportPreset.format,
         quality: exportPreset.quality,
@@ -42,7 +57,7 @@ export const useExportManager = () => {
         height: exportPreset.dimensions.height,
       });
 
-      // Önce geçici dosyaya render et
+      // Görüntüyü yakala
       const uri = await captureRef(viewRef, {
         format: exportPreset.format === 'png' ? 'png' : 'jpg',
         quality: exportPreset.quality,
@@ -82,16 +97,19 @@ export const useExportManager = () => {
 
     } catch (error: any) {
       console.error('❌ Export failed:', error);
-      ToastService.show(error.message || 'Bilinmeyen bir hata oluştu');
+      // Hata zaten yukarıda `throw` edildiği için `ToastService.show` çağrısı sadece bir kez yapılır
+      if (error.message !== 'Preview view reference is null.') { // Aynı hatayı tekrar göstermemek için
+        ToastService.show(error.message || 'Bilinmeyen bir hata oluştu');
+      }
     } finally {
       setIsExporting(false);
-      LoadingService.hide();
+      LoadingService.hide(); // Yükleme animasyonunu gizle
     }
   };
 
   return {
     isExporting,
-    skiaViewRef: viewRef,
+    skiaViewRef: viewRef, // Bu ref, EditorPreview'ın root Animated.View'ine atanır.
     shareWithOption
   };
 };

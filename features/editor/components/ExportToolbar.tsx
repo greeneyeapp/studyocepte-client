@@ -34,7 +34,10 @@ const CompactPresetCard: React.FC<{
 
   return (
     <TouchableOpacity
-      style={[styles.compactCard, isSelected && styles.compactCardSelected]}
+      style={[
+        styles.compactCard,
+        isSelected && styles.compactCardSelected
+      ]}
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -79,7 +82,8 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
       // Doğrudan shareWithOption'ı çağır, selectedPreset'i burada gönderiyoruz
       onPress: () => {
         // BottomSheet kapanırken animation sorununu engellemek için küçük bir gecikme
-        setTimeout(() => shareWithOption(option, preset), 100); 
+        // ve View referansının stabil hale gelmesi için daha uzun bir gecikme ekledik.
+        setTimeout(() => shareWithOption(option, preset), 300); // 100ms'den 300ms'ye çıkarıldı
       }, 
     }));
 
