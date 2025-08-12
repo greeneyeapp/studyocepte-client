@@ -1,4 +1,4 @@
-// features/editor/components/CropOverlay.tsx - TAM VE EKSİKSİZ VERSİYON
+// features/editor/components/CropOverlay.tsx - TAM VE EKSİKSİZ VERSİYON (DEBUG METNİ KALDIRILDI)
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
@@ -75,12 +75,12 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
 
   return (
     <>
-      {/* Debug bilgisi - geliştirme aşamasında */}
-      <View style={styles.debugContainer}>
+      {/* Debug bilgisi - geliştirme aşamasında - KALDIRILDI */}
+      {/* <View style={styles.debugContainer}>
         <Text style={styles.debugText}>
           CROP: {aspectRatioString} | {Math.round(cropFrame.width)}×{Math.round(cropFrame.height)}
         </Text>
-      </View>
+      </View> */}
 
       {/* Maskeleme alanları */}
       {/* Üst */}

@@ -195,12 +195,6 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         if (existingDraft) {
           console.log('📂 Auto-loading existing draft for photo:', photo.id);
           loadedSettings = existingDraft.settings;
-
-          // ✅ KULLANICI BİLGİLENDİRME: Sessiz toast ile bildir
-          const age = Date.now() - existingDraft.timestamp;
-          const ageMinutes = Math.round(age / 60000);
-
-          ToastService.show(`${ageMinutes} dakika önceki değişiklikler geri yüklendi`);
         } else {
           loadedSettings = { ...defaultSettings, ...(photo.editorSettings || {}) };
         }

@@ -1,4 +1,4 @@
-// features/editor/config/exportTools.ts - TAM VE EKSİKSİZ VERSİYON
+// features/editor/config/exportTools.ts - TAM VE EKSİKSİZ VERSİYON (KATEGORİ BAŞINA 10 PRESET)
 
 export interface ExportPreset {
   id: string;
@@ -15,11 +15,11 @@ export interface ShareOption {
   id: string;
   name: string;
   icon: string;
-  type: 'gallery' | 'generic' | 'quick_custom';
+  type: 'gallery' | 'generic';
 }
 
 export const EXPORT_PRESETS: ExportPreset[] = [
-  // === SOSYAL MEDYA (7 Seçenek) ===
+  // === SOSYAL MEDYA (Şimdi 10 Seçenek) ===
   { 
     id: 'instagram_square', 
     name: 'Instagram Kare (1:1)', 
@@ -90,8 +90,38 @@ export const EXPORT_PRESETS: ExportPreset[] = [
     category: 'social', 
     icon: 'twitter' 
   },
+  {
+    id: 'snapchat_story',
+    name: 'Snapchat Hikaye',
+    description: '1080x1920 - Full ekran dikey görsel',
+    dimensions: { width: 1080, height: 1920 },
+    format: 'jpg',
+    quality: 0.88,
+    category: 'social',
+    icon: 'message-square'
+  },
+  {
+    id: 'linkedin_post',
+    name: 'LinkedIn Gönderi',
+    description: '1200x627 - Profesyonel paylaşımlar için',
+    dimensions: { width: 1200, height: 627 },
+    format: 'jpg',
+    quality: 0.9,
+    category: 'social',
+    icon: 'linkedin'
+  },
+  {
+    id: 'tiktok_cover',
+    name: 'TikTok Kapak',
+    description: '1080x1920 - Dikey video kapak görseli',
+    dimensions: { width: 1080, height: 1920 },
+    format: 'jpg',
+    quality: 0.88,
+    category: 'social',
+    icon: 'music'
+  },
 
-  // === E-TİCARET (6 Seçenek) ===
+  // === E-TİCARET (Şimdi 10 Seçenek) ===
   { 
     id: 'trendyol_main', 
     name: 'Trendyol', 
@@ -152,8 +182,48 @@ export const EXPORT_PRESETS: ExportPreset[] = [
     category: 'marketplace', 
     icon: 'tag' 
   },
-  
-  // === WEB & DİJİTAL (6 Seçenek) ===
+  {
+    id: 'ebay_listing',
+    name: 'eBay Listeleme',
+    description: '1600x1600 - eBay ürün görselleri için',
+    dimensions: { width: 1600, height: 1600 },
+    format: 'jpg',
+    quality: 0.9,
+    category: 'marketplace',
+    icon: 'shopping-bag'
+  },
+  {
+    id: 'aliexpress_product',
+    name: 'AliExpress Ürün',
+    description: '800x800 - AliExpress için kare format',
+    dimensions: { width: 800, height: 800 },
+    format: 'jpg',
+    quality: 0.8,
+    category: 'marketplace',
+    icon: 'globe'
+  },
+  {
+    id: 'google_shopping',
+    name: 'Google Alışveriş',
+    description: '1200x1200 - Google Merchant Center için kare',
+    dimensions: { width: 1200, height: 1200 },
+    format: 'jpg',
+    quality: 0.9,
+    category: 'marketplace',
+    icon: 'shopping-cart'
+  },
+  {
+    id: 'z_fashion_platform',
+    name: 'Moda Platformu',
+    description: '1080x1440 - Dikey moda görselleri için',
+    dimensions: { width: 1080, height: 1440 },
+    format: 'jpg',
+    quality: 0.88,
+    category: 'marketplace',
+    icon: 'camera'
+  },
+
+  // === WEB & DİJİTAL (Şimdi 10 Seçenek) ===
   { 
     id: 'web_hero', 
     name: 'Website Hero Image', 
@@ -214,8 +284,48 @@ export const EXPORT_PRESETS: ExportPreset[] = [
     category: 'web', 
     icon: 'mail' 
   },
+  {
+    id: 'web_profile_banner',
+    name: 'Web Profil Banner',
+    description: '1500x500 - Web profil sayfaları için banner',
+    dimensions: { width: 1500, height: 500 },
+    format: 'jpg',
+    quality: 0.88,
+    category: 'web',
+    icon: 'image'
+  },
+  {
+    id: 'mobile_wallpaper',
+    name: 'Mobil Duvar Kağıdı',
+    description: '1080x1920 - Genel mobil cihazlar için',
+    dimensions: { width: 1080, height: 1920 },
+    format: 'jpg',
+    quality: 0.9,
+    category: 'web',
+    icon: 'smartphone'
+  },
+  {
+    id: 'desktop_wallpaper_hd',
+    name: 'Masaüstü Duvar Kağıdı (HD)',
+    description: '1920x1080 - Genel masaüstü cihazlar için',
+    dimensions: { width: 1920, height: 1080 },
+    format: 'jpg',
+    quality: 0.9,
+    category: 'web',
+    icon: 'monitor'
+  },
+  {
+    id: 'newsletter_ad_small',
+    name: 'E-posta Reklamı (Küçük)',
+    description: '320x100 - E-posta bültenleri için küçük reklam alanı',
+    dimensions: { width: 320, height: 100 },
+    format: 'png',
+    quality: 0.85,
+    category: 'web',
+    icon: 'send'
+  },
 
-  // === BASKI (6 Seçenek) ===
+  // === BASKI (Şimdi 10 Seçenek) ===
   { 
     id: 'print_a4', 
     name: 'A4 Kağıt (300 DPI)', 
@@ -276,8 +386,48 @@ export const EXPORT_PRESETS: ExportPreset[] = [
     category: 'print', 
     icon: 'map' 
   },
+  {
+    id: 'print_flyer_a6',
+    name: 'El İlanı (A6)',
+    description: '1240x1748px - Küçük el ilanları için',
+    dimensions: { width: 1240, height: 1748 },
+    format: 'png',
+    quality: 0.98,
+    category: 'print',
+    icon: 'clipboard'
+  },
+  {
+    id: 'print_post_card_a6',
+    name: 'Kartpostal (A6 Yatay)',
+    description: '1748x1240px - Standart kartpostal boyutu',
+    dimensions: { width: 1748, height: 1240 },
+    format: 'jpg',
+    quality: 0.95,
+    category: 'print',
+    icon: 'mail'
+  },
+  {
+    id: 'print_us_letter',
+    name: 'US Letter (300 DPI)',
+    description: '2550x3300px - Amerikan standart doküman boyutu',
+    dimensions: { width: 2550, height: 3300 },
+    format: 'png',
+    quality: 1.0,
+    category: 'print',
+    icon: 'file-text'
+  },
+  {
+    id: 'print_magazine_spread',
+    name: 'Dergi Sayfa (Çift)',
+    description: '5100x3300px - Dergi içi çift sayfa reklam',
+    dimensions: { width: 5100, height: 3300 },
+    format: 'png',
+    quality: 1.0,
+    category: 'print',
+    icon: 'book'
+  },
 
-  // === ÖZEL (6 Seçenek) ===
+  // === ÖZEL (Şimdi 10 Seçenek) ===
   { 
     id: 'custom_widescreen', 
     name: 'Geniş Ekran (16:9)', 
@@ -338,6 +488,46 @@ export const EXPORT_PRESETS: ExportPreset[] = [
     category: 'custom', 
     icon: 'file-text' 
   },
+  {
+    id: 'custom_4k_uhd',
+    name: '4K Ultra HD',
+    description: '3840x2160 - Ultra yüksek çözünürlüklü ekranlar için',
+    dimensions: { width: 3840, height: 2160 },
+    format: 'png',
+    quality: 0.98,
+    category: 'custom',
+    icon: 'monitor'
+  },
+  {
+    id: 'custom_long_vertical',
+    name: 'Uzun Dikey',
+    description: '800x2000 - Özel dikey tasarımlar için',
+    dimensions: { width: 800, height: 2000 },
+    format: 'png',
+    quality: 0.95,
+    category: 'custom',
+    icon: 'align-center'
+  },
+  {
+    id: 'custom_ultra_wide_monitor',
+    name: 'Ultra Geniş Monitör',
+    description: '3440x1440 - Geniş formatlı monitörler için',
+    dimensions: { width: 3440, height: 1440 },
+    format: 'png',
+    quality: 0.95,
+    category: 'custom',
+    icon: 'monitor'
+  },
+  {
+    id: 'custom_square_small',
+    name: 'Küçük Kare',
+    description: '500x500 - Özel küçük kare boyutları',
+    dimensions: { width: 500, height: 500 },
+    format: 'jpg',
+    quality: 0.8,
+    category: 'custom',
+    icon: 'square'
+  },
 ];
 
 export const SHARE_OPTIONS: ShareOption[] = [
@@ -353,12 +543,6 @@ export const SHARE_OPTIONS: ShareOption[] = [
     icon: 'share-2', 
     type: 'generic' 
   },
-  { 
-    id: 'quick_custom', 
-    name: 'Hızlı Boyut', 
-    icon: 'zap', 
-    type: 'quick_custom' 
-  }
 ];
 
 export const EXPORT_CATEGORIES = [

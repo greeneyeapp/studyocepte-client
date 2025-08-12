@@ -1,4 +1,5 @@
-// client/features/editor/components/BackgroundItem.tsx - DEBUG STİLLERİ TEMİZLENMİŞ
+// features/editor/components/BackgroundItem.tsx - TEMİZLENMİŞ VERSİYON
+
 import React from 'react';
 import { TouchableOpacity, Image, View, StyleSheet, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -7,7 +8,7 @@ import { Colors, BorderRadius, Spacing } from '@/constants';
 interface Background {
   id: string;
   name: string;
-  thumbnailUrl: string; // Artık doğrudan string URI bekliyoruz
+  thumbnailUrl: string;
   fullUrl: string;
 }
 
@@ -17,24 +18,11 @@ interface BackgroundItemProps {
   onPress: () => void;
 }
 
-/**
- * ✅ TEMİZLENMİŞ: Basit arka plan öğesi butonu.
- *    Debug kenarlıkları kaldırıldı.
- *    Sadece verilen URI'yi göstermeye odaklanır.
- */
 export const BackgroundItem: React.FC<BackgroundItemProps> = ({
   background,
   isSelected,
   onPress,
 }) => {
-  // Debug logu
-  if (__DEV__) {
-    console.log(`🖼️ BackgroundItem Render: ${background.id}`, {
-      thumbnailUri: background.thumbnailUrl ? background.thumbnailUrl.substring(0, 50) + '...' : 'yok',
-      isSelected,
-    });
-  }
-
   return (
     <TouchableOpacity
       style={[
@@ -45,21 +33,22 @@ export const BackgroundItem: React.FC<BackgroundItemProps> = ({
       activeOpacity={0.7}
     >
       <View style={styles.imageContainer}>
-        <Image
-          source={{ uri: background.thumbnailUrl }}
-          style={styles.backgroundImage}
-          onError={(e) => {
-            console.warn(`❌ BackgroundItem Image Error for ${background.id}:`, e.nativeEvent.error);
-          }}
-          onLoad={() => {
-            if (__DEV__) console.log(`✅ BackgroundItem Image Loaded for ${background.id}`);
-          }}
-          resizeMode="cover"
-        />
-        {/* Görsel yüklenmiyorsa veya yoksa göstermek için metin (sadece debug amaçlı) */}
-        {!background.thumbnailUrl && (
-          <View style={styles.noImageOverlay}>
-            <Text style={styles.noImageText}>Görsel Yok</Text>
+        {background.thumbnailUrl ? (
+          <Image
+            source={{ uri: background.thumbnailUrl }}
+            style={styles.backgroundImage}
+            onError={(e) => {
+              console.warn(`❌ BackgroundItem Image Error for ${background.id}:`, e.nativeEvent.error);
+            }}
+            onLoad={() => {
+              if (__DEV__) console.log(`✅ BackgroundItem Image Loaded for ${background.id}`);
+            }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.placeholderContainer}>
+            <Feather name="image" size={24} color={Colors.gray400} />
+            <Text style={styles.placeholderText}>Yükleniyor...</Text>
           </View>
         )}
       </View>
@@ -67,70 +56,95 @@ export const BackgroundItem: React.FC<BackgroundItemProps> = ({
       {/* Seçim göstergesi */}
       {isSelected && (
         <View style={styles.selectionIndicator}>
-          <Feather name="check" size={14} color={Colors.card} /> {/* ✅ İcon boyutu artırıldı */}
+          <Feather name="check" size={12} color={Colors.card} />
         </View>
       )}
+      
+      {/* Seçim kenarlığı */}
+      {isSelected && <View style={styles.selectionBorder} />}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    width: 70, // ✅ Boyut büyütüldü (50'den 70'e)
-    height: 70,
+    width: 64,
+    height: 64,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
-    marginRight: Spacing.md, // ✅ Margin artırıldı
+    marginRight: Spacing.md,
     borderWidth: 2,
     borderColor: 'transparent',
     position: 'relative',
+    backgroundColor: Colors.gray100,
   },
+  
   containerSelected: {
     borderColor: Colors.primary,
     transform: [{ scale: 1.05 }],
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowRadius: 6,
+    elevation: 6,
   },
+  
   imageContainer: {
     width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  
   backgroundImage: {
     width: '100%',
     height: '100%',
-    // ✅ TEMİZLENDİ: Debug kenarlıkları kaldırıldı
-    backgroundColor: Colors.gray200, // Fallback background
   },
+  
+  placeholderContainer: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: Colors.gray200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  placeholderText: {
+    fontSize: 8,
+    color: Colors.gray500,
+    fontWeight: '500',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  
   selectionIndicator: {
     position: 'absolute',
-    bottom: 4, // ✅ Position geri artırıldı
+    bottom: 4,
     right: 4,
-    width: 20, // ✅ Boyut artırıldı
+    width: 20,
     height: 20,
     borderRadius: 10,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 3,
+    elevation: 3,
+    borderWidth: 2,
+    borderColor: Colors.card,
   },
-  noImageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.gray400,
-    justifyContent: 'center',
-    alignItems: 'center',
+  
+  selectionBorder: {
+    position: 'absolute',
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
+    borderRadius: BorderRadius.md + 2,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    backgroundColor: 'transparent',
   },
-  noImageText: {
-    fontSize: 8,
-    color: Colors.card,
-    fontWeight: 'bold',
-  }
 });

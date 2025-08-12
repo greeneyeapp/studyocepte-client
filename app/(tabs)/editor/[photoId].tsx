@@ -1,5 +1,4 @@
-// app/(tabs)/editor/[photoId].tsx - LAYOUT SORUNLARI DÜZELTİLMİŞ
-// Background Image URI 'Double to String' hatası düzeltildi ve Export Snapshot sorunu giderildi.
+// app/(tabs)/editor/[photoId].tsx - TOOLBAR SORUNLARI DÜZELTİLMİŞ VE EXPORT TAM EKRAN VERSİYON (PREVIEW EKRAN DIŞINA TAŞINDI VE HER ZAMAN RENDER EDİLİYOR)
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, LayoutAnimation, UIManager, Platform, AppState } from 'react-native';
@@ -14,7 +13,6 @@ import { useScrollManager } from '@/features/editor/hooks/useScrollManager';
 import { useEditorAutoSave } from '@/features/editor/hooks/useEditorAutoSave';
 import { useDraftRestore } from '@/features/editor/hooks/useDraftRestore';
 
-// YENİ: Background config'den import
 import { BACKGROUND_CATEGORIES, getBackgroundById, Background } from '@/features/editor/config/backgrounds';
 import { backgroundThumbnailManager } from '@/services/backgroundThumbnailManager';
 
@@ -27,7 +25,6 @@ import { MainToolbar } from '@/features/editor/components/MainToolbar';
 import { FilterPreview } from '@/features/editor/components/FilterPreview';
 import { CropToolbar } from '@/features/editor/components/CropToolbar';
 import { ExportToolbar } from '@/features/editor/components/ExportToolbar';
-// YENİ: KATEGORİLİ BACKGROUND TOOLBAR YERİNE YENİ PİCKER
 import { BackgroundPickerToolbar } from '@/features/editor/components/BackgroundPickerToolbar';
 import { DraftManager } from '@/features/editor/components/DraftManager';
 
@@ -88,7 +85,7 @@ export default function EnhancedEditorScreen() {
   });
 
   const { availableDrafts } = useDraftRestore({
-    maxDraftAge: 7 * 24 * 60 * 60 * 1000 // 7 gün
+    maxDraftAge: 7 * 24 * 60 * 60 * 1000
   });
 
   // ===== STATE =====
@@ -98,7 +95,7 @@ export default function EnhancedEditorScreen() {
   const [isSliderActive, setIsSliderActive] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
-  const [selectedPreset, setSelectedPreset] = useState<ExportPreset | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<ExportPreset | null>(null); // ExportToolbar'a gönderilecek
   const [isDraftManagerVisible, setIsDraftManagerVisible] = useState(false);
 
   const { isExporting, shareWithOption, skiaViewRef } = useExportManager();
@@ -149,7 +146,7 @@ export default function EnhancedEditorScreen() {
     };
   }, [photoId, productId, getProductById, setActivePhoto, clearStore, router]);
 
-  // ===== ARKA PLAN URI ÇÖZÜMLEMESİ (Double to String hatası için) =====
+  // ===== ARKA PLAN URI ÇÖZÜMLEMESİ =====
   const selectedBackgroundConfig = useMemo(() => {
     console.log('🎨 Current background ID:', settings.backgroundId);
     const config = getBackgroundById(settings.backgroundId);
@@ -241,10 +238,18 @@ export default function EnhancedEditorScreen() {
   const animateLayout = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
   const handleToolChange = (tool: ToolType) => {
+    // Eğer bir özellik aktifse ve farklı bir araca geçiliyorsa snapshot al
+    // veya cropping'den başka bir araca geçiliyorsa
+    if ((activeFeature && ['adjust', 'filter', 'background'].includes(activeTool) && activeTool !== tool) || (activeTool === 'crop' && tool !== 'crop')) {
+      addSnapshotToHistory();
+    }
     animateLayout();
-    if (tool !== 'adjust' && activeFeature) addSnapshotToHistory();
     setActiveFeature(null);
     setActiveTool(tool);
+    // Export'tan çıkışta selectedPreset'i sıfırla
+    if (tool !== 'export' && selectedPreset !== null) {
+      setSelectedPreset(null);
+    }
   };
 
   const handleFeaturePress = (featureKey: string) => {
@@ -378,7 +383,7 @@ export default function EnhancedEditorScreen() {
     });
   }, [settings.backgroundId, selectedBackgroundConfig, resolvedBackgroundUri, activeTool]);
 
-  // ===== YENİ: BACKGROUND HANDLER =====
+  // ===== BACKGROUND HANDLER =====
   const handleBackgroundSelect = (background: Background) => {
     if (__DEV__) {
       console.log('🖼️ Background selection started:', background.name, background.id);
@@ -393,6 +398,59 @@ export default function EnhancedEditorScreen() {
       console.error('❌ Background selection failed:', error);
     }
   };
+
+  // ===== STİL HESAPLAMALARI =====
+  // KESİN ÇÖZÜM: previewContainerStyle'ı, Export modunda ekran dışına taşıyarak var olmasını ama görünmemesini sağla
+  const previewContainerStyle = useMemo(() => {
+    if (activeTool === 'export') {
+      return {
+        // Ekran dışına taşı
+        position: 'absolute' as const,
+        left: -9999,
+        top: -9999,
+        // Görsel olarak gizle
+        opacity: 0,
+        overflow: 'hidden' as const,
+        // Yer kaplamamasını sağla (ancak layout almasını engelleme)
+        width: '100%', 
+        height: '100%', 
+        flex: 1, // CaptureRef için önemli: hala flex-layout'ta olsun
+        zIndex: -1, // Diğer elemanların altına insin
+      };
+    }
+    return {
+      flex: 1,
+      minHeight: 300, // Diğer modlar için minHeight korundu
+      width: '100%',
+      position: 'relative' as const,
+    };
+  }, [activeTool]);
+
+  const bottomToolbarStyle = useMemo(() => {
+    const baseStyle = {
+      backgroundColor: Colors.card,
+      borderTopWidth: 1,
+      borderTopColor: Colors.border,
+      flexDirection: 'column' as const,
+      minHeight: 80, // MainToolbar'ın minHeight'ı kadar bir minHeight ver
+    };
+
+    // Export modunda toolbar full height alsın ve içeriği yukarıdan başla
+    if (activeTool === 'export') {
+      return {
+        ...baseStyle,
+        flex: 1, // Kalan alanı kapla
+        justifyContent: 'flex-start' as const, // İçeriği yukarıdan başla
+      };
+    }
+    
+    // Diğer araçlar için sabit yükseklik ve MainToolbar'ı en alta sabitlemek için
+    return {
+      ...baseStyle,
+      height: 280, // Sabit yükseklik (tüm alt menüleri barındıracak kadar)
+      justifyContent: 'flex-end' as const, // MainToolbar'ı en alta sabitle
+    };
+  }, [activeTool]);
 
   // ===== LOADING STATE =====
   if (!activePhoto) {
@@ -426,8 +484,8 @@ export default function EnhancedEditorScreen() {
         />
 
         <View style={styles.contentWrapper}>
-          {/* ✅ DÜZELTME: Preview Container - Export durumunda da görünür olsun */}
-          <View style={styles.previewContainer} ref={skiaViewRef} collapsable={false}>
+          {/* KESİN ÇÖZÜM: EditorPreview her zaman render ediliyor, pozisyonu ve görünürlüğü style ile yönetiliyor */}
+          <View style={previewContainerStyle} ref={skiaViewRef} collapsable={false}>
             <EditorPreview
               ref={previewRef}
               activePhoto={{ ...activePhoto, processedImageUrl: activePhoto.processedUri }}
@@ -443,38 +501,36 @@ export default function EnhancedEditorScreen() {
             />
           </View>
 
-          {/* ✅ DÜZELTME: Bottom Toolbar Container - Daha iyi flex yönetimi */}
-          <View style={styles.bottomToolbarContainer}>
-            {activeTool === 'crop' && (
-              <CropToolbar
-                activeRatio={settings.cropAspectRatio || 'original'}
-                onAspectRatioSelect={(ratio) => {
-                  updateSettings({ cropAspectRatio: ratio });
-                  addSnapshotToHistory();
-                }}
-                onRotate={() => {
-                  updateSettings({ photoRotation: ((settings.photoRotation || 0) + 90) % 360 });
-                  addSnapshotToHistory();
-                }}
-                onReset={resetCropAndRotation}
-                onApplyCrop={handleApplyCrop}
+          <View style={bottomToolbarStyle}>
+            {/* Export Toolbar - Export seçiliyse tam alanı kapla */}
+            {activeTool === 'export' ? (
+              <ExportToolbar
+                selectedPreset={selectedPreset}
+                isExporting={isExporting}
+                setSelectedPreset={setSelectedPreset} // ExportToolbar'a selectedPreset'i güncelleyebilmesi için prop olarak gönder
+                shareWithOption={shareWithOption}
               />
-            )}
+            ) : (
+              // Diğer araçlar için standart layout
+              <View style={styles.upperToolbarContentArea}>
+                {/* Crop Toolbar */}
+                {activeTool === 'crop' && (
+                  <CropToolbar
+                    activeRatio={settings.cropAspectRatio || 'original'}
+                    onAspectRatioSelect={(ratio) => {
+                      updateSettings({ cropAspectRatio: ratio });
+                      addSnapshotToHistory();
+                    }}
+                    onRotate={() => {
+                      updateSettings({ photoRotation: ((settings.photoRotation || 0) + 90) % 360 });
+                      addSnapshotToHistory();
+                    }}
+                    onReset={resetCropAndRotation}
+                    onApplyCrop={handleApplyCrop}
+                  />
+                )}
 
-            {activeTool === 'export' && (
-              <View style={styles.exportToolbarWrapper}>
-                <ExportToolbar
-                  selectedPreset={selectedPreset}
-                  isExporting={isExporting}
-                  setSelectedPreset={setSelectedPreset}
-                  shareWithOption={shareWithOption}
-                />
-              </View>
-            )}
-
-            {activeTool !== 'export' && activeTool !== 'crop' && (
-              <>
-                {/* Target Selector - sadece adjust ve filter için */}
+                {/* Target Selector */}
                 {(activeTool === 'adjust' || activeTool === 'filter') && !activeFeature && (
                   <TargetSelector
                     activeTarget={activeTarget}
@@ -486,8 +542,8 @@ export default function EnhancedEditorScreen() {
                   />
                 )}
 
-                {/* ✅ DÜZELTME: Dynamic Tool Container - Sabit yükseklik ve düzgün flex */}
-                <View style={styles.dynamicToolContainer}>
+                {/* İçerik Alanı (Slider veya ScrollView) */}
+                <View style={styles.toolContentArea}>
                   {activeTool === 'adjust' && currentFeatureConfig ? (
                     <CustomSlider
                       feature={currentFeatureConfig}
@@ -544,24 +600,24 @@ export default function EnhancedEditorScreen() {
                       )}
 
                       {activeTool === 'background' && (
-                        <BackgroundPickerToolbar
-                          selectedBackgroundId={settings.backgroundId}
-                          onBackgroundSelect={handleBackgroundSelect}
-                        />
+                        <View style={styles.backgroundToolArea}>
+                          <BackgroundPickerToolbar
+                            selectedBackgroundId={settings.backgroundId}
+                            onBackgroundSelect={handleBackgroundSelect}
+                          />
+                        </View>
                       )}
                     </>
                   )}
                 </View>
-              </>
+              </View>
             )}
 
-            {/* Main Toolbar - Her zaman en altta görünür (crop hariç) */}
-            {activeTool !== 'crop' && (
-              <MainToolbar
-                activeTool={activeTool}
-                onToolChange={handleToolChange}
-              />
-            )}
+            {/* Ana Toolbar - Her zaman en altta göster */}
+            <MainToolbar
+              activeTool={activeTool}
+              onToolChange={handleToolChange}
+            />
           </View>
         </View>
 
@@ -591,38 +647,35 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'column'
   },
-  // ✅ DÜZELTME: Preview Container - Export durumunda gizlenmesin
-  previewContainer: {
-    flex: 1,
-    width: '100%',
-    position: 'relative',
-    minHeight: 300,
+  
+  // YENİ: Alt araç çubuklarının MainToolbar dışındaki içeriği için kapsayıcı
+  upperToolbarContentArea: {
+    flex: 1, // Kalan alanı kapla
+    alignItems: 'stretch', // İçeriğin yatayda genişlemesini sağla
+    justifyContent: 'flex-start', // İçeriği yukarıdan başla
   },
-  // ✅ DÜZELTME: Bottom Toolbar Container - Daha iyi yükseklik yönetimi
-  bottomToolbarContainer: {
-    backgroundColor: Colors.card,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    flexDirection: 'column',
-    minHeight: 160, // Sabit minimum yükseklik
-    maxHeight: '50%', // Ekranın yarısından fazla kaplamayız
-  },
-  // ✅ DÜZELTME: Export Toolbar Wrapper
-  exportToolbarWrapper: {
-    flex: 1,
-    minHeight: 400, // Export için daha fazla alan
-  },
-  // ✅ DÜZELTME: Dynamic Tool Container - Background için daha fazla alan
-  dynamicToolContainer: {
-    height: 150, // ✅ 140'tan 150'ye çıkarıldı - background için
+  
+  // Standartlaştırılmış tool content area (artık üst kapsayıcıya yayılıyor)
+  toolContentArea: {
+    flex: 1, // upperToolbarContentArea'yı doldur
     justifyContent: 'center',
     alignItems: 'stretch',
-    backgroundColor: Colors.card,
+    paddingVertical: Spacing.sm,
   },
+  
+  // Background tool için özel alan (artık üst kapsayıcıya yayılıyor)
+  backgroundToolArea: {
+    flex: 1, // upperToolbarContentArea'yı doldur
+  },
+  
+  // Export container (artık doğrudan ExportToolbar'da yönetiliyor)
+  // exportContainer kaldırıldı
+
   scrollContent: {
     paddingHorizontal: Spacing.lg,
     alignItems: 'center',
     gap: Spacing.lg,
-    paddingVertical: Spacing.md
+    paddingVertical: Spacing.md,
+    minHeight: 80, // Sabit minimum yükseklik
   },
 });

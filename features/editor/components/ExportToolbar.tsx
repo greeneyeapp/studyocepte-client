@@ -1,11 +1,12 @@
-// features/editor/components/ExportToolbar.tsx - SİMPLİFİED EXPORT TOOLBAR
+// features/editor/components/ExportToolbar.tsx - SİMPLİFİİED EXPORT TOOLBAR (GALERİ VE PAYLAŞ BUTONLARI ALT MENÜYE TAŞINDI, BUTON GÖRÜNÜRLÜĞÜ DÜZELTİLDİ, 'FORMAT SEÇİN' ALANI VE BOŞ ALANI TAMAMEN KALDIRILDI VE SEÇİM DOĞRUDAN BOTTOMSHEET'İ TETİKLER)
 
 import React, { useState } from 'react';
-import { View, ScrollView, Text, StyleSheet, TouchableOpacity, LayoutAnimation } from 'react-native';
+import { View, ScrollView, Text, StyleSheet, TouchableOpacity, LayoutAnimation, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { EXPORT_PRESETS, SHARE_OPTIONS, EXPORT_CATEGORIES, ExportPreset, ShareOption } from '../config/exportTools';
 import { ToastService } from '@/components/Toast/ToastService';
+import { BottomSheetService, BottomSheetAction } from '@/components/BottomSheet/BottomSheetService'; // BottomSheetService import edildi
 
 interface ExportToolbarProps {
   selectedPreset: ExportPreset | null;
@@ -55,47 +56,6 @@ const CompactPresetCard: React.FC<{
   );
 };
 
-// Ana export butonları
-const ExportActionButton: React.FC<{
-  option: ShareOption;
-  onPress: () => void;
-  disabled?: boolean;
-}> = ({ option, onPress, disabled = false }) => {
-  const getButtonStyle = (type: string) => {
-    switch (type) {
-      case 'gallery': return { bg: '#34C759', text: 'Galeriye Kaydet' };
-      case 'generic': return { bg: Colors.primary, text: 'Paylaş' };
-      default: return { bg: Colors.primary, text: option.name };
-    }
-  };
-
-  const buttonStyle = getButtonStyle(option.type);
-
-  return (
-    <TouchableOpacity
-      style={[
-        styles.actionButton,
-        { backgroundColor: disabled ? Colors.gray300 : buttonStyle.bg }
-      ]}
-      onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.8}
-    >
-      <Feather
-        name={option.icon as any}
-        size={20}
-        color={disabled ? Colors.gray500 : Colors.card}
-      />
-      <Text style={[
-        styles.actionButtonText,
-        { color: disabled ? Colors.gray500 : Colors.card }
-      ]}>
-        {buttonStyle.text}
-      </Text>
-    </TouchableOpacity>
-  );
-};
-
 export const ExportToolbar: React.FC<ExportToolbarProps> = ({
   selectedPreset,
   isExporting,
@@ -104,53 +64,39 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('social');
 
+  // KESİN ÇÖZÜM: handlePresetSelect artık doğrudan BottomSheet'i tetikleyecek
   const handlePresetSelect = (preset: ExportPreset) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setSelectedPreset(selectedPreset?.id === preset.id ? null : preset);
-  };
+    
+    // Preset'i seçili olarak ayarla (UI'da checkmark'ın görünmesi için)
+    setSelectedPreset(preset); 
 
-  const handleShareOptionPress = async (option: ShareOption) => {
-    if (!selectedPreset) {
-      ToastService.show('Lütfen önce bir dışa aktarma formatı seçin.');
-      return;
-    }
-    await shareWithOption(option, selectedPreset);
+    // BottomSheet için aksiyonları hazırla
+    const actions: BottomSheetAction[] = SHARE_OPTIONS.map(option => ({
+      id: option.id,
+      text: option.name,
+      icon: option.icon as any,
+      // Doğrudan shareWithOption'ı çağır, selectedPreset'i burada gönderiyoruz
+      onPress: () => {
+        // BottomSheet kapanırken animation sorununu engellemek için küçük bir gecikme
+        setTimeout(() => shareWithOption(option, preset), 100); 
+      }, 
+    }));
+
+    // BottomSheet'i göster
+    BottomSheetService.show({
+      title: `${preset.name} (${preset.dimensions.width}×${preset.dimensions.height})`, // Başlıkta seçili preset bilgisi
+      actions: actions,
+    });
   };
 
   const filteredPresets = EXPORT_PRESETS.filter(p => p.category === selectedCategory);
   
-  // Sadece gallery ve generic paylaşım seçenekleri (quick_custom kaldırıldı)
-  const filteredShareOptions = SHARE_OPTIONS.filter(opt => opt.type !== 'quick_custom');
-
   return (
     <View style={styles.container}>
-      {/* Üst Kısım - Seçili Format ve Export Butonları */}
-      <View style={styles.actionsSection}>
-        {selectedPreset ? (
-          <>
-            <Text style={styles.sectionTitle}>{selectedPreset.name}</Text>
-            <Text style={styles.selectedPresetInfo}>
-              {`${selectedPreset.dimensions.width} × ${selectedPreset.dimensions.height} • ${selectedPreset.format.toUpperCase()}`}
-            </Text>
-            <View style={styles.actionsRow}>
-              {filteredShareOptions.map((option) => (
-                <ExportActionButton 
-                  key={option.id} 
-                  option={option} 
-                  onPress={() => handleShareOptionPress(option)} 
-                  disabled={isExporting}
-                />
-              ))}
-            </View>
-          </>
-        ) : (
-          <View style={styles.noSelectionContainer}>
-            <Text style={styles.sectionTitle}>Format Seçin</Text>
-            <Text style={styles.selectedPresetInfo}>Dışa aktarmak için bir format seçin</Text>
-          </View>
-        )}
-      </View>
-
+      {/* KESİN ÇÖZÜM: actionsSection tamamen kaldırıldı. Export sayfasında üst kısımda boş alan kalmayacak. */}
+      {/* selectedPreset null ise hiçbir şey render edilmiyor, selectedPreset varsa da o alan render edilmiyor */}
+      
       {/* Kategori Seçici */}
       <View style={styles.categorySection}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
@@ -186,6 +132,7 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
             key={preset.id} 
             preset={preset} 
             isSelected={selectedPreset?.id === preset.id} 
+            // KESİN ÇÖZÜM: onPress artık doğrudan handlePresetSelect'i çağırıyor
             onPress={() => handlePresetSelect(preset)} 
           />
         ))}
@@ -201,62 +148,61 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background 
   },
   
+  // KESİN ÇÖZÜM: actionsSection stili artık JSX'te ilgili View render edilmediği için kullanılmıyor.
+  // Ancak referans olarak burada bırakılabilir.
   actionsSection: { 
     backgroundColor: Colors.card, 
     padding: Spacing.lg, 
     borderBottomWidth: 1, 
     borderBottomColor: Colors.border, 
-    minHeight: 140, 
-    justifyContent: 'center' 
+    minHeight: 140, // Bu minHeight artık kullanılmayacak
+    justifyContent: 'center',
+    alignItems: 'center', 
   },
   
-  sectionTitle: { 
-    ...Typography.h2, 
+  sectionTitleSmall: { 
+    ...Typography.h3, 
     color: Colors.textPrimary, 
     textAlign: 'center', 
     marginBottom: Spacing.xs 
   },
-  
-  selectedPresetInfo: { 
-    ...Typography.body, 
+  selectedPresetInfoSmall: { 
+    ...Typography.body,
     color: Colors.textSecondary, 
     textAlign: 'center', 
     marginBottom: Spacing.lg 
   },
   
-  actionsRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
-    gap: Spacing.md 
+  exportMainButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.primary,
+    gap: Spacing.sm,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  exportMainButtonDisabled: {
+    backgroundColor: Colors.gray400,
+    shadowColor: Colors.gray400,
+  },
+  exportMainButtonText: {
+    ...Typography.bodyMedium,
+    color: Colors.card,
+    fontWeight: '600',
   },
   
   noSelectionContainer: { 
     alignItems: 'center', 
     justifyContent: 'center', 
-    paddingHorizontal: Spacing.xl 
-  },
-  
-  actionButton: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    paddingVertical: Spacing.md, 
-    paddingHorizontal: Spacing.lg, 
-    borderRadius: BorderRadius.lg, 
-    gap: Spacing.sm, 
-    shadowColor: Colors.shadow, 
-    shadowOffset: { width: 0, height: 2 }, 
-    shadowOpacity: 0.1, 
-    shadowRadius: 4, 
-    elevation: 3, 
-    minWidth: 140, 
+    paddingHorizontal: Spacing.xl,
     flex: 1, 
-    maxWidth: 200
-  },
-  
-  actionButtonText: { 
-    ...Typography.bodyMedium, 
-    fontWeight: '600' 
   },
   
   categorySection: { 

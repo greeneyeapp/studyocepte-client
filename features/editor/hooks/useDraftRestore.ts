@@ -114,11 +114,7 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
   // Manuel restore fonksiyonu (Draft Manager için)
   const handleManualRestore = useCallback((draft: PhotoDraft) => {
     try {
-      restoreFromDraft(draft);
-      const age = Date.now() - draft.timestamp;
-      
-      ToastService.show( `${Math.round(age / 60000)} dakika önceki değişiklikler geri yüklendi`);
-      
+      restoreFromDraft(draft);            
     } catch (error) {
       console.error('❌ Draft restore failed:', error);
       ToastService.show('Taslak geri yüklenemedi');
