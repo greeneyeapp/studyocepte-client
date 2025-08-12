@@ -317,7 +317,7 @@ export default function EnhancedEditorScreen() {
 
     try {
       // DÜZELTME: previewRef yerine skiaViewRef kullanıyoruz
-      if (withThumbnailUpdate && skiaViewRef.current) { 
+      if (withThumbnailUpdate && skiaViewRef.current) {
         console.log('🖼️ Saving with thumbnail update');
         await store.saveChanges(skiaViewRef);
       } else {
@@ -400,27 +400,24 @@ export default function EnhancedEditorScreen() {
     }
   };
 
-  // ===== STİL HESAPLAMALARI =====
-  // Çözüm: EditorPreview'ın kendi içinde style prop'unu kullanacağız.
   const previewComponentStyle = useMemo(() => {
     if (activeTool === 'export') {
       return {
-        // Ekran içinde kalmasını sağla, ancak görünmez yap
+        // ✅ DÜZELTME: Export modunda preview'ı gizleme ama render et
         position: 'absolute' as const,
         top: 0,
         left: 0,
-        width: '100%',
-        height: '100%',
-        opacity: 0, // Görsel olarak gizle
-        pointerEvents: 'none' as const, // Etkileşimi engelle
+        right: 0,
+        bottom: 0,
+        opacity: 0.01, // ✅ Tamamen 0 yerine 0.01 - böylece görünmez ama ref'e erişilebilir
+        pointerEvents: 'none' as const,
+        zIndex: -1000, // En arkaya gönder
         overflow: 'hidden' as const,
-        flex: 1, // CaptureRef için hala flex-layout'ta olsun
-        zIndex: -1, // Diğer elemanların altına insin
       };
     }
     return {
       flex: 1,
-      minHeight: 300, // Diğer modlar için minHeight korundu
+      minHeight: 300,
       width: '100%',
       position: 'relative' as const,
     };
@@ -444,7 +441,7 @@ export default function EnhancedEditorScreen() {
         justifyContent: 'flex-start' as const, // İçeriği yukarıdan başla
       };
     }
-    
+
     // Diğer araçlar için sabit yükseklik ve MainToolbar'ı en alta sabitlemek için
     return {
       ...baseStyle,
@@ -485,11 +482,10 @@ export default function EnhancedEditorScreen() {
         />
 
         <View style={styles.contentWrapper}>
-          {/* EditorPreview her zaman render ediliyor, pozisyonu ve görünürlüğü style ile yönetiliyor */}
-          {/* DÜZELTME: skiaViewRef'i doğrudan EditorPreview'a atıyoruz ve style prop'unu ona geçiriyoruz */}
           <EditorPreview
-            ref={skiaViewRef} // <<< skiaViewRef buraya eklendi
-            style={previewComponentStyle} // <<< previewComponentStyle buraya eklendi
+            key={`preview-${activePhoto?.id || 'none'}`} // Stable key
+            ref={skiaViewRef}
+            style={previewComponentStyle}
             activePhoto={{ ...activePhoto, processedImageUrl: activePhoto.processedUri }}
             selectedBackground={selectedBackgroundConfig}
             backgroundDisplayUri={resolvedBackgroundUri}
@@ -648,14 +644,14 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'column'
   },
-  
+
   // YENİ: Alt araç çubuklarının MainToolbar dışındaki içeriği için kapsayıcı
   upperToolbarContentArea: {
     flex: 1, // Kalan alanı kapla
     alignItems: 'stretch', // İçeriğin yatayda genişlemesini sağla
     justifyContent: 'flex-start', // İçeriği yukarıdan başla
   },
-  
+
   // Standartlaştırılmış tool content area (artık üst kapsayıcıya yayılıyor)
   toolContentArea: {
     flex: 1, // upperToolbarContentArea'yı doldur
@@ -663,12 +659,12 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     paddingVertical: Spacing.sm,
   },
-  
+
   // Background tool için özel alan (artık üst kapsayıcıya yayılıyor)
   backgroundToolArea: {
     flex: 1, // upperToolbarContentArea'yı doldur
   },
-  
+
   // Export container (artık doğrudan ExportToolbar'da yönetiliyor)
   // exportContainer kaldırıldı
 

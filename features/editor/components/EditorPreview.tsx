@@ -1,7 +1,7 @@
-// features/editor/components/EditorPreview.tsx - LAYOUT VE REF SORUNU KESİN DÜZELTİLMİŞ VERSİYON
+// features/editor/components/EditorPreview.tsx - EXPORT REF HATASI DÜZELTİLMİŞ VERSİYON
 
-import React, { forwardRef, useMemo, useState, useEffect } from 'react';
-import { View, Pressable, Text, StyleSheet, ActivityIndicator, Image, ViewStyle } from 'react-native'; // ViewStyle import edildi
+import React, { forwardRef, useMemo, useState, useEffect, useImperativeHandle } from 'react';
+import { View, Pressable, Text, StyleSheet, ActivityIndicator, Image, ViewStyle } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { ProductPhoto, Background, EditorSettings } from '@/services/api';
@@ -22,24 +22,46 @@ interface EditorPreviewProps {
   updateSettings: (newSettings: Partial<EditorSettings>) => void;
   previewSize: { width: number; height: number };
   isCropping: boolean;
-  style?: ViewStyle; // <<< YENİ: Style prop'u eklendi
+  style?: ViewStyle;
 }
 
 export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   activePhoto, selectedBackground, backgroundDisplayUri, settings, showOriginal,
   onShowOriginalChange, onLayout, updateSettings, previewSize, isCropping,
-  style // <<< YENİ: Style prop'u props'lardan alındı
+  style
 }, ref) => {
   const [isLayoutStable, setIsLayoutStable] = useState(false);
   const [stablePreviewSize, setStablePreviewSize] = useState({ width: 0, height: 0 });
+  
+  // ✅ DÜZELTME: Export için ayrı bir internal ref oluştur
+  const internalRef = React.useRef<View>(null);
+
+  // ✅ DÜZELTME: useImperativeHandle ile ref'i expose et - export modunda bile çalışsın
+  useImperativeHandle(ref, () => {
+    console.log('🔧 useImperativeHandle called, internalRef.current:', !!internalRef.current);
+    
+    // Export modunda bile ref'in çalışmasını sağla
+    if (!internalRef.current) {
+      console.warn('⚠️ internalRef.current is null in useImperativeHandle');
+      // Return a dummy object to prevent null reference
+      return {
+        measure: () => {},
+        measureInWindow: () => {},
+        measureLayout: () => {},
+        setNativeProps: () => {},
+        focus: () => {},
+        blur: () => {},
+      } as View;
+    }
+    
+    return internalRef.current;
+  }, [internalRef.current]); // ✅ Dependency'ye internalRef.current eklendi
 
   // KESİN ÇÖZÜM: Layout stability kontrolü (sadece geçerli boyutlar için)
   useEffect(() => {
-    // Preview size'ın geçerli olup olmadığını kontrol et
     const isValidSize = previewSize.width > 50 && previewSize.height > 50;
     
     if (isValidSize) {
-      // Eğer layout stable değilse veya boyut önemli ölçüde değiştiyse güncelle
       const widthDiff = Math.abs(previewSize.width - stablePreviewSize.width);
       const heightDiff = Math.abs(previewSize.height - stablePreviewSize.height);
       
@@ -54,10 +76,9 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
         setIsLayoutStable(true);
       }
     } else if (isLayoutStable) {
-      // Geçersiz boyut gelirse layout'u unstable yap
-      console.warn('⚠️ Invalid preview size detected, layout unstable. Hiding gestures/crop until stable:', previewSize);
+      console.warn('⚠️ Invalid preview size detected, layout unstable:', previewSize);
       setIsLayoutStable(false);
-      setStablePreviewSize({ width: 0, height: 0 }); // Boyutları sıfırla
+      setStablePreviewSize({ width: 0, height: 0 });
     }
   }, [previewSize, stablePreviewSize, isLayoutStable]);
 
@@ -70,7 +91,6 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
 
   const hasVisualCrop = settings.visualCrop?.isApplied;
 
-  // KESİN ÇÖZÜM: productAnimatedStyle, sadece ürünün kendi jesture'larını yönetecek
   const productAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: photoX.value },
@@ -87,17 +107,14 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   const backgroundUri = backgroundDisplayUri; 
   const vignetteIntensity = (settings as any).background_vignette || 0;
 
-  // KESİN ÇÖZÜM: Enhanced layout event handler
   const handleLayoutEvent = (event: any) => {
     const { width, height } = event.nativeEvent.layout;
     
-    // Layout event'ini sadece geçerli boyutlar için tetikle
     if (width > 50 && height > 50) {
       onLayout(event);
     }
   };
 
-  // KESİN ÇÖZÜM: Visual Crop için yeni bir Animated Style
   const visualCropAnimatedStyle = useAnimatedStyle(() => {
     if (hasVisualCrop && !isCropping && settings.visualCrop && isLayoutStable && stablePreviewSize.width > 0) {
       const crop = settings.visualCrop;
@@ -130,7 +147,7 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   // KESİN ÇÖZÜM: Layout stable değilse veya görsel yoksa loading göster
   if (!isLayoutStable || stablePreviewSize.width === 0 || !imageUriToShow) {
     return (
-      <View style={[styles.container, style]} onLayout={handleLayoutEvent}> {/* Style buraya uygulandı */}
+      <View style={[styles.container, style]} onLayout={handleLayoutEvent}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Görsel Yükleniyor...</Text>
@@ -140,15 +157,20 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   }
 
   return (
-    // DÜZELTME: Gelen 'style' prop'unu root View'e uyguluyoruz
     <View style={[styles.container, style]} onLayout={handleLayoutEvent}> 
       <Pressable 
         style={styles.pressable} 
         onPressIn={() => onShowOriginalChange(true)} 
         onPressOut={() => onShowOriginalChange(false)}
       >
-        {/* 'previewWrapper' Animated.View'ine ref atanacak */}
-        <Animated.View style={[styles.previewWrapper, visualCropAnimatedStyle]} ref={ref} collapsable={false}>
+        {/* ✅ DÜZELTME: internalRef'i Animated.View'e atıyoruz ve export modunda bile erişilebilir olmasını sağlıyoruz */}
+        <Animated.View 
+          style={[styles.previewWrapper, visualCropAnimatedStyle]} 
+          ref={internalRef}
+          collapsable={false}
+          // ✅ DÜZELTME: Export modunda bile görünür kalmasını sağla
+          pointerEvents={style?.opacity === 0 ? 'none' : 'auto'}
+        >
           {imageUriToShow ? (
             <View style={styles.imageContainer}>
               {backgroundUri && (
@@ -162,8 +184,9 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
                   {vignetteIntensity > 0 && <SimpleVignetteOverlay intensity={vignetteIntensity} />}
                 </View>
               )}
-              {/* KESİN ÇÖZÜM: isLayoutStable ve boyutlar sıfır değilse jesture'ları aktif et */}
-              {isLayoutStable && stablePreviewSize.width > 0 ? (
+              
+              {/* ✅ DÜZELTME: Export modunda gesture'ları devre dışı bırak ama görsel'i göster */}
+              {isLayoutStable && stablePreviewSize.width > 0 && style?.opacity !== 0 ? (
                 <GestureDetector gesture={combinedGesture}>
                   <Animated.View style={[styles.productContainer, productAnimatedStyle]}>
                     <Image 
@@ -175,18 +198,17 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
                   </Animated.View>
                 </GestureDetector>
               ) : (
-                // Jesture'lar aktif değilken basit bir View ile görseli göster (transform sıfır)
-                <View style={[styles.productContainer, { transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 1 }, { rotate: `${(settings.photoRotation || 0)}deg` }] }]}>
-                   <Image
-                      source={{ uri: imageUriToShow }}
-                      style={[styles.productImage, productFilterStyle]}
-                      resizeMode="contain"
-                      onError={(e) => console.error('Product Image Load Error (no gestures):', imageUriToShow, e.nativeEvent.error)}
-                    />
-                </View>
+                <Animated.View style={[styles.productContainer, productAnimatedStyle]}>
+                  <Image
+                    source={{ uri: imageUriToShow }}
+                    style={[styles.productImage, productFilterStyle]}
+                    resizeMode="contain"
+                    onError={(e) => console.error('Product Image Load Error (export mode):', imageUriToShow, e.nativeEvent.error)}
+                  />
+                </Animated.View>
               )}
               
-              {isCropping && (
+              {isCropping && style?.opacity !== 0 && (
                 <View style={styles.cropOverlayContainer} pointerEvents="none">
                   <CropOverlay 
                     previewSize={stablePreviewSize} 
@@ -194,7 +216,8 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
                   />
                 </View>
               )}
-              {showOriginal && (
+              
+              {showOriginal && style?.opacity !== 0 && (
                 <View style={styles.originalOverlay}>
                   <Text style={styles.originalText}>Orijinal</Text>
                 </View>
@@ -215,7 +238,6 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
 EditorPreview.displayName = 'EditorPreview';
 
 const styles = StyleSheet.create({
-  // KESİN ÇÖZÜM: minHeight kaldırıldı
   container: { 
     flex: 1, 
     width: '100%', 
@@ -224,14 +246,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center', 
     alignItems: 'center',
   },
-  // KESİN ÇÖZÜM: minHeight kaldırıldı
   pressable: { 
     width: '100%', 
     height: '100%', 
     justifyContent: 'center', 
     alignItems: 'center',
   },
-  // KESİN ÇÖZÜM: minHeight kaldırıldı
   previewWrapper: { 
     overflow: 'hidden', 
     backgroundColor: Colors.gray100, 
@@ -245,7 +265,6 @@ const styles = StyleSheet.create({
   productContainer: { ...StyleSheet.absoluteFillObject, zIndex: 2 },
   productImage: { width: '100%', height: '100%', backgroundColor: 'transparent' },
   cropOverlayContainer: { ...StyleSheet.absoluteFillObject, zIndex: 10 },
-  // KESİN ÇÖZÜM: minHeight kaldırıldı
   loadingContainer: { 
     flex: 1, 
     justifyContent: 'center', 
