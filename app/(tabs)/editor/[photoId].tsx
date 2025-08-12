@@ -1,4 +1,4 @@
-// app/(tabs)/editor/[photoId].tsx - TOOLBAR SORUNLARI DÜZELTİLMİŞ VE EXPORT TAM EKRAN VERSİYON (PREVIEW EKRAN DIŞINA TAŞINDI VE HER ZAMAN RENDER EDİLİYOR)
+// app/(tabs)/editor/[photoId].tsx - Loading states kontrol edildi ve düzeltildi
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, LayoutAnimation, UIManager, Platform, AppState } from 'react-native';
@@ -26,7 +26,7 @@ import { FilterPreview } from '@/features/editor/components/FilterPreview';
 import { CropToolbar } from '@/features/editor/components/CropToolbar';
 import { ExportToolbar } from '@/features/editor/components/ExportToolbar';
 import { BackgroundPickerToolbar } from '@/features/editor/components/BackgroundPickerToolbar';
-import { DraftManager } from '@/features/editor/components/DraftManager'; // DÜZELTİLDİ: Hatalı import düzeltildi.
+import { DraftManager } from '@/features/editor/components/DraftManager';
 
 import { ToolType, TargetType } from '@/features/editor/config/tools';
 import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/features';
@@ -53,6 +53,7 @@ export default function EnhancedEditorScreen() {
   const {
     activePhoto,
     settings,
+    // ✅ KONTROL: isSaving zaten editor store'dan geliyor, bu doğru
     isSaving,
     activeFilterKey,
     applyFilter,
@@ -95,12 +96,11 @@ export default function EnhancedEditorScreen() {
   const [isSliderActive, setIsSliderActive] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
-  const [selectedPreset, setSelectedPreset] = useState<ExportPreset | null>(null); // ExportToolbar'a gönderilecek
+  const [selectedPreset, setSelectedPreset] = useState<ExportPreset | null>(null);
   const [isDraftManagerVisible, setIsDraftManagerVisible] = useState(false);
 
   const { isExporting, shareWithOption, skiaViewRef } = useExportManager();
   const { currentScrollRef } = useScrollManager({ activeTool, activeTarget, activeFeature, isSliderActive });
-  // REMOVED: const previewRef = useRef<View>(null); // Bu artık kullanılmıyor, skiaViewRef doğrudan kullanılacak
 
   // ===== MEMORY OPTIMIZATION =====
   useEffect(() => {
@@ -238,15 +238,12 @@ export default function EnhancedEditorScreen() {
   const animateLayout = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
   const handleToolChange = (tool: ToolType) => {
-    // Eğer bir özellik aktifse ve farklı bir araca geçiliyorsa snapshot al
-    // veya cropping'den başka bir araca geçiliyorsa
     if ((activeFeature && ['adjust', 'filter', 'background'].includes(activeTool) && activeTool !== tool) || (activeTool === 'crop' && tool !== 'crop')) {
       addSnapshotToHistory();
     }
     animateLayout();
     setActiveFeature(null);
     setActiveTool(tool);
-    // Export'tan çıkışta selectedPreset'i sıfırla
     if (tool !== 'export' && selectedPreset !== null) {
       setSelectedPreset(null);
     }
@@ -316,7 +313,6 @@ export default function EnhancedEditorScreen() {
     console.log('💾 Save triggered with thumbnail update:', withThumbnailUpdate);
 
     try {
-      // DÜZELTME: previewRef yerine skiaViewRef kullanıyoruz
       if (withThumbnailUpdate && skiaViewRef.current) {
         console.log('🖼️ Saving with thumbnail update');
         await store.saveChanges(skiaViewRef);
@@ -361,15 +357,17 @@ export default function EnhancedEditorScreen() {
         saveDraft();
       }
 
-      console.log('🔙 Cancel: navigating back to product page');
+      console.log('🔙 Cancel: always navigating back to product page');
 
+      // ✅ HER ZAMAN productId sayfasına geri dön
       if (productId) {
         router.push({
           pathname: '/(tabs)/product/[productId]',
           params: { productId }
         });
       } else {
-        router.back();
+        // Fallback: productId yoksa home'a git
+        router.push('/(tabs)/home');
       }
     }
   };
@@ -403,15 +401,14 @@ export default function EnhancedEditorScreen() {
   const previewComponentStyle = useMemo(() => {
     if (activeTool === 'export') {
       return {
-        // ✅ DÜZELTME: Export modunda preview'ı gizleme ama render et
         position: 'absolute' as const,
         top: 0,
         left: 0,
         right: 0,
         bottom: 0,
-        opacity: 0.01, // ✅ Tamamen 0 yerine 0.01 - böylece görünmez ama ref'e erişilebilir
+        opacity: 0.01,
         pointerEvents: 'none' as const,
-        zIndex: -1000, // En arkaya gönder
+        zIndex: -1000,
         overflow: 'hidden' as const,
       };
     }
@@ -423,30 +420,27 @@ export default function EnhancedEditorScreen() {
     };
   }, [activeTool]);
 
-
   const bottomToolbarStyle = useMemo(() => {
     const baseStyle = {
       backgroundColor: Colors.card,
       borderTopWidth: 1,
       borderTopColor: Colors.border,
       flexDirection: 'column' as const,
-      minHeight: 80, // MainToolbar'ın minHeight'ı kadar bir minHeight ver
+      minHeight: 80,
     };
 
-    // Export modunda toolbar full height alsın ve içeriği yukarıdan başla
     if (activeTool === 'export') {
       return {
         ...baseStyle,
-        flex: 1, // Kalan alanı kapla
-        justifyContent: 'flex-start' as const, // İçeriği yukarıdan başla
+        flex: 1,
+        justifyContent: 'flex-start' as const,
       };
     }
 
-    // Diğer araçlar için sabit yükseklik ve MainToolbar'ı en alta sabitlemek için
     return {
       ...baseStyle,
-      height: 280, // Sabit yükseklik (tüm alt menüleri barındıracak kadar)
-      justifyContent: 'flex-end' as const, // MainToolbar'ı en alta sabitle
+      height: 280,
+      justifyContent: 'flex-end' as const,
     };
   }, [activeTool]);
 
@@ -469,6 +463,7 @@ export default function EnhancedEditorScreen() {
         <EditorHeader
           onCancel={handleCancel}
           onSave={handleSave}
+          // ✅ KONTROL: isSaving editor store'dan geliyor, bu doğru
           isSaving={isSaving}
           canUndo={canUndo()}
           canRedo={canRedo()}
@@ -483,7 +478,7 @@ export default function EnhancedEditorScreen() {
 
         <View style={styles.contentWrapper}>
           <EditorPreview
-            key={`preview-${activePhoto?.id || 'none'}`} // Stable key
+            key={`preview-${activePhoto?.id || 'none'}`}
             ref={skiaViewRef}
             style={previewComponentStyle}
             activePhoto={{ ...activePhoto, processedImageUrl: activePhoto.processedUri }}
@@ -499,18 +494,15 @@ export default function EnhancedEditorScreen() {
           />
 
           <View style={bottomToolbarStyle}>
-            {/* Export Toolbar - Export seçiliyse tam alanı kapla */}
             {activeTool === 'export' ? (
               <ExportToolbar
                 selectedPreset={selectedPreset}
                 isExporting={isExporting}
-                setSelectedPreset={setSelectedPreset} // ExportToolbar'a selectedPreset'i güncelleyebilmesi için prop olarak gönder
+                setSelectedPreset={setSelectedPreset}
                 shareWithOption={shareWithOption}
               />
             ) : (
-              // Diğer araçlar için standart layout
               <View style={styles.upperToolbarContentArea}>
-                {/* Crop Toolbar */}
                 {activeTool === 'crop' && (
                   <CropToolbar
                     activeRatio={settings.cropAspectRatio || 'original'}
@@ -527,7 +519,6 @@ export default function EnhancedEditorScreen() {
                   />
                 )}
 
-                {/* Target Selector */}
                 {(activeTool === 'adjust' || activeTool === 'filter') && !activeFeature && (
                   <TargetSelector
                     activeTarget={activeTarget}
@@ -539,7 +530,6 @@ export default function EnhancedEditorScreen() {
                   />
                 )}
 
-                {/* İçerik Alanı (Slider veya ScrollView) */}
                 <View style={styles.toolContentArea}>
                   {activeTool === 'adjust' && currentFeatureConfig ? (
                     <CustomSlider
@@ -610,7 +600,6 @@ export default function EnhancedEditorScreen() {
               </View>
             )}
 
-            {/* Ana Toolbar - Her zaman en altta göster */}
             <MainToolbar
               activeTool={activeTool}
               onToolChange={handleToolChange}
@@ -618,7 +607,6 @@ export default function EnhancedEditorScreen() {
           </View>
         </View>
 
-        {/* Draft Manager Modal */}
         {isDraftManagerVisible && (
           <DraftManager
             visible={isDraftManagerVisible}
@@ -644,35 +632,25 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'column'
   },
-
-  // YENİ: Alt araç çubuklarının MainToolbar dışındaki içeriği için kapsayıcı
   upperToolbarContentArea: {
-    flex: 1, // Kalan alanı kapla
-    alignItems: 'stretch', // İçeriğin yatayda genişlemesini sağla
-    justifyContent: 'flex-start', // İçeriği yukarıdan başla
+    flex: 1,
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
   },
-
-  // Standartlaştırılmış tool content area (artık üst kapsayıcıya yayılıyor)
   toolContentArea: {
-    flex: 1, // upperToolbarContentArea'yı doldur
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'stretch',
     paddingVertical: Spacing.sm,
   },
-
-  // Background tool için özel alan (artık üst kapsayıcıya yayılıyor)
   backgroundToolArea: {
-    flex: 1, // upperToolbarContentArea'yı doldur
+    flex: 1,
   },
-
-  // Export container (artık doğrudan ExportToolbar'da yönetiliyor)
-  // exportContainer kaldırıldı
-
   scrollContent: {
     paddingHorizontal: Spacing.lg,
     alignItems: 'center',
     gap: Spacing.lg,
     paddingVertical: Spacing.md,
-    minHeight: 80, // Sabit minimum yükseklik
+    minHeight: 80,
   },
 });

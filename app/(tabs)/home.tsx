@@ -1,9 +1,9 @@
-// app/(tabs)/home.tsx - TÜM ANİMASYONLAR APPLOADING İLE YÖNETİLİYOR
+// app/(tabs)/home.tsx - Store'dan isLoading kaldırıldı, sadece AppLoading kullanılıyor
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   StyleSheet, SafeAreaView, TouchableOpacity, View, Text,
   AppState, TextInput, RefreshControl,
-  LayoutAnimation, Platform, Animated, Dimensions
+  LayoutAnimation, Platform, Animated, Dimensions, InteractionManager
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
@@ -321,13 +321,14 @@ const SearchBar = React.memo<{
 export default function HomeScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { products, createProduct, isLoading, loadProducts } = useProductStore();
+  // ✅ DÜZELTME: isLoading kaldırıldı - sadece data ve error
+  const { products, createProduct, loadProducts } = useProductStore();
   const { user } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const flatListRef = useRef<any>(null);
   const lastLoadTime = useRef<number>(0);
-  const loadingRef = useRef<AppLoadingRef>(null); // AppLoading referansı eklendi
+  const loadingRef = useRef<AppLoadingRef>(null); // AppLoading referansı
 
   const shouldShowSearch = useMemo(() => products.length > 9, [products.length]);
   const firstName = useMemo(() => user?.name?.split(' ')[0] || 'Misafir', [user?.name]);
@@ -381,15 +382,14 @@ export default function HomeScreen() {
     return () => subscription.remove();
   }, [handleLoadProducts]);
 
-  // BURADAKİ FONKSİYON GÜNCELLENDİ
-  const handleCreateNewProduct = useCallback(async () => { // async anahtar kelimesini ekledik
-    const name = await InputDialogService.show({ // await ile Promise'ı bekliyoruz
+  const handleCreateNewProduct = useCallback(async () => {
+    const name = await InputDialogService.show({
       title: 'Yeni Ürün Oluştur',
       placeholder: 'Ürün adını girin',
     });
 
-    if (!name?.trim()) { // name null veya boş olabilir, bu yüzden kontrol ediyoruz
-      if (name !== null) { // Eğer kullanıcı iptal etmediyse (yani null değilse) ve boşsa hata göster
+    if (!name?.trim()) {
+      if (name !== null) {
         ToastService.show('Lütfen ürün için bir isim girin.');
       }
       return;
@@ -399,14 +399,24 @@ export default function HomeScreen() {
     try {
       const newProduct = await createProduct(name.trim());
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      router.push({
-        pathname: '/(tabs)/product/[productId]',
-        params: { productId: newProduct.id }
+      
+      // ✅ DÜZELTME: InteractionManager ile navigation'ı geciktir
+      // Önce loading'i gizle, sonra animasyonlar bitince navigate et
+      loadingRef.current?.hide();
+      
+      // InteractionManager ile smooth transition sağla
+      InteractionManager.runAfterInteractions(() => {
+        setTimeout(() => {
+          router.push({
+            pathname: '/(tabs)/product/[productId]',
+            params: { productId: newProduct.id }
+          });
+        }, 150); // Küçük bir delay ile daha smooth geçiş
       });
+      
     } catch (e: any) {
-      ToastService.show(e.message );
-    } finally {
-      loadingRef.current?.hide(); // İşlem bitince animasyonu gizle
+      loadingRef.current?.hide();
+      ToastService.show(e.message);
     }
   }, [createProduct, router]);
 

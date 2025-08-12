@@ -1,4 +1,4 @@
-// stores/useAuthStore.ts - Dil desteği ile güncellenmiş auth store
+// stores/useAuthStore.ts - Loading states kaldırıldı, sadece data ve error yönetiliyor
 import { create } from 'zustand';
 import { api, User, TokenResponse, apiUtils } from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,9 +7,8 @@ import i18n from '@/i18n';
 interface AuthState {
   user: (User & { access_token?: string }) | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
   error: string | null;
-  // YENİ: Dil ve network durumu
+  // Dil ve network durumu
   currentLanguage: string;
   isOnline: boolean;
 }
@@ -20,7 +19,7 @@ interface AuthActions {
   logout: () => Promise<void>;
   checkAuthStatus: () => Promise<void>;
   guestLogin: () => Promise<boolean>;
-  // YENİ: Profil ve dil işlemleri
+  // Profil ve dil işlemleri
   updateProfile: (updates: { name?: string }) => Promise<boolean>;
   refreshProfile: () => Promise<void>;
   changeLanguage: (lang: string) => Promise<void>;
@@ -30,7 +29,6 @@ interface AuthActions {
 export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   user: null,
   isAuthenticated: false,
-  isLoading: false,
   error: null,
   currentLanguage: i18n.language || 'tr',
   isOnline: true,
@@ -59,7 +57,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   login: async (email: string, password: string) => {
-    set({ isLoading: true, error: null });
+    set({ error: null });
     try {
       const currentLang = get().currentLanguage;
       const { user, access_token } = await api.login(email, password, currentLang);
@@ -85,13 +83,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       }
       
       return false;
-    } finally {
-      set({ isLoading: false });
     }
   },
 
   register: async (name: string, email: string, password: string) => {
-    set({ isLoading: true, error: null });
+    set({ error: null });
     try {
       const currentLang = get().currentLanguage;
       const { user, access_token } = await api.register(name, email, password, currentLang);
@@ -116,13 +112,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       }
       
       return false;
-    } finally {
-      set({ isLoading: false });
     }
   },
 
   guestLogin: async () => {
-    set({ isLoading: true, error: null });
+    set({ error: null });
     try {
       const currentLang = get().currentLanguage;
       const storedGuestJson = await AsyncStorage.getItem('guest_user');
@@ -158,8 +152,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       }
       
       return false;
-    } finally {
-      set({ isLoading: false });
     }
   },
 
@@ -172,12 +164,12 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     });
   },
 
-  // YENİ: Profil güncelleme
+  // Profil güncelleme
   updateProfile: async (updates: { name?: string }) => {
     const currentUser = get().user;
     if (!currentUser) return false;
 
-    set({ isLoading: true, error: null });
+    set({ error: null });
     try {
       const currentLang = get().currentLanguage;
       const updatedUser = await api.updateProfile(updates, currentLang);
@@ -204,12 +196,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       }
       
       return false;
-    } finally {
-      set({ isLoading: false });
     }
   },
 
-  // YENİ: Profil bilgilerini yenile
+  // Profil bilgilerini yenile
   refreshProfile: async () => {
     const currentUser = get().user;
     if (!currentUser || !get().isAuthenticated) return;
@@ -238,7 +228,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     }
   },
 
-  // YENİ: Dil değiştirme
+  // Dil değiştirme
   changeLanguage: async (lang: string) => {
     try {
       await apiUtils.changeLanguage(lang);
@@ -255,7 +245,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     }
   },
 
-  // YENİ: Network durumu kontrolü
+  // Network durumu kontrolü
   checkNetworkStatus: async () => {
     try {
       const isOnline = await apiUtils.checkNetworkConnection();

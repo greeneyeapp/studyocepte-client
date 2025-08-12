@@ -1,4 +1,4 @@
-// stores/useProductStore.ts - API dil desteği ile güncellenmiş
+// stores/useProductStore.ts - LOADING KALDIRILMIŞ VERSİYON
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, apiUtils } from '@/services/api';
@@ -28,9 +28,6 @@ export interface Product {
 
 interface ProductStore {
   products: Product[];
-  isLoading: boolean;
-  isProcessing: boolean;
-  processingMessage: string;
   error: string | null;
   // YENİ: Network ve dil durumu
   isOnline: boolean;
@@ -61,15 +58,12 @@ const STORAGE_KEY = 'studyo_products';
 
 export const useProductStore = create<ProductStore>((set, get) => ({
   products: [],
-  isLoading: false,
-  isProcessing: false,
-  processingMessage: '',
   error: null,
   isOnline: true,
   currentLanguage: i18n.language || 'tr',
 
   loadProducts: async () => {
-    set({ isLoading: true, error: null });
+    set({ error: null });
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       let products: Product[] = stored ? JSON.parse(stored) : [];
@@ -132,46 +126,64 @@ export const useProductStore = create<ProductStore>((set, get) => ({
         console.log('📁 Product storage updated after file validation');
       }
 
-      set({ products, isLoading: false });
+      set({ products });
     } catch (error: any) {
       const errorMessage = apiUtils.extractErrorMessage(error);
-      set({ error: errorMessage, isLoading: false });
+      set({ error: errorMessage });
+      throw error; // Component'e hata fırlat
     }
   },
 
   createProduct: async (name: string): Promise<Product> => {
-    const newProduct: Product = {
-      id: `product_${Date.now()}`,
-      name,
-      photos: [],
-      createdAt: new Date().toISOString(),
-      modifiedAt: new Date().toISOString(),
-    };
+    try {
+      const newProduct: Product = {
+        id: `product_${Date.now()}`,
+        name,
+        photos: [],
+        createdAt: new Date().toISOString(),
+        modifiedAt: new Date().toISOString(),
+      };
 
-    await fileSystemManager.createProductDirectory(newProduct.id);
-    const updatedProducts = [...get().products, newProduct];
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
-    set({ products: updatedProducts });
-    return newProduct;
+      await fileSystemManager.createProductDirectory(newProduct.id);
+      const updatedProducts = [...get().products, newProduct];
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
+      set({ products: updatedProducts });
+      return newProduct;
+    } catch (error: any) {
+      const errorMessage = apiUtils.extractErrorMessage(error);
+      set({ error: errorMessage });
+      throw error;
+    }
   },
 
   deleteProduct: async (productId: string) => {
-    await fileSystemManager.deleteProductDirectory(productId);
-    const updatedProducts = get().products.filter(p => p.id !== productId);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
-    set({ products: updatedProducts });
+    try {
+      await fileSystemManager.deleteProductDirectory(productId);
+      const updatedProducts = get().products.filter(p => p.id !== productId);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
+      set({ products: updatedProducts });
+    } catch (error: any) {
+      const errorMessage = apiUtils.extractErrorMessage(error);
+      set({ error: errorMessage });
+      throw error;
+    }
   },
 
   updateProductName: async (productId, name) => {
-    const updatedProducts = get().products.map(p =>
-      p.id === productId ? { ...p, name, modifiedAt: new Date().toISOString() } : p
-    );
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
-    set({ products: updatedProducts });
+    try {
+      const updatedProducts = get().products.map(p =>
+        p.id === productId ? { ...p, name, modifiedAt: new Date().toISOString() } : p
+      );
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
+      set({ products: updatedProducts });
+    } catch (error: any) {
+      const errorMessage = apiUtils.extractErrorMessage(error);
+      set({ error: errorMessage });
+      throw error;
+    }
   },
 
   addMultiplePhotos: async (productId, imageUris) => {
-    set({ isProcessing: true, processingMessage: 'Fotoğraflar ekleniyor...' });
     try {
       const product = get().products.find(p => p.id === productId);
       if (!product) throw new Error('Ürün bulunamadı');
@@ -203,41 +215,45 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       );
 
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
-      set({ products: updatedProducts, isProcessing: false });
+      set({ products: updatedProducts });
       return true;
     } catch (error: any) {
       const errorMessage = apiUtils.extractErrorMessage(error);
-      set({ error: errorMessage, isProcessing: false });
+      set({ error: errorMessage });
       return false;
     }
   },
 
   deletePhoto: async (productId, photoId) => {
-    const product = get().products.find(p => p.id === productId);
-    const photo = product?.photos.find(p => p.id === photoId);
+    try {
+      const product = get().products.find(p => p.id === productId);
+      const photo = product?.photos.find(p => p.id === photoId);
 
-    if (photo) {
-      await fileSystemManager.deleteImage(photo.originalUri);
-      if (photo.processedUri) await fileSystemManager.deleteImage(photo.processedUri);
-      await fileSystemManager.deleteImage(photo.thumbnailUri);
+      if (photo) {
+        await fileSystemManager.deleteImage(photo.originalUri);
+        if (photo.processedUri) await fileSystemManager.deleteImage(photo.processedUri);
+        await fileSystemManager.deleteImage(photo.thumbnailUri);
+      }
+
+      const updatedProducts = get().products.map(p =>
+        p.id === productId ? {
+          ...p,
+          photos: p.photos.filter(ph => ph.id !== photoId),
+          modifiedAt: new Date().toISOString()
+        } : p
+      );
+
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
+      set({ products: updatedProducts });
+    } catch (error: any) {
+      const errorMessage = apiUtils.extractErrorMessage(error);
+      set({ error: errorMessage });
+      throw error;
     }
-
-    const updatedProducts = get().products.map(p =>
-      p.id === productId ? {
-        ...p,
-        photos: p.photos.filter(ph => ph.id !== photoId),
-        modifiedAt: new Date().toISOString()
-      } : p
-    );
-
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
-    set({ products: updatedProducts });
   },
 
   // GÜNCELLEME: Dil desteği ile background removal
   removeMultipleBackgrounds: async (productId, photoIds) => {
-    if (get().isProcessing) return false;
-
     // Network kontrolü
     const isOnline = await apiUtils.checkNetworkConnection();
     if (!isOnline) {
@@ -248,12 +264,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       return false;
     }
 
-    set({
-      isProcessing: true,
-      processingMessage: 'Arka plan temizleniyor...',
-      error: null,
-      isOnline: true
-    });
+    set({ error: null, isOnline: true });
 
     const originalProductsState = JSON.parse(JSON.stringify(get().products));
 
@@ -267,7 +278,6 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       );
 
       if (photosToProcess.length === 0) {
-        set({ isProcessing: false });
         return true;
       }
 
@@ -324,7 +334,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       }
 
       targetProduct.modifiedAt = new Date().toISOString();
-      set({ products: finalProducts, isProcessing: false, isOnline: true });
+      set({ products: finalProducts, isOnline: true });
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(finalProducts));
 
       return successCount > 0;
@@ -340,7 +350,6 @@ export const useProductStore = create<ProductStore>((set, get) => ({
 
       set({
         error: errorMessage,
-        isProcessing: false,
         products: originalProductsState,
         isOnline: !isNetworkError
       });
@@ -352,8 +361,6 @@ export const useProductStore = create<ProductStore>((set, get) => ({
 
   // YENİ: Tek photo background removal
   removeSingleBackground: async (productId: string, photoId: string) => {
-    if (get().isProcessing) return false;
-
     // Network kontrolü
     const isOnline = await apiUtils.checkNetworkConnection();
     if (!isOnline) {
@@ -364,12 +371,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       return false;
     }
 
-    set({
-      isProcessing: true,
-      processingMessage: 'Arka plan temizleniyor...',
-      error: null,
-      isOnline: true
-    });
+    set({ error: null, isOnline: true });
 
     try {
       const product = get().products.find(p => p.id === productId);
@@ -380,7 +382,6 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       }
 
       if (photo.status !== 'raw') {
-        set({ isProcessing: false });
         return true; // Zaten işlenmiş
       }
 
@@ -444,7 +445,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
         await fileSystemManager.deleteImage(oldThumbnailUri);
       }
 
-      set({ products: finalProducts, isProcessing: false, isOnline: true });
+      set({ products: finalProducts, isOnline: true });
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(finalProducts));
 
       return true;
@@ -469,7 +470,6 @@ export const useProductStore = create<ProductStore>((set, get) => ({
 
       set({
         error: errorMessage,
-        isProcessing: false,
         products: revertedProducts,
         isOnline: !isNetworkError
       });

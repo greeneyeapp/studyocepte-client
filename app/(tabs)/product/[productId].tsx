@@ -1,4 +1,4 @@
-// client/app/(tabs)/product/[productId].tsx - ÇOKLU FOTOĞRAF EKLEME İŞLEVİ EKLENDİ
+// client/app/(tabs)/product/[productId].tsx - Store'dan isProcessing ve processingMessage kaldırıldı
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
@@ -66,7 +66,8 @@ export default function ProductDetailScreen() {
   const router = useRouter();
   const { productId } = useLocalSearchParams<{ productId: string }>();
 
-  const { products, addMultiplePhotos, deletePhoto, removeMultipleBackgrounds, removeSingleBackground, updateProductName, deleteProduct, isProcessing, processingMessage } = useProductStore();
+  // ✅ DÜZELTME: isProcessing ve processingMessage kaldırıldı
+  const { products, addMultiplePhotos, deletePhoto, removeMultipleBackgrounds, removeSingleBackground, updateProductName, deleteProduct } = useProductStore();
 
   const [refreshing, setRefreshing] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -99,7 +100,6 @@ export default function ProductDetailScreen() {
     }, 1000);
   }, []);
 
-  // BURADAKİ FONKSİYON GÜNCELLENDİ
   const handleAddPhotos = useCallback(async () => {
     if (!product?.id) return;
     try {
@@ -202,7 +202,6 @@ export default function ProductDetailScreen() {
             loadingRef.current?.show();
             try {
               await deleteProduct(product.id);
-              router.back();
             } finally {
               loadingRef.current?.hide();
             }
@@ -291,13 +290,44 @@ export default function ProductDetailScreen() {
     }
   }, [isSelectionMode]);
 
-  if (!product) { return (<SafeAreaView style={styles.loadingContainer}><Feather name="alert-circle" size={48} color={Colors.error} /><Text style={styles.errorTitle}>Ürün Bulunamadı</Text><Text style={styles.errorSubtitle}>Bu ürün silinmiş veya bulunamıyor.</Text><TouchableOpacity style={styles.backButton} onPress={() => router.back()}><Text style={styles.backButtonText}>Geri Dön</Text></TouchableOpacity></SafeAreaView>); }
+  if (!product) { 
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <Feather name="alert-circle" size={48} color={Colors.error} />
+        <Text style={styles.errorTitle}>Ürün Bulunamadı</Text>
+        <Text style={styles.errorSubtitle}>Bu ürün silinmiş veya bulunamıyor.</Text>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => {
+            console.log('🔙 Error back button: navigating to home');
+            router.push('/(tabs)/home');
+          }}
+        >
+          <Text style={styles.backButtonText}>Ana Sayfaya Dön</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    ); 
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: product.name, headerShown: false }} />
       <View style={styles.header}>
-        <View style={styles.headerLeft}><TouchableOpacity onPress={() => router.back()} style={styles.headerBackButton}><Feather name="arrow-left" size={24} color={Colors.textPrimary} /></TouchableOpacity><View style={styles.headerInfo}><Text style={styles.headerTitle} numberOfLines={1}>{product.name}</Text><Text style={styles.headerSubtitle}>{product.photos.length} fotoğraf</Text></View></View>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity 
+            onPress={() => {
+              console.log('🔙 Back button: always navigating to home');
+              router.push('/(tabs)/home');
+            }} 
+            style={styles.headerBackButton}
+          >
+            <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
+          <View style={styles.headerInfo}>
+            <Text style={styles.headerTitle} numberOfLines={1}>{product.name}</Text>
+            <Text style={styles.headerSubtitle}>{product.photos.length} fotoğraf</Text>
+          </View>
+        </View>
         <View style={styles.headerRight}><TouchableOpacity onPress={handleEditProductName} style={styles.headerButton}><Feather name="edit-2" size={20} color={Colors.textPrimary} /></TouchableOpacity><TouchableOpacity onPress={handleDeleteProduct} style={styles.headerButton}><Feather name="trash-2" size={20} color={Colors.error} /></TouchableOpacity></View>
       </View>
       {isSelectionMode && (
@@ -343,7 +373,8 @@ export default function ProductDetailScreen() {
       </ScrollView>
       <TouchableOpacity style={styles.fab} onPress={handleAddPhotos}><Feather name="plus" size={24} color={Colors.card} /></TouchableOpacity>
 
-      <AppLoading ref={loadingRef} text={isProcessing && !animationState.isAnimating ? processingMessage : ''} />
+      {/* ✅ DÜZELTME: text prop'u kaldırıldı - sadece AppLoading */}
+      <AppLoading ref={loadingRef} />
 
       <Modal visible={animationState.isAnimating} transparent={true} animationType="fade">
         <View style={styles.animationOverlay}>
