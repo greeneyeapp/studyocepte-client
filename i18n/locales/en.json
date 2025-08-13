@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "appName": "Stüdyo Cepte",
+=======
+  "appName": "Studio In Pocket",
+>>>>>>> 1245f7f (test)
   "common": {
     "cancel": "Cancel",
     "done": "Done",
@@ -39,8 +43,12 @@
       "minutesAgo": "{{minutes}} minutes ago",
       "hoursAgo": "{{hours}} hours ago",
       "daysAgo": "{{days}} days ago"
+<<<<<<< HEAD
     },
     "batchCancelledSuccess": "Batch operation was cancelled successfully."
+=======
+    }
+>>>>>>> 1245f7f (test)
   },
   "auth": {
     "login": "Login",
@@ -154,7 +162,14 @@
     "shareOptions": {
       "gallery": "Save to Gallery",
       "galleryDescription": "Save with selected format",
+<<<<<<< HEAD
       "share": "Share..."
+=======
+      "share": "Share...",
+      "shareDescription": "Share with selected format",
+      "quickCustom": "Quick custom size",
+      "quickCustomDescription": "Quick custom size"
+>>>>>>> 1245f7f (test)
     },
     "quality": "Quality: {{quality}}%",
     "dimensions": "{{width}} × {{height}}",
@@ -233,11 +248,17 @@
     "refNotReady": "Preview not ready. Please try again.",
     "imageNotCreated": "Image could not be created.",
     "exportSuccessGallery": "Saved to gallery.",
+<<<<<<< HEAD
     "exportSuccessShare": "Sharing successful.",
     "exportFailedTimeout": "Operation timed out. Please try again.",
     "minDimensionError": "Minimum size must be {{minSize}}x{{minSize}} pixels.",
     "maxDimensionError": "Maximum size must be {{maxSize}}x{{maxSize}} pixels.",
     "maxPixelCountError": "Total pixel count is too large. Try smaller dimensions.",
+=======
+    "exportSuccessQuick": "Image saved to gallery.",
+    "exportSuccessShare": "Sharing successful.",
+    "exportFailedTimeout": "Operation timed out. Please try again.",
+>>>>>>> 1245f7f (test)
     "exportFailedCapture": "An error occurred while capturing the image. Please return to the editor and try again.",
     "exportFailedPermission": "Gallery permission required. Please enable it in settings.",
     "thumbnailUpdating": "Preview updating...",
@@ -385,8 +406,11 @@
     "custom_classic_photo": { "name": "Classic Photo (3:2)", "description": "1080x720 - 35mm film photo ratio" },
     "custom_portrait": { "name": "Vertical Portrait (2:3)", "description": "720x1080 - Vertical photo portrait ratio" },
     "custom_cinematic": { "name": "Cinematic (21:9)", "description": "2560x1080 - Ultra-wide cinema screen ratio" },
+<<<<<<< HEAD
     "customGeneratedName": "Custom {{width}}x{{height}}",
     "customGeneratedDescription": "User-defined {{width}}x{{height}} size",
+=======
+>>>>>>> 1245f7f (test)
     "custom_square_hd": { "name": "HD Square", "description": "1920x1920 - High-resolution square format" },
     "custom_a4_landscape": { "name": "A4 Landscape", "description": "3508x2480px - Horizontal A4 document/presentation format" },
     "custom_4k_uhd": { "name": "4K Ultra HD", "description": "3840x2160 - For ultra-high resolution screens" },
