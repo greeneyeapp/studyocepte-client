@@ -1,4 +1,4 @@
-// stores/useEnhancedEditorStore.ts - AUTO-SAVE HEP AÇIK VERSİYON
+// stores/useEnhancedEditorStore.ts - 800x800 YÜKSEK KALİTE EDITOR THUMBNAIL
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -96,9 +96,6 @@ interface EditorState {
   hasDraftChanges: boolean;
   isUpdatingThumbnail: boolean;
   thumbnailError: string | null;
-  // ✅ AUTO-SAVE HEP AÇIK: Bu ayarlar kaldırıldı
-  // autoSaveEnabled: boolean; 
-  // autoSaveInterval: number;
   lastAutoSave: number;
 }
 
@@ -128,10 +125,9 @@ interface EditorActions {
   getAllDrafts: () => PhotoDraft[];
   restoreFromDraft: (draft: PhotoDraft) => void;
 
-  // ✅ AUTO-SAVE HEP AÇIK: Sadece performAutoSave kalıyor
   performAutoSave: () => void;
 
-  // Thumbnail actions
+  // ⭐ YÜKSEK KALİTE: Thumbnail actions
   updateThumbnailWithPreview: (previewRef: React.RefObject<any>) => Promise<void>;
 
   // Settings reset
@@ -139,7 +135,7 @@ interface EditorActions {
 }
 
 const defaultSettings: EditorSettings = {
-  backgroundId: 'home_1', // ✅ DÜZELTME: 'bg1' yerine gerçek ID kullan
+  backgroundId: 'home_1',
   photoX: 0.5, photoY: 0.5, photoScale: 1.0, photoRotation: 0,
   product_exposure: 0, product_brightness: 0, product_contrast: 0, product_saturation: 0,
   product_vibrance: 0, product_warmth: 0, product_clarity: 0, product_highlights: 0, product_shadows: 0,
@@ -149,7 +145,7 @@ const defaultSettings: EditorSettings = {
 };
 
 /**
- * ✅ AUTO-SAVE HEP AÇIK: Enhanced Editor Store with Always-On Auto-Save
+ * ⭐ YÜKSEK KALİTE: Enhanced Editor Store with 800x800 High Quality Thumbnails
  */
 export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
   persist(
@@ -180,7 +176,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           return;
         }
 
-        console.log('📸 Setting active photo:', photo.id);
+        console.log('📸 Setting active photo for HIGH QUALITY editing:', photo.id);
 
         // Önce mevcut photo için draft kaydet
         const currentPhoto = get().activePhoto;
@@ -188,12 +184,12 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           get().saveDraftForPhoto(currentPhoto.id);
         }
 
-        // ✅ AUTO-SAVE HEP AÇIK: Yeni photo için draft var mı kontrol et ve otomatik yükle
+        // Yeni photo için draft var mı kontrol et ve otomatik yükle
         const existingDraft = get().loadDraftForPhoto(photo.id);
         let loadedSettings: EditorSettings;
 
         if (existingDraft) {
-          console.log('📂 Auto-loading existing draft for photo:', photo.id);
+          console.log('📂 Auto-loading existing HIGH QUALITY draft for photo:', photo.id);
           loadedSettings = existingDraft.settings;
         } else {
           loadedSettings = { ...defaultSettings, ...(photo.editorSettings || {}) };
@@ -224,7 +220,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           lastAutoSave: Date.now()
         }));
 
-        // ✅ AUTO-SAVE HEP AÇIK: Her değişiklikte otomatik save trigger
+        // AUTO-SAVE HEP AÇIK: Her değişiklikte otomatik save trigger
         const currentPhoto = get().activePhoto;
         if (currentPhoto) {
           // 2 saniye sonra auto-save (debounced)
@@ -282,7 +278,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         if (!activePhoto || isSaving) return;
 
         set({ isSaving: true, thumbnailError: null });
-        console.log('💾 saveChanges started:', {
+        console.log('💾 HIGH QUALITY saveChanges started:', {
           photoId: activePhoto.id,
           withThumbnailUpdate: !!previewRef,
           hasPreviewRef: !!previewRef?.current
@@ -297,13 +293,13 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           );
           console.log('✅ Photo settings updated in product store');
 
-          // 2. ✅ GÜNCELLEME: Thumbnail güncelle (previewRef varsa)
+          // 2. ⭐ YÜKSEK KALİTE: 800x800 Thumbnail güncelle (previewRef varsa)
           if (previewRef && previewRef.current) {
-            console.log('🖼️ Starting thumbnail update with preview ref');
+            console.log('🖼️ Starting HIGH QUALITY 800x800 thumbnail update with preview ref');
             await get().updateThumbnailWithPreview(previewRef);
-            console.log('✅ Thumbnail update completed');
+            console.log('✅ HIGH QUALITY thumbnail update completed');
           } else {
-            console.log('⏭️ Skipping thumbnail update (no preview ref)');
+            console.log('⏭️ Skipping HIGH QUALITY thumbnail update (no preview ref)');
           }
 
           // 3. Draft'ı temizle
@@ -316,20 +312,20 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
             hasDraftChanges: false
           });
 
-          ToastService.show(previewRef ? 'Değişiklikler ve thumbnail kaydedildi' : 'Ayarlar kaydedildi');
+          ToastService.show(previewRef ? 'Yüksek kalite değişiklikler ve thumbnail kaydedildi' : 'Ayarlar kaydedildi');
 
-          console.log('✅ saveChanges completed successfully');
+          console.log('✅ HIGH QUALITY saveChanges completed successfully');
 
         } catch (error: any) {
-          console.error('❌ Save failed:', error);
+          console.error('❌ HIGH QUALITY save failed:', error);
           set({
             isSaving: false,
             thumbnailError: error.message || 'Kayıt başarısız'
           });
 
-          ToastService.show(error.message || 'Değişiklikler kaydedilemedi.');
+          ToastService.show(error.message || 'Yüksek kalite değişiklikler kaydedilemedi.');
 
-          throw error; // Re-throw for debugging
+          throw error;
         }
       },
 
@@ -416,7 +412,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           lastAutoSave: Date.now()
         });
 
-        console.log('💾 Draft saved for photo:', photoId);
+        console.log('💾 HIGH QUALITY draft saved for photo:', photoId);
       },
 
       loadDraftForPhoto: (photoId: string) => {
@@ -440,7 +436,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           hasDraftChanges: false
         });
 
-        console.log('🗑️ Draft cleared for photo:', photoId);
+        console.log('🗑️ HIGH QUALITY draft cleared for photo:', photoId);
       },
 
       hasDraftForPhoto: (photoId: string) => {
@@ -463,7 +459,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           activeFilterKey: 'custom'
         });
 
-        console.log('🔄 Restored from draft:', draft.photoId);
+        console.log('🔄 Restored from HIGH QUALITY draft:', draft.photoId);
       },
 
       // ===== AUTO-SAVE ACTIONS (SİMPLİFİED) =====
@@ -475,7 +471,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           return;
         }
 
-        // ✅ AUTO-SAVE HEP AÇIK: Çok sık auto-save'i engelle (debounce)
+        // Çok sık auto-save'i engelle (debounce)
         const now = Date.now();
         const timeSinceLastSave = now - get().lastAutoSave;
         const minInterval = 5000; // En az 5 saniye
@@ -486,28 +482,31 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
         try {
           get().saveDraftForPhoto(activePhoto.id);
-          console.log('⚡ Auto-save completed for photo:', activePhoto.id);
+          console.log('⚡ HIGH QUALITY auto-save completed for photo:', activePhoto.id);
         } catch (error) {
-          console.warn('⚠️ Auto-save failed:', error);
+          console.warn('⚠️ HIGH QUALITY auto-save failed:', error);
         }
       },
 
-      // ===== THUMBNAIL ACTIONS =====
+      // ===== ⭐ YÜKSEK KALİTE THUMBNAIL ACTIONS =====
 
+      /**
+       * ⭐ YÜKSEK KALİTE: 800x800 PNG thumbnail güncelleme
+       */
       updateThumbnailWithPreview: async (previewRef: React.RefObject<any>) => {
         const { activePhoto } = get();
         if (!activePhoto || !previewRef.current) return;
 
         set({ isUpdatingThumbnail: true, thumbnailError: null });
-        console.log('🖼️ Starting thumbnail update with cache busting for photo:', activePhoto.id);
+        console.log('🖼️ Starting HIGH QUALITY 800x800 PNG thumbnail update for photo:', activePhoto.id);
 
         try {
-          // 1. Preview'dan thumbnail capture et
+          // 1. ⭐ YÜKSEK KALİTE: 800x800 Preview'dan thumbnail capture et
           const capturedUri = await imageProcessor.captureFilteredThumbnail(previewRef, {
-            width: 300,
-            height: 300
+            width: 800,  // 300 → 800 (yüksek kalite)
+            height: 800  // 300 → 800 (yüksek kalite)
           });
-          console.log('📸 Preview captured:', capturedUri);
+          console.log('📸 HIGH QUALITY 800x800 preview captured:', capturedUri);
 
           // 2. Cache-busted kalıcı thumbnail olarak kaydet
           const newThumbnailUri = await imageProcessor.saveFilteredThumbnail(
@@ -515,7 +514,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
             activePhoto.id,
             capturedUri
           );
-          console.log('💾 Cache-busted thumbnail saved:', newThumbnailUri);
+          console.log('💾 HIGH QUALITY cache-busted thumbnail saved:', newThumbnailUri);
 
           // 3. ÖNEMLİ: Product store'da thumbnail'i AWAIT ile güncelle
           await useProductStore.getState().updatePhotoThumbnail(
@@ -523,9 +522,9 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
             activePhoto.id,
             newThumbnailUri
           );
-          console.log('🔄 Product store updated with new thumbnail');
+          console.log('🔄 Product store updated with HIGH QUALITY thumbnail');
 
-          // 4. YENİ: Local state'te de activePhoto'yu güncelle (immediate UI feedback)
+          // 4. Local state'te de activePhoto'yu güncelle (immediate UI feedback)
           const updatedPhoto = {
             ...activePhoto,
             thumbnailUri: newThumbnailUri,
@@ -537,64 +536,39 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
             isUpdatingThumbnail: false
           });
 
-          // 5. YENİ: Force UI refresh (cache invalidation)
-          setTimeout(() => {
-            // Micro-task ile diğer component'lerin re-render olmasını sağla
-            const productStore = useProductStore.getState();
-            productStore.loadProducts(); // Force reload products
-            console.log('🔄 Forced product store refresh for UI update');
-          }, 200);
+          // 5. ⭐ GÜÇLÜ CACHE INVALIDATION: Force UI refresh
+          setTimeout(async () => {
+            try {
+              // Image cache temizle
+              await imageProcessor.clearImageCache();
+              
+              // Force product store reload
+              const productStore = useProductStore.getState();
+              await productStore.loadProducts();
+              
+              console.log('🔄 HIGH QUALITY forced product store refresh for UI update');
+            } catch (refreshError) {
+              console.warn('⚠️ Cache refresh warning:', refreshError);
+            }
+          }, 300);
 
-          console.log('✅ Thumbnail update completed successfully with cache busting');
+          console.log('✅ HIGH QUALITY thumbnail update completed successfully (800x800 PNG)');
 
         } catch (error: any) {
-          console.error('❌ Thumbnail update failed:', error);
+          console.error('❌ HIGH QUALITY thumbnail update failed:', error);
           set({
             isUpdatingThumbnail: false,
-            thumbnailError: error.message || 'Thumbnail güncellenemedi'
+            thumbnailError: error.message || 'Yüksek kalite thumbnail güncellenemedi'
           });
 
-          // YENİ: Hata durumunda da cache'i temizle
+          // Hata durumunda da cache'i temizle
           try {
             await imageProcessor.clearImageCache();
           } catch (cacheError) {
             console.warn('⚠️ Cache clear after error failed:', cacheError);
           }
 
-          throw error; // Re-throw for upper level handling
-        }
-      },
-
-      refreshActiveThumbnail: async () => {
-        const { activePhoto } = get();
-        if (!activePhoto?.thumbnailUri) return;
-
-        try {
-          console.log('🔄 Manually refreshing active thumbnail:', activePhoto.id);
-
-          // Cache-busted URI oluştur
-          const refreshedUri = await imageProcessor.refreshThumbnail(activePhoto.thumbnailUri);
-
-          // Product store'u güncelle
-          await useProductStore.getState().updatePhotoThumbnail(
-            activePhoto.productId,
-            activePhoto.id,
-            refreshedUri
-          );
-
-          // Local state'i güncelle
-          set({
-            activePhoto: {
-              ...activePhoto,
-              thumbnailUri: refreshedUri,
-              modifiedAt: new Date().toISOString()
-            }
-          });
-
-          console.log('✅ Active thumbnail refreshed successfully');
-
-        } catch (error) {
-          console.warn('⚠️ Thumbnail refresh failed:', error);
+          throw error;
         }
       },
 
@@ -619,7 +593,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           get().clearDraftForPhoto(activePhoto.id);
         }
 
-        console.log('🔄 All settings reset to default');
+        console.log('🔄 All HIGH QUALITY settings reset to default');
       },
 
       resetCropAndRotation: () => {
@@ -649,11 +623,11 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         get().updateSettings({ visualCrop });
         get().addSnapshotToHistory();
 
-        ToastService.show('Kırpma ayarları başarıyla uygulandı');
+        ToastService.show('Yüksek kalite kırpma ayarları başarıyla uygulandı');
       },
 
       clearStore: () => {
-        // ✅ AUTO-SAVE HEP AÇIK: Store'u temizlerken draft'ları da kaydet
+        // AUTO-SAVE HEP AÇIK: Store'u temizlerken draft'ları da kaydet
         const activePhoto = get().activePhoto;
         if (activePhoto && get().hasDraftChanges) {
           get().saveDraftForPhoto(activePhoto.id);
@@ -676,12 +650,11 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       setActiveFilterKey: (key) => set({ activeFilterKey: key }),
     }),
     {
-      name: 'enhanced-editor-storage-v4', // Version artırıldı
+      name: 'enhanced-editor-storage-hq-v5', // Version artırıldı
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         userPresets: state.userPresets,
         photoDrafts: Array.from(state.photoDrafts.entries()), // Map'i serialize et
-        // ✅ AUTO-SAVE HEP AÇIK: autoSave ayarları kaldırıldı
       }),
       onRehydrateStorage: () => (state) => {
         if (state && Array.isArray(state.photoDrafts)) {

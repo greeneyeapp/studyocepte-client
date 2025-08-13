@@ -1,4 +1,4 @@
-// services/backgroundThumbnailManager.ts - YÜKSEK KALİTE BACKGROUND THUMBNAIL'LAR
+// services/backgroundThumbnailManager.ts - 600x600 PNG SÜPER YÜKSEK KALİTE
 import * as FileSystem from 'expo-file-system';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { imageProcessor } from './imageProcessor';
@@ -16,21 +16,21 @@ interface BackgroundCache {
 }
 
 /**
- * ✅ YÜKSEK KALİTE: Background görselleri için yüksek kaliteli thumbnail cache ve optimization manager
- * Memory kullanımını azaltmak ve YÜKSEK KALİTE performance artırmak için kullanılır
+ * ⭐ SÜPER YÜKSEK KALİTE: 600x600 PNG Background thumbnail cache ve optimization manager
+ * Memory kullanımını azaltmak ve SÜPER YÜKSEK KALİTE performance artırmak için kullanılır
  */
 class BackgroundThumbnailManager {
   private cache: BackgroundCache = {};
   private cacheDirectory: string;
-  private maxCacheSize: number = 50 * 1024 * 1024; // ✅ 25MB'den 50MB'e çıkarıldı
+  private maxCacheSize: number = 100 * 1024 * 1024; // ⭐ 50MB'den 100MB'e artırıldı
   private maxThumbnailAge: number = 7 * 24 * 60 * 60 * 1000; // 7 gün
-  // ✅ YÜKSEK KALİTE: Thumbnail boyutu büyütüldü
-  private thumbnailSize: { width: number; height: number } = { width: 400, height: 400 }; // 200x200'den 400x400'e
+  // ⭐ SÜPER YÜKSEK KALİTE: 400x400'den 600x600'e artırıldı
+  private thumbnailSize: { width: number; height: number } = { width: 600, height: 600 };
   private isInitialized: boolean = false;
   private initPromise: Promise<void> | null = null;
 
   constructor() {
-    this.cacheDirectory = FileSystem.cacheDirectory + 'bg_thumbnails_hq/'; // ✅ Yeni klasör adı
+    this.cacheDirectory = FileSystem.cacheDirectory + 'bg_thumbnails_super_hq/'; // ⭐ Yeni klasör adı
   }
 
   /**
@@ -52,16 +52,16 @@ class BackgroundThumbnailManager {
       const dirInfo = await FileSystem.getInfoAsync(this.cacheDirectory);
       if (!dirInfo.exists) {
         await FileSystem.makeDirectoryAsync(this.cacheDirectory, { intermediates: true });
-        console.log('📁 High quality background thumbnail directory created');
+        console.log('📁 SUPER HIGH QUALITY background thumbnail directory created (600x600 PNG)');
       }
 
       await this.loadCacheIndex();
       await this.cleanupOldThumbnails();
 
       this.isInitialized = true;
-      console.log('✅ High quality background thumbnail cache initialized');
+      console.log('✅ SUPER HIGH QUALITY background thumbnail cache initialized (600x600 PNG)');
     } catch (error) {
-      console.error('❌ Failed to initialize high quality background thumbnail cache:', error);
+      console.error('❌ Failed to initialize SUPER HIGH QUALITY background thumbnail cache:', error);
       this.isInitialized = false;
       throw error;
     }
@@ -72,16 +72,16 @@ class BackgroundThumbnailManager {
    */
   private async loadCacheIndex(): Promise<void> {
     try {
-      const indexPath = this.cacheDirectory + 'cache_index_hq.json';
+      const indexPath = this.cacheDirectory + 'cache_index_super_hq.json';
       const indexInfo = await FileSystem.getInfoAsync(indexPath);
 
       if (indexInfo.exists) {
         const indexContent = await FileSystem.readAsStringAsync(indexPath);
         this.cache = JSON.parse(indexContent);
-        console.log('📋 High quality background thumbnail cache loaded:', Object.keys(this.cache).length, 'items');
+        console.log('📋 SUPER HIGH QUALITY background thumbnail cache loaded:', Object.keys(this.cache).length, 'items (600x600 PNG)');
       }
     } catch (error) {
-      console.warn('⚠️ Failed to load high quality thumbnail cache index, starting fresh:', error);
+      console.warn('⚠️ Failed to load SUPER HIGH QUALITY thumbnail cache index, starting fresh:', error);
       this.cache = {};
     }
   }
@@ -91,17 +91,17 @@ class BackgroundThumbnailManager {
    */
   private async saveCacheIndex(): Promise<void> {
     try {
-      const indexPath = this.cacheDirectory + 'cache_index_hq.json';
+      const indexPath = this.cacheDirectory + 'cache_index_super_hq.json';
       await FileSystem.writeAsStringAsync(indexPath, JSON.stringify(this.cache));
     } catch (error) {
-      console.error('❌ Failed to save high quality thumbnail cache index:', error);
+      console.error('❌ Failed to save SUPER HIGH QUALITY thumbnail cache index:', error);
     }
   }
 
   /**
    * Eski thumbnail'leri temizle
    */
-  private async cleanupOldThumbnails(): Promise<void> { // Buradaki sözdizimi hatası düzeltildi
+  private async cleanupOldThumbnails(): Promise<void> {
     const now = Date.now();
     const toDelete: string[] = [];
     let totalSize = 0;
@@ -132,7 +132,7 @@ class BackgroundThumbnailManager {
     }
 
     await this.saveCacheIndex();
-    console.log('🧹 High quality background thumbnail cleanup completed');
+    console.log('🧹 SUPER HIGH QUALITY background thumbnail cleanup completed (600x600 PNG)');
   }
 
   async getThumbnail(backgroundId: string, fullImageModule: any): Promise<string | null> {
@@ -144,7 +144,7 @@ class BackgroundThumbnailManager {
       if (cached) {
         const fileInfo = await FileSystem.getInfoAsync(cached.thumbnailUri);
         if (fileInfo.exists) {
-          console.log('💾 High quality background thumbnail served from cache:', backgroundId);
+          console.log('💾 SUPER HIGH QUALITY background thumbnail served from cache (600x600 PNG):', backgroundId);
           return cached.thumbnailUri;
         } else {
           delete this.cache[backgroundId];
@@ -152,7 +152,7 @@ class BackgroundThumbnailManager {
         }
       }
 
-      // ✅ YÜKSEK KALİTE: fullImageModule'u bir URI dizesine çözümle
+      // ⭐ SÜPER YÜKSEK KALİTE: fullImageModule'u bir URI dizesine çözümle
       let fullImageUriString: string;
       if (typeof fullImageModule === 'number') {
         try {
@@ -160,7 +160,7 @@ class BackgroundThumbnailManager {
 
           const assetPromise = asset.downloadAsync();
           const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('Asset download timeout')), 3000); // ✅ Timeout artırıldı
+            setTimeout(() => reject(new Error('Asset download timeout')), 5000); // ⭐ Timeout artırıldı 5 saniye
           });
 
           await Promise.race([assetPromise, timeoutPromise]);
@@ -177,12 +177,12 @@ class BackgroundThumbnailManager {
         fullImageUriString = fullImageModule;
       }
 
-      // ✅ YÜKSEK KALİTE: Thumbnail oluşturma için daha uzun timeout
-      console.log('🖼️ Creating high quality background thumbnail:', backgroundId);
+      // ⭐ SÜPER YÜKSEK KALİTE: Thumbnail oluşturma için daha uzun timeout
+      console.log('🖼️ Creating SUPER HIGH QUALITY background thumbnail (600x600 PNG):', backgroundId);
 
-      const thumbnailPromise = this.createHighQualityThumbnail(backgroundId, fullImageUriString);
+      const thumbnailPromise = this.createSuperHighQualityThumbnail(backgroundId, fullImageUriString);
       const timeoutPromise = new Promise<string | null>((_, reject) => {
-        setTimeout(() => reject(new Error('High quality thumbnail creation timeout')), 5000); // ✅ 5 saniye timeout
+        setTimeout(() => reject(new Error('SUPER HIGH QUALITY thumbnail creation timeout')), 10000); // ⭐ 10 saniye timeout
       });
 
       const thumbnailUri = await Promise.race([thumbnailPromise, timeoutPromise]);
@@ -197,55 +197,55 @@ class BackgroundThumbnailManager {
         };
 
         await this.saveCacheIndex();
-        console.log('✅ High quality background thumbnail created and cached:', backgroundId);
+        console.log('✅ SUPER HIGH QUALITY background thumbnail created and cached (600x600 PNG):', backgroundId);
       }
 
       return thumbnailUri;
     } catch (error) {
-      console.warn('⚠️ High quality background thumbnail failed, returning null:', backgroundId, error);
+      console.warn('⚠️ SUPER HIGH QUALITY background thumbnail failed, returning null:', backgroundId, error);
       return null;
     }
   }
 
   /**
-   * ✅ YÜKSEK KALİTE: Background thumbnail oluştur
+   * ⭐ SÜPER YÜKSEK KALİTE: 600x600 PNG Background thumbnail oluştur
    */
-  private async createHighQualityThumbnail(backgroundId: string, fullImageUri: string): Promise<string | null> {
+  private async createSuperHighQualityThumbnail(backgroundId: string, fullImageUri: string): Promise<string | null> {
     try {
-      const thumbnailFilename = `bg_thumb_hq_${backgroundId}_${Date.now()}.png`; // ✅ PNG format
+      const thumbnailFilename = `bg_thumb_super_hq_${backgroundId}_${Date.now()}.png`; // ⭐ PNG format
       const thumbnailPath = this.cacheDirectory + thumbnailFilename;
 
-      console.log('🔧 Creating high quality thumbnail with manipulateAsync:', {
+      console.log('🔧 Creating SUPER HIGH QUALITY thumbnail with manipulateAsync (600x600 PNG):', {
         input: fullImageUri,
         output: thumbnailPath,
         size: this.thumbnailSize,
-        quality: 'High (PNG 0.95)'
+        quality: 'SUPER HIGH (PNG 1.0)'
       });
 
-      // ✅ YÜKSEK KALİTE: manipulateAsync için optimize edilmiş settings
+      // ⭐ SÜPER YÜKSEK KALİTE: manipulateAsync için optimize edilmiş settings
       const manipulatePromise = manipulateAsync(
         fullImageUri,
         [
           {
             resize: {
-              width: this.thumbnailSize.width,    // 400px
-              height: this.thumbnailSize.height   // 400px
+              width: this.thumbnailSize.width,    // 600px
+              height: this.thumbnailSize.height   // 600px
             }
           }
         ],
         {
-          compress: 0.95,   // ✅ Yüksek kalite (0.7'den 0.95'e)
-          format: SaveFormat.PNG, // ✅ En iyi kalite için PNG
+          compress: 1.0,   // ⭐ MAKSIMUM KALİTE (0.95'den 1.0'a)
+          format: SaveFormat.PNG, // ⭐ En iyi kalite için PNG
         }
       );
 
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('High quality image manipulation timeout')), 8000); // ✅ 8 saniye timeout
+        setTimeout(() => reject(new Error('SUPER HIGH QUALITY image manipulation timeout')), 12000); // ⭐ 12 saniye timeout
       });
 
       const result = await Promise.race([manipulatePromise, timeoutPromise]);
 
-      console.log('✅ High quality manipulateAsync completed:', result.uri);
+      console.log('✅ SUPER HIGH QUALITY manipulateAsync completed (600x600 PNG):', result.uri);
 
       // Cache directory'sine kopyala
       await FileSystem.copyAsync({
@@ -253,18 +253,18 @@ class BackgroundThumbnailManager {
         to: thumbnailPath
       });
 
-      console.log('✅ High quality thumbnail copied to cache:', thumbnailPath);
+      console.log('✅ SUPER HIGH QUALITY thumbnail copied to cache (600x600 PNG):', thumbnailPath);
 
       // Geçici dosyayı sil
       try {
         await FileSystem.deleteAsync(result.uri, { idempotent: true });
       } catch (cleanupError) {
-        console.warn('⚠️ Failed to cleanup temp high quality thumbnail:', cleanupError);
+        console.warn('⚠️ Failed to cleanup temp SUPER HIGH QUALITY thumbnail:', cleanupError);
       }
 
       return thumbnailPath;
     } catch (error) {
-      console.error('❌ Failed to create high quality background thumbnail for', backgroundId, ':', error);
+      console.error('❌ Failed to create SUPER HIGH QUALITY background thumbnail for', backgroundId, ':', error);
       return null;
     }
   }
@@ -278,10 +278,10 @@ class BackgroundThumbnailManager {
       if (thumbnail) {
         await FileSystem.deleteAsync(thumbnail.thumbnailUri, { idempotent: true });
         delete this.cache[backgroundId];
-        console.log('🗑️ High quality background thumbnail deleted:', backgroundId);
+        console.log('🗑️ SUPER HIGH QUALITY background thumbnail deleted:', backgroundId);
       }
     } catch (error) {
-      console.warn('⚠️ Failed to delete high quality background thumbnail:', error);
+      console.warn('⚠️ Failed to delete SUPER HIGH QUALITY background thumbnail:', error);
       delete this.cache[backgroundId];
     }
   }
@@ -304,9 +304,9 @@ class BackgroundThumbnailManager {
 
       this.cache = {};
       await this.saveCacheIndex();
-      console.log('🧹 High quality background thumbnail cache cleared');
+      console.log('🧹 SUPER HIGH QUALITY background thumbnail cache cleared (600x600 PNG)');
     } catch (error) {
-      console.error('❌ Failed to clear high quality background thumbnail cache:', error);
+      console.error('❌ Failed to clear SUPER HIGH QUALITY background thumbnail cache:', error);
     }
   }
 
@@ -329,37 +329,37 @@ class BackgroundThumbnailManager {
       totalSize,
       oldestItem: timestamps.length > 0 ? Math.min(...timestamps) : undefined,
       newestItem: timestamps.length > 0 ? Math.max(...timestamps) : undefined,
-      averageQuality: '400x400 PNG (High Quality)' // ✅ Kalite bilgisi
+      averageQuality: '600x600 PNG (SUPER HIGH Quality)' // ⭐ Güncellenmiş kalite bilgisi
     };
   }
 
   /**
-   * ✅ YÜKSEK KALİTE: Belirli background'lar için pre-cache yap
+   * ⭐ SÜPER YÜKSEK KALİTE: Belirli background'lar için pre-cache yap
    */
   async preloadThumbnails(backgrounds: { id: string; fullUrl: any }[]): Promise<void> {
     if (!backgrounds || backgrounds.length === 0) return;
 
-    console.log('🚀 Preloading high quality background thumbnails:', backgrounds.length, 'items');
+    console.log('🚀 Preloading SUPER HIGH QUALITY background thumbnails (600x600 PNG):', backgrounds.length, 'items');
 
     const results = await Promise.allSettled(
       backgrounds.map(async (bg) => {
         try {
           const result = await this.getThumbnail(bg.id, bg.fullUrl);
           if (result) {
-            console.log('✅ High quality preloaded:', bg.id, '(400x400 PNG)');
+            console.log('✅ SUPER HIGH QUALITY preloaded (600x600 PNG):', bg.id);
           } else {
-            console.warn('⚠️ Failed to preload high quality:', bg.id);
+            console.warn('⚠️ Failed to preload SUPER HIGH QUALITY:', bg.id);
           }
           return result;
         } catch (error) {
-          console.warn('❌ High quality preload error for', bg.id, ':', error);
+          console.warn('❌ SUPER HIGH QUALITY preload error for', bg.id, ':', error);
           return null;
         }
       })
     );
 
     const successful = results.filter(r => r.status === 'fulfilled' && r.value !== null).length;
-    console.log('✅ High quality background thumbnail preloading completed:', successful, '/', backgrounds.length);
+    console.log('✅ SUPER HIGH QUALITY background thumbnail preloading completed (600x600 PNG):', successful, '/', backgrounds.length);
   }
 
   /**
@@ -371,10 +371,10 @@ class BackgroundThumbnailManager {
 
       if (__DEV__ && global.gc) {
         global.gc();
-        console.log('🗑️ High quality background thumbnail memory optimization completed');
+        console.log('🗑️ SUPER HIGH QUALITY background thumbnail memory optimization completed (600x600 PNG)');
       }
     } catch (error) {
-      console.warn('⚠️ High quality memory optimization failed:', error);
+      console.warn('⚠️ SUPER HIGH QUALITY memory optimization failed:', error);
     }
   }
 
@@ -404,10 +404,10 @@ class BackgroundThumbnailManager {
 
       if (idsToRemove.length > 0) {
         await this.saveCacheIndex();
-        console.log('🔧 High quality cache validation completed, removed', idsToRemove.length, 'invalid entries');
+        console.log('🔧 SUPER HIGH QUALITY cache validation completed (600x600 PNG), removed', idsToRemove.length, 'invalid entries');
       }
     } catch (error) {
-      console.warn('⚠️ High quality cache validation failed:', error);
+      console.warn('⚠️ SUPER HIGH QUALITY cache validation failed:', error);
     }
   }
 }
