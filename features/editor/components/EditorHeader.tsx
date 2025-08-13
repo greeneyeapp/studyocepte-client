@@ -1,4 +1,4 @@
-// features/editor/components/EditorHeader.tsx - AUTO-SAVE HEP AÇIK VERSİYON
+// features/editor/components/EditorHeader.tsx - ENHANCED UNDO/REDO VİSİBİLİTY
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -25,10 +25,6 @@ interface EditorHeaderProps {
   // Draft Manager props
   totalDraftsCount?: number;
   onShowDraftManager?: () => void;
-
-  // ✅ AUTO-SAVE HEP AÇIK: Auto-save kontrol props'ları kaldırıldı
-  // autoSaveEnabled?: boolean;
-  // onForceAutoSave?: () => void;
 }
 
 export const EditorHeader: React.FC<EditorHeaderProps> = ({
@@ -68,7 +64,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
 
   const handleSavePress = () => {
     console.log('💾 EditorHeader: Save button pressed with thumbnail update');
-    onSave(true); // ✅ Thumbnail güncellemesi ile kaydet
+    onSave(true);
   };
 
   const getSaveButtonTitle = () => {
@@ -84,35 +80,6 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
     return null;
   };
 
-  // ✅ AUTO-SAVE HEP AÇIK: Sadece draft status badge
-  const DraftStatusBadge = () => {
-    if (!hasDraftChanges && totalDraftsCount === 0) return null;
-
-    return (
-      <View style={styles.draftStatusContainer}>
-        {/* Active draft indicator - ✅ AUTO-SAVE HEP AÇIK: Sadece bilgi amaçlı */}
-        {hasDraftChanges && (
-          <View style={styles.activeDraftBadge}>
-            <View style={styles.draftDot} />
-            <Text style={styles.draftText}>Otomatik Kaydediliyor</Text>
-          </View>
-        )}
-
-        {/* Total drafts count */}
-        {totalDraftsCount > 0 && onShowDraftManager && (
-          <TouchableOpacity
-            style={styles.draftsCountBadge}
-            onPress={onShowDraftManager}
-            activeOpacity={0.7}
-          >
-            <Feather name="file-text" size={12} color={Colors.primary} />
-            <Text style={styles.draftsCountText}>{totalDraftsCount}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
-
   return (
     <View style={styles.container}>
       {/* Sol taraf - Cancel butonu */}
@@ -124,34 +91,42 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
 
       {/* Orta kısım - History, Reset ve Draft controls */}
       <View style={styles.centerSection}>
-        {/* History controls */}
+        {/* ✅ ENHANCEMENt: History butonları HER ZAMAN GÖRÜNÜR ama duruma göre disabled */}
         <View style={styles.historyButtons}>
           <TouchableOpacity
             onPress={onUndo}
-            disabled={!canUndo}
-            style={[styles.historyButton, !canUndo && styles.disabledButton]}
+            disabled={!canUndo} // ✅ Disable when can't undo, but always visible
+            style={[
+              styles.historyButton,
+              !canUndo && styles.disabledButton // ✅ Visual feedback for disabled state
+            ]}
+            activeOpacity={canUndo ? 0.7 : 1} // ✅ No touch feedback when disabled
           >
             <Feather
               name="rotate-ccw"
               size={18}
-              color={canUndo ? Colors.textPrimary : Colors.border}
+              color={canUndo ? Colors.textPrimary : Colors.border} // ✅ Clear visual distinction
             />
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={onRedo}
-            disabled={!canRedo}
-            style={[styles.historyButton, !canRedo && styles.disabledButton]}
+            disabled={!canRedo} // ✅ Disable when can't redo, but always visible
+            style={[
+              styles.historyButton,
+              !canRedo && styles.disabledButton // ✅ Visual feedback for disabled state
+            ]}
+            activeOpacity={canRedo ? 0.7 : 1} // ✅ No touch feedback when disabled
           >
             <Feather
               name="rotate-cw"
               size={18}
-              color={canRedo ? Colors.textPrimary : Colors.border}
+              color={canRedo ? Colors.textPrimary : Colors.border} // ✅ Clear visual distinction
             />
           </TouchableOpacity>
         </View>
 
-        {/* ✅ AUTO-SAVE HEP AÇIK: Sadeleştirilmiş control row */}
+        {/* Control row with Reset and Draft info */}
         <View style={styles.controlRow}>
           {/* Reset All butonu */}
           <TouchableOpacity
@@ -173,7 +148,6 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
               Sıfırla
             </Text>
           </TouchableOpacity>
-
         </View>
       </View>
 
@@ -212,22 +186,32 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
     minHeight: 64,
+    // ✅ Z-index ve pointer events ekleyelim
+    zIndex: 1000,
+    elevation: 5, // Android için
   },
 
   leftSection: {
     flex: 1,
     alignItems: 'flex-start',
+    // ✅ Touch alanını garanti edelim
+    zIndex: 1001,
   },
 
   centerSection: {
     flex: 2,
     alignItems: 'center',
     gap: Spacing.sm,
+    // ✅ Orta kısım için özel z-index ve pointer events
+    zIndex: 1002,
+    pointerEvents: 'box-none', // Alt elementlerin touch'ını engelleme
   },
 
   rightSection: {
     flex: 1,
     alignItems: 'flex-end',
+    // ✅ Touch alanını garanti edelim
+    zIndex: 1001,
   },
 
   button: {
@@ -262,21 +246,47 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 
+  // ✅ ENHANCED: History butonları için iyileştirilmiş stiller
   historyButtons: {
     flexDirection: 'row',
-    gap: Spacing.sm,
-    backgroundColor: Colors.gray100,
+    gap: Spacing.xs,
+    backgroundColor: Colors.card, // ✅ Colors.gray100 → Colors.card (beyaz arka plan)
     borderRadius: BorderRadius.md,
-    padding: 2,
+    padding: 4,
+    // ✅ Daha belirgin görünüm için border ekle
+    borderWidth: 1,
+    borderColor: Colors.border,
+    // ✅ Shadow ekle ki öne çıksın
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 3, // Android için
+    zIndex: 1003,
+    minWidth: 100,
+    justifyContent: 'center',
   },
 
   historyButton: {
     padding: Spacing.sm,
     borderRadius: BorderRadius.sm,
+    minWidth: 40,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // ✅ Aktif buton için beyaz arka plan
+    backgroundColor: Colors.card,
+    // ✅ Hafif border ekle
+    borderWidth: 1,
+    borderColor: 'transparent',
+    zIndex: 1004,
   },
 
+  // ✅ ENHANCED: Disabled state için daha belirgin stil
   disabledButton: {
-    opacity: 0.3,
+    opacity: 0.6, // ✅ 0.4'ten 0.6'ya çıkarıldı - daha görünür
+    backgroundColor: Colors.gray100, // ✅ Disabled için gri arka plan
+    borderColor: Colors.border, // ✅ Sınır çizgisi ekle
   },
 
   // Control row styles
@@ -307,7 +317,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
 
-  // ✅ AUTO-SAVE HEP AÇIK: Basitleştirilmiş draft status styles
+  // Draft status styles
   draftStatusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -354,24 +364,6 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.primary,
     fontWeight: '600',
-    fontSize: 10,
-  },
-
-  // ✅ AUTO-SAVE HEP AÇIK: Yeni otomatik kayıt bilgisi
-  autoSaveInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs / 2,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs / 2,
-    backgroundColor: Colors.success + '10',
-    borderRadius: BorderRadius.sm,
-  },
-
-  autoSaveText: {
-    ...Typography.caption,
-    color: Colors.success,
-    fontWeight: '500',
     fontSize: 10,
   },
 });
