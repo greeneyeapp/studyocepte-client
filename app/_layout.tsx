@@ -34,7 +34,7 @@ function RootLayoutNav() {
   // BottomSheetService'e ref'i ver
   useEffect(() => {
     BottomSheetService.setRef(bottomSheetRef.current);
-    
+
     return () => {
       BottomSheetService.setRef(null);
     };
@@ -42,12 +42,12 @@ function RootLayoutNav() {
 
   useEffect(() => {
     const inAuthGroup = segments[0] === '(auth)';
-    
+
     // Senaryo 1: Kullanıcı giriş yaptı ve hala auth ekranında.
     if (isAuthenticated && inAuthGroup) {
       setTransitioning(true); // Geçiş animasyonunu göster
       router.replace('/(tabs)/home'); // Yönlendirmeyi yap
-      
+
       // Yönlendirmenin tamamlanması ve yeni ekranın render olması için bekle, sonra animasyonu kaldır.
       setTimeout(() => setTransitioning(false), 800);
     }
@@ -56,7 +56,7 @@ function RootLayoutNav() {
     if (!isAuthenticated && !inAuthGroup) {
       setTransitioning(true); // Geçiş animasyonunu göster
       router.replace('/(auth)/login'); // Yönlendirmeyi yap
-      
+
       // Yönlendirme bitince animasyonu kaldır.
       setTimeout(() => setTransitioning(false), 800);
     }
@@ -69,10 +69,10 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="+not-found" />
       </Stack>
-      
+
       {/* Animasyon, bir servisle değil, doğrudan burada koşullu olarak render edilir. */}
       {isTransitioning && <AppLoading />}
-      
+
       {/* BottomSheet bileşenini en üstte render et */}
       <AppBottomSheet ref={bottomSheetRef} />
     </>
@@ -93,10 +93,14 @@ export default function RootLayout() {
   const [assets, assetsError] = useAssets([
     require('@/assets/images/icon-transparant.png')
   ]);
-  
+
   // ⭐ DİL SEÇİMİNİ KONTROL ETME EFFECT'İ
   useEffect(() => {
     async function checkInitialLanguageSelection() {
+      const savedLanguage = await AsyncStorage.getItem('selectedLanguage');
+      if (savedLanguage) {
+        await i18n.changeLanguage(savedLanguage);
+      }
       try {
         const hasSelected = await AsyncStorage.getItem(APP_FIRST_LANGUAGE_SELECTED_KEY);
         // Eğer daha önce seçim yapıldığına dair bir işaret yoksa veya 'false' ise
@@ -129,7 +133,7 @@ export default function RootLayout() {
         SplashScreen.hideAsync();
       } else {
         // Eğer dil seçimi gerekiyorsa, splash'i gizle ama uygulamayı başlatmadan LanguageSelectionScreen'i göster
-        SplashScreen.hideAsync(); 
+        SplashScreen.hideAsync();
         // LanguageSelectionScreen kendi kendine kapanıp diğer rotaya geçişi sağlayacak
       }
     }
@@ -139,11 +143,14 @@ export default function RootLayout() {
     return null; // Her şey hazır olana kadar Splash Screen görünür kalır.
   }
 
-  // ⭐ Koşullu olarak dil seçim ekranını veya ana uygulamayı render et
   if (isLanguageScreenNeeded) {
     return (
       <I18nextProvider i18n={i18n}>
-        <LanguageSelectionScreen />
+        <LanguageSelectionScreen
+          onLanguageSelected={() => {
+            setIsLanguageScreenNeeded(false);
+          }}
+        />
       </I18nextProvider>
     );
   }

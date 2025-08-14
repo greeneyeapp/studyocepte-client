@@ -1,5 +1,3 @@
-// config/config.ts
-
 /**
  * Uygulamanın yapılandırma ayarlarını içerir.
  * API adresleri gibi değişkenler burada merkezi olarak yönetilir.
@@ -11,7 +9,7 @@
 const DEVELOPMENT_API_URL = 'http://192.168.1.2:8000';
 
 // Üretim ortamı için sunucunuzun alan adını buraya yazacaksınız.
-const PRODUCTION_API_URL = 'https://api.studyocepte.com'; // Örnek
+const PRODUCTION_API_URL = 'https://api-studyocepte.greeneyeapp.com'; // ✅ DOĞRU URL
 
 // Uygulamanın o anki geliştirme durumuna göre doğru URL'i seç.
 // __DEV__ React Native tarafından otomatik olarak sağlanan bir değişkendir.
