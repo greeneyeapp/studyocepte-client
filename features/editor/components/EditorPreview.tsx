@@ -1,5 +1,3 @@
-// features/editor/components/EditorPreview.tsx - EXPORT REF HATASI DÜZELTİLMİŞ VERSİYON
-
 import React, { forwardRef, useMemo, useState, useEffect, useImperativeHandle } from 'react';
 import { View, Pressable, Text, StyleSheet, ActivityIndicator, Image, ViewStyle } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
