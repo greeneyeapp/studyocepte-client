@@ -90,7 +90,9 @@
     "noResults": "Sonuç Bulunamadı",
     "noResultsSubtitle": "\"{{query}}\" için sonuç bulunamadı.",
     "createFirstProduct": "İlk Ürününü Oluştur",
-    "emptyProductNameError": "Lütfen ürün için bir isim girin."
+    "emptyProductNameError": "Lütfen ürün için bir isim girin.",
+    "newProductNamePlaceholder": "Yeni ürün adı",
+    "createProductTitle": "Ürün adı"
   },
   "productDetail": {
     "photoCount": "{{count}} fotoğraf",
@@ -99,7 +101,6 @@
     "deleteSelectedPhotosTitle": "Seçili Fotoğrafları Sil",
     "deleteSelectedPhotosMessage": "Seçili {{count}} fotoğrafı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
     "editProductName": "Ürün Adını Düzenle",
-    "newProductNamePlaceholder": "Yeni ürün adı",
     "deleteProductTitle": "Ürünü Sil",
     "deleteProductMessage": "Bu ürünü ve tüm fotoğraflarını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
     "removeBackgroundTitle": "Arka Planı Temizle",
@@ -337,61 +338,207 @@
     }
   },
   "exportPresets": {
-    "instagram_square": { "name": "Instagram Kare (1:1)", "description": "1080x1080 - Akış gönderileri için ideal" },
-    "instagram_story": { "name": "Instagram Hikaye", "description": "1080x1920 - Dikey story formatı" },
-    "instagram_portrait": { "name": "Instagram Dikey (4:5)", "description": "1080x1350 - Portre gönderi formatı" },
-    "youtube_thumbnail": { "name": "YouTube Thumbnail", "description": "1280x720 - Video kapak fotoğrafı" },
-    "facebook_post": { "name": "Facebook Gönderi", "description": "1200x630 - Yatay paylaşımlar için" },
-    "pinterest_pin": { "name": "Pinterest Pin", "description": "1000x1500 - Standart dikey Pin oranı" },
-    "twitter_post": { "name": "X (Twitter) Gönderi", "description": "1600x900 - Geniş formatlı tweet görüntüsü" },
-    "snapchat_story": { "name": "Snapchat Hikaye", "description": "1080x1920 - Full ekran dikey görsel" },
-    "linkedin_post": { "name": "LinkedIn Gönderi", "description": "1200x627 - Profesyonel paylaşımlar için" },
-    "tiktok_cover": { "name": "TikTok Kapak", "description": "1080x1920 - Dikey video kapak görseli" },
-
-    "trendyol_main": { "name": "Trendyol", "description": "1200x1800 - Dikey ürün fotoğrafı formatı" },
-    "hepsiburada_main": { "name": "Hepsiburada", "description": "1500x1500 - Standart kare ürün fotoğrafı" },
-    "amazon_main": { "name": "Amazon", "description": "2000x2000 - Yüksek çözünürlüklü kare format" },
-    "shopify_product": { "name": "Shopify", "description": "2048x2048 - Yüksek kaliteli kare ürün görseli" },
-    "etsy_listing": { "name": "Etsy", "description": "2700x2025 - Yatay listeleme fotoğrafı (4:3)" },
-    "generic_ecommerce": { "name": "Genel E-ticaret Kare", "description": "1000x1000 - Çoğu platformla uyumlu standart boyut" },
-    "ebay_listing": { "name": "eBay Listeleme", "description": "1600x1600 - eBay ürün görselleri için" },
-    "aliexpress_product": { "name": "AliExpress Ürün", "description": "800x800 - AliExpress için kare format" },
-    "google_shopping": { "name": "Google Alışveriş", "description": "1200x1200 - Google Merchant Center için kare" },
-    "z_fashion_platform": { "name": "Moda Platformu", "description": "1080x1440 - Dikey moda görselleri için" },
-
-    "web_hero": { "name": "Website Hero Image", "description": "1920x1080 - Full HD ana görsel formatı" },
-    "web_banner_wide": { "name": "Geniş Banner", "description": "728x90 - \"Leaderboard\" reklam banner formatı" },
-    "web_banner_square": { "name": "Kare Banner", "description": "300x250 - \"Medium Rectangle\" reklam formatı" },
-    "web_blog_featured": { "name": "Öne Çıkan Blog Görseli", "description": "1200x800 - Blog makaleleri için standart görsel" },
-    "web_favicon": { "name": "Favicon", "description": "64x64 - Website ikonu, şeffaf arka plan" },
-    "email_header": { "name": "E-posta Başlığı", "description": "600x200 - E-bülten ve e-posta başlık görseli" },
-    "web_profile_banner": { "name": "Web Profil Banner", "description": "1500x500 - Web profil sayfaları için banner" },
-    "mobile_wallpaper": { "name": "Mobil Duvar Kağıdı", "description": "1080x1920 - Genel mobil cihazlar için" },
-    "desktop_wallpaper_hd": { "name": "Masaüstü Duvar Kağıdı (HD)", "description": "1920x1080 - Genel masaüstü cihazlar için" },
-    "newsletter_ad_small": { "name": "E-posta Reklamı (Küçük)", "description": "320x100 - E-posta bültenleri için küçük reklam alanı" },
-
-    "print_a4": { "name": "A4 Kağıt (300 DPI)", "description": "2480x3508px - Katalog ve belge baskısı" },
-    "print_a5": { "name": "A5 Kağıt (300 DPI)", "description": "1748x2480px - Broşür ve el ilanı baskısı" },
-    "print_10x15": { "name": "10x15 Fotoğraf Baskı", "description": "1181x1772px - Standart fotoğraf stüdyosu baskısı" },
-    "print_13x18": { "name": "13x18 Fotoğraf Baskı", "description": "1535x2126px - Büyük boy fotoğraf baskısı" },
-    "print_business_card": { "name": "Kartvizit (EU Standard)", "description": "1004x650px - Standart 85x55mm kartvizit baskısı" },
-    "print_poster": { "name": "Afiş (A3)", "description": "3508x4961px - A3 boyutunda afiş baskısı" },
-    "print_flyer_a6": { "name": "El İlanı (A6)", "description": "1240x1748px - Küçük el ilanları için" },
-    "print_post_card_a6": { "name": "Kartpostal (A6 Yatay)", "description": "1748x1240px - Standart kartpostal boyutu" },
-    "print_us_letter": { "name": "US Letter (300 DPI)", "description": "2550x3300px - Amerikan standart doküman boyutu" },
-    "print_magazine_spread": { "name": "Dergi Sayfa (Çift)", "description": "5100x3300px - Dergi içi çift sayfa reklam" },
-
-    "custom_widescreen": { "name": "Geniş Ekran (16:9)", "description": "1920x1080 - TV ve monitör görüntüleme oranı" },
-    "custom_classic_photo": { "name": "Klasik Fotoğraf (3:2)", "description": "1080x720 - 35mm film fotoğrafı oranı" },
-    "custom_portrait": { "name": "Dikey Portre (2:3)", "description": "720x1080 - Dikey fotoğraf portre oranı" },
-    "custom_cinematic": { "name": "Sinematik (21:9)", "description": "2560x1080 - Ultra geniş sinema ekranı oranı" },
+    "instagram_square": {
+      "name": "Instagram Kare (1:1)",
+      "description": "1080x1080 - Akış gönderileri için ideal"
+    },
+    "instagram_story": {
+      "name": "Instagram Hikaye",
+      "description": "1080x1920 - Dikey story formatı"
+    },
+    "instagram_portrait": {
+      "name": "Instagram Dikey (4:5)",
+      "description": "1080x1350 - Portre gönderi formatı"
+    },
+    "youtube_thumbnail": {
+      "name": "YouTube Thumbnail",
+      "description": "1280x720 - Video kapak fotoğrafı"
+    },
+    "facebook_post": {
+      "name": "Facebook Gönderi",
+      "description": "1200x630 - Yatay paylaşımlar için"
+    },
+    "pinterest_pin": {
+      "name": "Pinterest Pin",
+      "description": "1000x1500 - Standart dikey Pin oranı"
+    },
+    "twitter_post": {
+      "name": "X (Twitter) Gönderi",
+      "description": "1600x900 - Geniş formatlı tweet görüntüsü"
+    },
+    "snapchat_story": {
+      "name": "Snapchat Hikaye",
+      "description": "1080x1920 - Full ekran dikey görsel"
+    },
+    "linkedin_post": {
+      "name": "LinkedIn Gönderi",
+      "description": "1200x627 - Profesyonel paylaşımlar için"
+    },
+    "tiktok_cover": {
+      "name": "TikTok Kapak",
+      "description": "1080x1920 - Dikey video kapak görseli"
+    },
+    "trendyol_main": {
+      "name": "Trendyol",
+      "description": "1200x1800 - Dikey ürün fotoğrafı formatı"
+    },
+    "hepsiburada_main": {
+      "name": "Hepsiburada",
+      "description": "1500x1500 - Standart kare ürün fotoğrafı"
+    },
+    "amazon_main": {
+      "name": "Amazon",
+      "description": "2000x2000 - Yüksek çözünürlüklü kare format"
+    },
+    "shopify_product": {
+      "name": "Shopify",
+      "description": "2048x2048 - Yüksek kaliteli kare ürün görseli"
+    },
+    "etsy_listing": {
+      "name": "Etsy",
+      "description": "2700x2025 - Yatay listeleme fotoğrafı (4:3)"
+    },
+    "generic_ecommerce": {
+      "name": "Genel E-ticaret Kare",
+      "description": "1000x1000 - Çoğu platformla uyumlu standart boyut"
+    },
+    "ebay_listing": {
+      "name": "eBay Listeleme",
+      "description": "1600x1600 - eBay ürün görselleri için"
+    },
+    "aliexpress_product": {
+      "name": "AliExpress Ürün",
+      "description": "800x800 - AliExpress için kare format"
+    },
+    "google_shopping": {
+      "name": "Google Alışveriş",
+      "description": "1200x1200 - Google Merchant Center için kare"
+    },
+    "z_fashion_platform": {
+      "name": "Moda Platformu",
+      "description": "1080x1440 - Dikey moda görselleri için"
+    },
+    "web_hero": {
+      "name": "Website Hero Image",
+      "description": "1920x1080 - Full HD ana görsel formatı"
+    },
+    "web_banner_wide": {
+      "name": "Geniş Banner",
+      "description": "728x90 - \"Leaderboard\" reklam banner formatı"
+    },
+    "web_banner_square": {
+      "name": "Kare Banner",
+      "description": "300x250 - \"Medium Rectangle\" reklam formatı"
+    },
+    "web_blog_featured": {
+      "name": "Öne Çıkan Blog Görseli",
+      "description": "1200x800 - Blog makaleleri için standart görsel"
+    },
+    "web_favicon": {
+      "name": "Favicon",
+      "description": "64x64 - Website ikonu, şeffaf arka plan"
+    },
+    "email_header": {
+      "name": "E-posta Başlığı",
+      "description": "600x200 - E-bülten ve e-posta başlık görseli"
+    },
+    "web_profile_banner": {
+      "name": "Web Profil Banner",
+      "description": "1500x500 - Web profil sayfaları için banner"
+    },
+    "mobile_wallpaper": {
+      "name": "Mobil Duvar Kağıdı",
+      "description": "1080x1920 - Genel mobil cihazlar için"
+    },
+    "desktop_wallpaper_hd": {
+      "name": "Masaüstü Duvar Kağıdı (HD)",
+      "description": "1920x1080 - Genel masaüstü cihazlar için"
+    },
+    "newsletter_ad_small": {
+      "name": "E-posta Reklamı (Küçük)",
+      "description": "320x100 - E-posta bültenleri için küçük reklam alanı"
+    },
+    "print_a4": {
+      "name": "A4 Kağıt (300 DPI)",
+      "description": "2480x3508px - Katalog ve belge baskısı"
+    },
+    "print_a5": {
+      "name": "A5 Kağıt (300 DPI)",
+      "description": "1748x2480px - Broşür ve el ilanı baskısı"
+    },
+    "print_10x15": {
+      "name": "10x15 Fotoğraf Baskı",
+      "description": "1181x1772px - Standart fotoğraf stüdyosu baskısı"
+    },
+    "print_13x18": {
+      "name": "13x18 Fotoğraf Baskı",
+      "description": "1535x2126px - Büyük boy fotoğraf baskısı"
+    },
+    "print_business_card": {
+      "name": "Kartvizit (EU Standard)",
+      "description": "1004x650px - Standart 85x55mm kartvizit baskısı"
+    },
+    "print_poster": {
+      "name": "Afiş (A3)",
+      "description": "3508x4961px - A3 boyutunda afiş baskısı"
+    },
+    "print_flyer_a6": {
+      "name": "El İlanı (A6)",
+      "description": "1240x1748px - Küçük el ilanları için"
+    },
+    "print_post_card_a6": {
+      "name": "Kartpostal (A6 Yatay)",
+      "description": "1748x1240px - Standart kartpostal boyutu"
+    },
+    "print_us_letter": {
+      "name": "US Letter (300 DPI)",
+      "description": "2550x3300px - Amerikan standart doküman boyutu"
+    },
+    "print_magazine_spread": {
+      "name": "Dergi Sayfa (Çift)",
+      "description": "5100x3300px - Dergi içi çift sayfa reklam"
+    },
+    "custom_widescreen": {
+      "name": "Geniş Ekran (16:9)",
+      "description": "1920x1080 - TV ve monitör görüntüleme oranı"
+    },
+    "custom_classic_photo": {
+      "name": "Klasik Fotoğraf (3:2)",
+      "description": "1080x720 - 35mm film fotoğrafı oranı"
+    },
+    "custom_portrait": {
+      "name": "Dikey Portre (2:3)",
+      "description": "720x1080 - Dikey fotoğraf portre oranı"
+    },
+    "custom_cinematic": {
+      "name": "Sinematik (21:9)",
+      "description": "2560x1080 - Ultra geniş sinema ekranı oranı"
+    },
     "customGeneratedName": "Özel {{width}}x{{height}}",
     "customGeneratedDescription": "Kullanıcı tanımlı {{width}}x{{height}} boyutu",
-    "custom_square_hd": { "name": "HD Kare", "description": "1920x1920 - Yüksek çözünürlüklü kare format" },
-    "custom_a4_landscape": { "name": "A4 Yatay", "description": "3508x2480px - Yatay A4 belge/sunum formatı" },
-    "custom_4k_uhd": { "name": "4K Ultra HD", "description": "3840x2160 - Ultra yüksek çözünürlüklü ekranlar için" },
-    "custom_long_vertical": { "name": "Uzun Dikey", "description": "800x2000 - Özel dikey tasarımlar için" },
-    "custom_ultra_wide_monitor": { "name": "Ultra Geniş Monitör", "description": "3440x1440 - Geniş formatlı monitörler için" },
-    "custom_square_small": { "name": "Küçük Kare", "description": "500x500 - Özel küçük kare boyutları" }
+    "custom_square_hd": {
+      "name": "HD Kare",
+      "description": "1920x1920 - Yüksek çözünürlüklü kare format"
+    },
+    "custom_a4_landscape": {
+      "name": "A4 Yatay",
+      "description": "3508x2480px - Yatay A4 belge/sunum formatı"
+    },
+    "custom_4k_uhd": {
+      "name": "4K Ultra HD",
+      "description": "3840x2160 - Ultra yüksek çözünürlüklü ekranlar için"
+    },
+    "custom_long_vertical": {
+      "name": "Uzun Dikey",
+      "description": "800x2000 - Özel dikey tasarımlar için"
+    },
+    "custom_ultra_wide_monitor": {
+      "name": "Ultra Geniş Monitör",
+      "description": "3440x1440 - Geniş formatlı monitörler için"
+    },
+    "custom_square_small": {
+      "name": "Küçük Kare",
+      "description": "500x500 - Özel küçük kare boyutları"
+    }
   }
 }

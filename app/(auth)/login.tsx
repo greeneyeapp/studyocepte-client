@@ -1,4 +1,4 @@
-// client/app/(auth)/login.tsx - TAM VE DOĞRU ÇÖZÜM
+// client/app/(auth)/login.tsx - HATA DÜZELTİLMİŞ VERSİYON
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, KeyboardAvoidingView, Platform,
@@ -64,10 +64,21 @@ export default function LoginScreen() {
                 <Text style={styles.subtitle}>{t('auth.loginSubtitle')}</Text>
               </View>
               <View style={styles.formContainer}>
-                <TextInput placeholder={t('auth.emailPlaceholder')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-                <TextInput placeholder={t('auth.passwordPlaceholder')} value={password} onChangeText={setPassword} secureTextEntry />
+                <TextInput 
+                  placeholder={t('auth.emailPlaceholder')} 
+                  value={email} 
+                  onChangeText={setEmail} 
+                  keyboardType="email-address" 
+                  autoCapitalize="none" 
+                />
+                <TextInput 
+                  placeholder={t('auth.passwordPlaceholder')} 
+                  value={password} 
+                  onChangeText={setPassword} 
+                  secureTextEntry 
+                />
 
-                {/* Her buton artık kendi LOKAL durumunu kontrol ediyor */}
+                {/* DÜZELTME: Her buton artık kendi LOKAL durumunu kontrol ediyor */}
                 <Button
                   title={t('auth.loginButton')}
                   onPress={() => handleAction('login')}
@@ -86,7 +97,9 @@ export default function LoginScreen() {
                 />
               </View>
               <TouchableOpacity style={styles.registerLinkContainer} onPress={() => router.push('/(auth)/register')}>
-                <Text style={styles.registerText}>{t('auth.noAccount')} <Text style={styles.registerLink}>{t('auth.registerNow')}</Text></Text>
+                <Text style={styles.registerText}>
+                  {t('auth.noAccount')} <Text style={styles.registerLink}>{t('auth.registerNow')}</Text>
+                </Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

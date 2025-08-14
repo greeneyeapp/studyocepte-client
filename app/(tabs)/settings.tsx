@@ -1,3 +1,4 @@
+// client/app/(tabs)/settings.tsx
 import React from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
@@ -10,7 +11,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { Card } from '@/components/Card';
 import { ToastService } from '@/components/Toast/ToastService';
-import { DialogService } from '@/components/Dialog/DialogService'; // Bu import önemli
+import { DialogService } from '@/components/Dialog/DialogService';
 
 // Akıllı Renk Seçen Profil Avatarı Bileşeni
 const ProfileAvatar: React.FC<{ name: string }> = ({ name }) => {
@@ -89,7 +90,7 @@ export default function SettingsScreen() {
       case 'en': return t('settings.currentLanguageLabel.en');
       case 'tr': return t('settings.currentLanguageLabel.tr');
       case 'es': return t('settings.currentLanguageLabel.es');
-      default: return 'English';
+      default: return t('settings.currentLanguageLabel.en'); // DÜZELTME: Doğrudan string yerine t() kullanıldı
     }
   };
 

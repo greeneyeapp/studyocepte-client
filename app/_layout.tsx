@@ -1,4 +1,4 @@
-// client/app/_layout.tsx - TAM VE NİHAİ KONTROL MERKEZİ
+// client/app/_layout.tsx - HATA DÜZELTİLMİŞ VERSİYON
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useState } from 'react';
@@ -9,13 +9,13 @@ import { GlobalUIProvider } from '@/context/GlobalUIProvider';
 import { useAssets } from 'expo-asset';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import AppLoading from '@/components/Loading/AppLoading';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
+import { useTranslation } from 'react-i18next';
 
 SplashScreen.preventAutoHideAsync();
 
 // Bu bileşen, state değişikliklerine göre yönlendirmeyi ve geçiş animasyonunu yönetir.
 function RootLayoutNav() {
-  const { t } = useTranslation(); // useTranslation hook'u kullanıldı
+  const { t } = useTranslation();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const segments = useSegments();
   const router = useRouter();
@@ -53,15 +53,14 @@ function RootLayoutNav() {
         <Stack.Screen name="+not-found" />
       </Stack>
 
-      {/* Animasyon, bir servisle değil, doğrudan burada koşullu olarak render edilir. */}
-      {isTransitioning && <AppLoading text={t('appLoading.transitioning')} />} {/* text prop'u eklendi */}
+      {/* DÜZELTME: Koşullu rendering güvenli hale getirildi */}
+      {isTransitioning ? <AppLoading text={t('appLoading.transitioning')} /> : null}
     </>
   );
 }
 
 // Bu ana bileşen, uygulamanın başlaması için gereken her şeyi yükler.
 export default function RootLayout() {
-  const { t } = useTranslation(); // useTranslation hook'u kullanıldı
   const { checkAuthStatus } = useAuthStore();
   const [isAuthChecked, setAuthChecked] = useState(false);
 
@@ -90,13 +89,13 @@ export default function RootLayout() {
     }
   }, [isAppReady]);
 
+  // DÜZELTME: Güvenli koşullu rendering
   if (!isAppReady) {
-    return <AppLoading text={t('appLoading.initializing')} />; // text prop'u eklendi
+    return <AppLoading text="Initializing..." />;
   }
 
   return (
     <I18nextProvider i18n={i18n}>
-      {/* GlobalUIProvider artık animasyondan sorumlu değil, ama Toast vb. için kalabilir. */}
       <GlobalUIProvider>
         <RootLayoutNav />
       </GlobalUIProvider>

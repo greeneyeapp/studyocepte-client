@@ -3,7 +3,8 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   StyleSheet, SafeAreaView, TouchableOpacity, View, Text,
   AppState, TextInput, RefreshControl,
-  LayoutAnimation, Platform, Animated, Dimensions, InteractionManager
+  LayoutAnimation, Platform, Animated, Dimensions, InteractionManager,
+  ActivityIndicator
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
@@ -387,7 +388,7 @@ export default function HomeScreen() {
   const handleCreateNewProduct = useCallback(async () => {
     const name = await InputDialogService.show({
       title: t('home.createProductTitle'),
-      placeholder: t('home.productNamePlaceholder'),
+      placeholder: t('home.newProductNamePlaceholder'),
     });
 
     if (!name?.trim()) {
