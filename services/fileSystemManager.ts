@@ -1,6 +1,5 @@
 // services/fileSystemManager.ts - DATA URI DESTEKLİ VERSİYON
 import * as FileSystem from 'expo-file-system';
-import i18n from '@/i18n'; // i18n import edildi
 
 // Tüm ürünlerin saklanacağı ana klasörün yolu
 const productsDir = FileSystem.documentDirectory + 'products/';
@@ -50,7 +49,7 @@ export const fileSystemManager = {
         // Data URI'den base64 veriyi çıkar
         const base64Data = sourceUri.split(',')[1];
         if (!base64Data) {
-          throw new Error(i18n.t('imageProcessing.base64ToFileFailed')); // Lokalize edildi
+          throw new Error('Geçersiz data URI formatı');
         }
         
         // Base64 veriyi dosyaya yaz
@@ -69,7 +68,7 @@ export const fileSystemManager = {
       // Dosyanın gerçekten oluştuğunu kontrol et
       const fileInfo = await FileSystem.getInfoAsync(permanentUri);
       if (!fileInfo.exists) {
-        throw new Error(i18n.t('imageProcessing.moveToPermanentFailed')); // Lokalize edildi
+        throw new Error('Dosya kaydedildi ancak kontrol edilemedi');
       }
       
       console.log('📊 Dosya bilgisi:', {
@@ -80,7 +79,7 @@ export const fileSystemManager = {
 
       return permanentUri;
       
-    } catch (error: any) { // error type any eklendi
+    } catch (error) {
       console.error('❌ Dosya kaydetme hatası:', error);
       console.error('🔍 Hata detayları:', {
         productId,
@@ -88,7 +87,7 @@ export const fileSystemManager = {
         newFilename,
         permanentUri
       });
-      throw new Error(`${i18n.t('imageProcessing.moveToPermanentFailed')}: ${error.message}`); // Lokalize edildi
+      throw new Error(`Dosya kaydedilemedi: ${error.message}`);
     }
   },
 
@@ -147,7 +146,7 @@ export const fileSystemManager = {
       // Kontrol et
       const fileInfo = await FileSystem.getInfoAsync(permanentUri);
       if (!fileInfo.exists) {
-        throw new Error(i18n.t('imageProcessing.moveToPermanentFailed')); // Lokalize edildi
+        throw new Error('Base64 dosya kaydedildi ancak kontrol edilemedi');
       }
 
       console.log('✅ Base64 dosya başarıyla kaydedildi:', {
@@ -157,9 +156,9 @@ export const fileSystemManager = {
 
       return permanentUri;
 
-    } catch (error: any) { // error type any eklendi
+    } catch (error) {
       console.error('❌ Base64 dosya kaydetme hatası:', error);
-      throw new Error(`${i18n.t('imageProcessing.base64ToFileFailed')}: ${error.message}`); // Lokalize edildi
+      throw new Error(`Base64 dosya kaydedilemedi: ${error.message}`);
     }
   },
 

@@ -118,7 +118,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       }
 
       set({ products });
-    } catch (error: any) { // error type any eklendi
+    } catch (error: any) {
       const errorMessage = apiUtils.extractErrorMessage(error);
       set({ error: errorMessage });
       throw error;
@@ -140,7 +140,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
       set({ products: updatedProducts });
       return newProduct;
-    } catch (error: any) { // error type any eklendi
+    } catch (error: any) {
       const errorMessage = apiUtils.extractErrorMessage(error);
       set({ error: errorMessage });
       throw error;
@@ -153,7 +153,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       const updatedProducts = get().products.filter(p => p.id !== productId);
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
       set({ products: updatedProducts });
-    } catch (error: any) { // error type any eklendi
+    } catch (error: any) {
       const errorMessage = apiUtils.extractErrorMessage(error);
       set({ error: errorMessage });
       throw error;
@@ -167,7 +167,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       );
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
       set({ products: updatedProducts });
-    } catch (error: any) { // error type any eklendi
+    } catch (error: any) {
       const errorMessage = apiUtils.extractErrorMessage(error);
       set({ error: errorMessage });
       throw error;
@@ -180,7 +180,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
   addMultiplePhotos: async (productId, imageUris) => {
     try {
       const product = get().products.find(p => p.id === productId);
-      if (!product) throw new Error(i18n.t('common.productNotFound')); // Lokalize edildi
+      if (!product) throw new Error('Ürün bulunamadı');
 
       const newPhotos: ProductPhoto[] = [];
       for (const uri of imageUris) {
@@ -215,7 +215,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
       set({ products: updatedProducts });
       return true;
-    } catch (error: any) { // error type any eklendi
+    } catch (error: any) {
       const errorMessage = apiUtils.extractErrorMessage(error);
       set({ error: errorMessage });
       return false;
@@ -243,7 +243,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
 
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
       set({ products: updatedProducts });
-    } catch (error: any) { // error type any eklendi
+    } catch (error: any) {
       const errorMessage = apiUtils.extractErrorMessage(error);
       set({ error: errorMessage });
       throw error;
@@ -257,7 +257,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
     const isOnline = await apiUtils.checkNetworkConnection();
     if (!isOnline) {
       set({
-        error: i18n.t('networkErrors.networkRequired'), // Lokalize edildi
+        error: 'İnternet bağlantısı gerekli. Lütfen bağlantınızı kontrol edin.',
         isOnline: false
       });
       return false;
@@ -270,7 +270,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
     try {
       const tempProducts = JSON.parse(JSON.stringify(get().products));
       const product = tempProducts.find(p => p.id === productId);
-      if (!product) throw new Error(i18n.t('common.productNotFound')); // Lokalize edildi
+      if (!product) throw new Error('Ürün bulunamadı');
 
       const photosToProcess = product.photos.filter(p =>
         photoIds.includes(p.id) && p.status === 'raw'
@@ -296,7 +296,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       // Sonuçları işle
       const finalProducts = JSON.parse(JSON.stringify(get().products));
       const targetProduct = finalProducts.find(p => p.id === productId);
-      if (!targetProduct) throw new Error(i18n.t('common.productNotFoundAfterProcess')); // Lokalize edildi
+      if (!targetProduct) throw new Error("İşlem sonrası ürün bulunamadı");
 
       let successCount = 0;
 
@@ -342,11 +342,11 @@ export const useProductStore = create<ProductStore>((set, get) => ({
 
       return successCount > 0;
 
-    } catch (error: any) { // error type any eklendi
+    } catch (error: any) {
       console.error("removeMultipleBackgrounds CATCH_BLOCK:", error);
       const errorMessage = apiUtils.extractErrorMessage(error);
 
-      const isNetworkError = errorMessage.includes(i18n.t('common.networkError')) || // Lokalize edildi
+      const isNetworkError = errorMessage.includes('ağ') ||
         errorMessage.includes('network') ||
         errorMessage.includes('timeout');
 
@@ -368,7 +368,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
     const isOnline = await apiUtils.checkNetworkConnection();
     if (!isOnline) {
       set({
-        error: i18n.t('networkErrors.networkRequired'), // Lokalize edildi
+        error: 'İnternet bağlantısı gerekli. Lütfen bağlantınızı kontrol edin.',
         isOnline: false
       });
       return false;
@@ -381,7 +381,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       const photo = product?.photos.find(p => p.id === photoId);
 
       if (!product || !photo) {
-        throw new Error(i18n.t('common.productNotFound')); // Lokalize edildi
+        throw new Error('Ürün veya fotoğraf bulunamadı');
       }
 
       if (photo.status !== 'raw') {
@@ -456,11 +456,11 @@ export const useProductStore = create<ProductStore>((set, get) => ({
 
       return true;
 
-    } catch (error: any) { // error type any eklendi
+    } catch (error: any) {
       console.error("removeSingleBackground CATCH_BLOCK:", error);
       const errorMessage = apiUtils.extractErrorMessage(error);
 
-      const isNetworkError = errorMessage.includes(i18n.t('common.networkError')) || // Lokalize edildi
+      const isNetworkError = errorMessage.includes('ağ') ||
         errorMessage.includes('network') ||
         errorMessage.includes('timeout');
 
@@ -575,12 +575,12 @@ export const useProductStore = create<ProductStore>((set, get) => ({
         }
       }, 100);
 
-    } catch (storageError: any) { // storageError type any eklendi
+    } catch (storageError) {
       console.error('❌ HIGH QUALITY AsyncStorage update failed:', storageError);
 
       // Storage hatası durumunda state'i geri al
       set({ products: currentProducts });
-      throw new Error(`${i18n.t('imageProcessing.thumbnailUpdateStorageFailed')}: ${storageError.message}`); // Lokalize edildi
+      throw new Error('Yüksek kalite thumbnail güncelleme storage hatası: ' + storageError.message);
     }
 
     console.log('✅ HIGH QUALITY photo thumbnail update completed:', {
@@ -599,8 +599,8 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       set({ isOnline });
 
       if (!isOnline && get().error === null) {
-        set({ error: i18n.t('networkErrors.noInternet') }); // Lokalize edildi
-      } else if (isOnline && get().error?.includes(i18n.t('networkErrors.noInternet'))) { // Lokalize edildi
+        set({ error: 'İnternet bağlantısı kesildi' });
+      } else if (isOnline && get().error?.includes('İnternet')) {
         set({ error: null });
       }
     } catch (error) {

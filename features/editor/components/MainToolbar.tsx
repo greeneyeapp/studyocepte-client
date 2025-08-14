@@ -5,7 +5,6 @@ import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { ToolType, MAIN_TOOLS } from '../config/tools';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface MainToolbarProps {
   activeTool: ToolType;
@@ -16,7 +15,6 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
   activeTool,
   onToolChange,
 }) => {
-  const { t } = useTranslation(); // t hook'u kullanıldı
   return (
     <View style={styles.container}>
       {MAIN_TOOLS.map((tool, index) => {
@@ -51,7 +49,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
               adjustsFontSizeToFit={true}
               minimumFontScale={0.8}
             >
-              {t(`editor.toolLabels.${tool.key}`)} {/* Lokalize edildi */}
+              {tool.label}
             </Text>
             
             {/* Alt çizgi indicator */}
@@ -128,7 +126,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   
-  // Alt çizgi indicator
+  // Alt çizgi aktif indicator
   activeIndicator: {
     position: 'absolute',
     bottom: 0,

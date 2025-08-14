@@ -8,10 +8,8 @@ import { ExportPreset, ShareOption } from '../config/exportTools';
 import { ToastService } from '@/components/Toast/ToastService';
 import { LoadingService } from '@/components/Loading/LoadingService';
 import { useEnhancedEditorStore } from '@/stores/useEnhancedEditorStore';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 export const useExportManager = () => {
-  const { t } = useTranslation(); // t hook'u kullanıldı
   const [isExporting, setIsExporting] = useState(false);
   const viewRef = useRef<View>(null);
   const settings = useEnhancedEditorStore(state => state.settings);
@@ -68,9 +66,8 @@ export const useExportManager = () => {
    * ⭐ YÜKSEK KALİTE: RETRY MEKANİZMASI ile export fonksiyonu
    */
   const shareWithOption = async (shareOption: ShareOption, preset?: ExportPreset) => {
-    // preset artık her zaman zorunlu. quick_custom kaldırıldığı için artık null olamaz.
-    if (!preset) {
-      ToastService.show(t('editor.noSelection')); // Lokalize edildi
+    if (!preset && shareOption.type !== 'quick_custom') {
+      ToastService.show('Lütfen bir format seçin');
       return;
     }
 
@@ -83,7 +80,7 @@ export const useExportManager = () => {
       const refReady = await waitForViewRef(60, 100); // 6 saniye toplam
       
       if (!refReady) {
-        throw new Error(t('editor.refNotReady')); // Lokalize edildi
+        throw new Error('Yüksek kalite önizleme görüntüsü hazır değil. Lütfen tekrar deneyin.');
       }
 
       console.log('✅ HIGH QUALITY ref validated, starting capture...');
@@ -96,8 +93,16 @@ export const useExportManager = () => {
         canMeasure: !!(viewRef.current as any)?.measure,
       });
 
-      // preset artık doğrudan kullanılıyor, varsayılan (quick_default) kaldırıldı
-      const exportPreset = preset;
+      const exportPreset = preset || {
+        id: 'quick_default', 
+        name: 'Yüksek Kalite Export', 
+        description: 'Varsayılan yüksek kalite boyut',
+        dimensions: { width: 1080, height: 1080 }, 
+        format: 'png' as const, 
+        quality: 1.0, // ⭐ YÜKSEK KALİTE: 0.95 → 1.0
+        category: 'custom' as const, 
+        icon: 'zap',
+      };
 
       console.log('🖼️ HIGH QUALITY capture starting...', {
         format: exportPreset.format,
@@ -125,7 +130,7 @@ export const useExportManager = () => {
 
       console.log('✅ ULTRA HIGH RES capture completed:', ultraHighResUri);
 
-      // Aşama 2: Yüksek kalite ara resize (1.5x hedef boyut)
+      // Aşama 2: Yüksek kalite ara resize (2x hedef boyut)
       const { manipulateAsync, SaveFormat } = await import('expo-image-manipulator');
       
       const intermediateWidth = exportPreset.dimensions.width * 1.5; // 1.5x hedef boyut
@@ -185,7 +190,7 @@ export const useExportManager = () => {
       const uri = finalResult.uri;
 
       if (!uri) {
-        throw new Error(t('editor.imageNotCreated')); // Lokalize edildi
+        throw new Error("Yüksek kalite görüntü oluşturulamadı.");
       }
 
       console.log('✅ SUPER HIGH QUALITY capture completed:', uri);
@@ -208,30 +213,28 @@ export const useExportManager = () => {
       // 6. Başarı mesajı
       let successMessage = '';
       if (shareOption.type === 'gallery') {
-        successMessage = t('editor.exportSuccessGallery'); // Lokalize edildi
-      } else { // quick_custom kaldırıldığı için artık sadece generic kaldı
-        successMessage = t('editor.exportSuccessShare'); // Lokalize edildi
+        successMessage = `${exportPreset.name} yüksek kalite formatında galeriye kaydedildi`;
+      } else if (shareOption.type === 'quick_custom') {
+        successMessage = `Özel yüksek kalite boyutta görüntü galeriye kaydedildi`;
+      } else {
+        successMessage = `${exportPreset.name} yüksek kalite formatında paylaşım başarılı`;
       }
 
       ToastService.show(successMessage);
       console.log('🎉 SUPER HIGH QUALITY export process completed successfully');
 
-    } catch (error: any) { // error type any eklendi
+    } catch (error: any) {
       console.error('❌ HIGH QUALITY export failed:', error);
       
       // Kullanıcı dostu hata mesajları
       let userMessage = error.message;
       
-      if (userMessage.includes('timeout')) {
-        userMessage = t('editor.exportFailedTimeout'); // Lokalize edildi
-      } else if (userMessage.includes('capture') || userMessage.includes('preview')) {
-        userMessage = t('editor.exportFailedCapture'); // Lokalize edildi
-      } else if (userMessage.includes('permission') || userMessage.includes('Gallery access')) {
-        userMessage = t('editor.exportFailedPermission'); // Lokalize edildi
-      } else if (userMessage.includes('image not created')) {
-        userMessage = t('editor.imageNotCreated'); // Lokalize edildi
-      } else {
-        userMessage = t('editor.exportFailed'); // Genel hata mesajı
+      if (error.message.includes('timeout') || error.message.includes('null')) {
+        userMessage = 'Yüksek kalite görüntü hazırlanırken zaman aşımı. Lütfen tekrar deneyin.';
+      } else if (error.message.includes('capture')) {
+        userMessage = 'Yüksek kalite görüntü yakalanırken hata oluştu. Editöre geri dönüp tekrar deneyin.';
+      } else if (error.message.includes('permission')) {
+        userMessage = 'Galeri izni gerekli. Ayarlardan izin verin.';
       }
       
       ToastService.show(userMessage);

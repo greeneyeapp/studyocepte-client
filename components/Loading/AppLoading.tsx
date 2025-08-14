@@ -10,7 +10,6 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Colors } from '@/constants';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 export interface AppLoadingRef {
   show: () => void;
@@ -23,7 +22,6 @@ interface AppLoadingProps {
 }
 
 const AppLoading = forwardRef<AppLoadingRef, AppLoadingProps>((props, ref) => {
-  const { t } = useTranslation(); // t hook'u kullanıldı
   const { text } = props; // text prop'u ayrıştırıldı
   const [visible, setVisible] = useState(false);
 
@@ -71,8 +69,6 @@ const AppLoading = forwardRef<AppLoadingRef, AppLoadingProps>((props, ref) => {
         />
       </Animated.View>
       {text && <Text style={styles.text}>{text}</Text>}
-      {/* Eğer text prop'u yoksa ve visible ise varsayılan bir metin gösterilebilir */}
-      {!text && visible && <Text style={styles.text}>{t('common.loading')}</Text>}
     </View>
   );
 });

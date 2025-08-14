@@ -46,15 +46,15 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
 
   const handleResetAllPress = () => {
     DialogService.show({
-      title: t('editor.editorHeaderResetTitle'),
-      message: t('editor.editorHeaderResetMessage'),
+      title: 'Tüm Ayarları Sıfırla',
+      message: 'Bu işlem tüm düzenleme ayarlarını varsayılan değerlere döndürecek. Bu işlem geri alınamaz. Emin misiniz?',
       buttons: [
         {
-          text: t('common.cancel'),
+          text: 'İptal',
           style: 'cancel'
         },
         {
-          text: t('editor.reset'),
+          text: 'Sıfırla',
           style: 'destructive',
           onPress: onResetAll
         }
@@ -69,7 +69,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
 
   const getSaveButtonTitle = () => {
     if (isSaving) return t('common.saving');
-    if (isUpdatingThumbnail) return t('editor.thumbnailUpdating');
+    if (isUpdatingThumbnail) return 'Thumbnail...';
     return t('common.done');
   };
 
@@ -145,7 +145,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
                 (isSaving || isUpdatingThumbnail) && styles.disabledText
               ]}
             >
-              {t('editor.reset')}
+              Sıfırla
             </Text>
           </TouchableOpacity>
         </View>

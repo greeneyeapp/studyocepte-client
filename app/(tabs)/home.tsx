@@ -62,7 +62,7 @@ const ProfileAvatar = React.memo<{ name: string; onPress: () => void }>(({ name,
   );
 });
 
-const MultiPhotoDisplay = React.memo<{ photos: any[]; t: any }>(({ photos, t }) => { // t prop'u eklendi
+const MultiPhotoDisplay = React.memo<{ photos: any[] }>(({ photos }) => {
   const photoCount = photos.length;
 
   const siblingUris = useMemo(() =>
@@ -76,8 +76,8 @@ const MultiPhotoDisplay = React.memo<{ photos: any[]; t: any }>(({ photos, t }) 
         <View style={itemStyles.emptyPhotoIcon}>
           <Feather name="camera" size={24} color={Colors.primary} />
         </View>
-        <Text style={itemStyles.emptyPhotoTitle}>{t('productDetail.addPhoto')}</Text>
-        <Text style={itemStyles.emptyPhotoSubtitle}>{t('productDetail.addPhotoSubtitle')}</Text>
+        <Text style={itemStyles.emptyPhotoTitle}>Fotoğraf Ekle</Text>
+        <Text style={itemStyles.emptyPhotoSubtitle}>İlk fotoğrafını yükle</Text>
       </View>
     );
   }
@@ -209,8 +209,7 @@ const ModernProductCard = React.memo<{
   product: Product;
   onPress: () => void;
   index: number;
-  t: any; // t prop'u eklendi
-}>(({ product, onPress, index, t }) => {
+}>(({ product, onPress, index }) => {
   useEffect(() => {
     renderCount++;
     if (renderCount > MAX_RENDER_COUNT && renderCount % 20 === 0) {
@@ -224,7 +223,7 @@ const ModernProductCard = React.memo<{
       <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
         <Card padding="none" style={itemStyles.cardContainer}>
           <View style={itemStyles.imageContainer}>
-            <MultiPhotoDisplay photos={product.photos} t={t} />
+            <MultiPhotoDisplay photos={product.photos} />
           </View>
           <View style={itemStyles.productInfo}>
             <Text style={itemStyles.productName} numberOfLines={2}>
@@ -268,8 +267,7 @@ const SearchBar = React.memo<{
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onClear: () => void;
-  t: any; // t prop'u eklendi
-}>(({ searchQuery, onSearchChange, onClear, t }) => {
+}>(({ searchQuery, onSearchChange, onClear }) => {
   const inputRef = useRef<TextInput>(null);
   const debounceTimeout = useRef<NodeJS.Timeout>();
 
@@ -301,7 +299,7 @@ const SearchBar = React.memo<{
         <TextInput
           ref={inputRef}
           style={styles.searchInput}
-          placeholder={t('home.searchPlaceholder')}
+          placeholder="Ürünlerde ara..."
           placeholderTextColor={Colors.textSecondary}
           value={searchQuery}
           onChangeText={handleSearchChange}
@@ -333,7 +331,7 @@ export default function HomeScreen() {
   const loadingRef = useRef<AppLoadingRef>(null); // AppLoading referansı
 
   const shouldShowSearch = useMemo(() => products.length > 9, [products.length]);
-  const firstName = useMemo(() => user?.name?.split(' ')[0] || t('common.guest'), [user?.name, t]); // Misafir lokalize edildi
+  const firstName = useMemo(() => user?.name?.split(' ')[0] || 'Misafir', [user?.name]);
 
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return products;
@@ -386,13 +384,13 @@ export default function HomeScreen() {
 
   const handleCreateNewProduct = useCallback(async () => {
     const name = await InputDialogService.show({
-      title: t('home.createProductTitle'),
-      placeholder: t('home.productNamePlaceholder'),
+      title: 'Yeni Ürün Oluştur',
+      placeholder: 'Ürün adını girin',
     });
 
     if (!name?.trim()) {
       if (name !== null) {
-        ToastService.show(t('home.emptyProductNameError'));
+        ToastService.show('Lütfen ürün için bir isim girin.');
       }
       return;
     }
@@ -401,11 +399,11 @@ export default function HomeScreen() {
     try {
       const newProduct = await createProduct(name.trim());
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-
+      
       // ✅ DÜZELTME: InteractionManager ile navigation'ı geciktir
       // Önce loading'i gizle, sonra animasyonlar bitince navigate et
       loadingRef.current?.hide();
-
+      
       // InteractionManager ile smooth transition sağla
       InteractionManager.runAfterInteractions(() => {
         setTimeout(() => {
@@ -415,12 +413,12 @@ export default function HomeScreen() {
           });
         }, 150); // Küçük bir delay ile daha smooth geçiş
       });
-
+      
     } catch (e: any) {
       loadingRef.current?.hide();
       ToastService.show(e.message);
     }
-  }, [createProduct, router, t]);
+  }, [createProduct, router]);
 
   const handleProductPress = useCallback((product: Product) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -443,23 +441,22 @@ export default function HomeScreen() {
       product={item}
       onPress={() => handleProductPress(item)}
       index={index}
-      t={t} // t prop'u geçirildi
     />
-  ), [handleProductPress, t]);
+  ), [handleProductPress]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <Stack.Screen options={{ title: t('home.title'), headerShown: false }} />
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerGreeting}>{t('home.hello', { name: firstName })}</Text>
+          <Text style={styles.headerGreeting}>Merhaba, {firstName}</Text>
           <Text style={styles.headerSubtitle}>
-            {products.length > 0 ? t('home.productCount', { count: products.length }) : t('home.readyToStart')}
+            {products.length > 0 ? `Toplam ${products.length} ürünün var.` : 'Başlamaya hazır mısın?'}
           </Text>
         </View>
         {user && (
           <ProfileAvatar
-            name={user.name || t('auth.guestLoginButton')} // Misafir kullanıcı adı lokalize edildi
+            name={user.name || 'Misafir Kullanıcı'}
             onPress={handleProfilePress}
           />
         )}
@@ -469,7 +466,6 @@ export default function HomeScreen() {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onClear={() => setSearchQuery('')}
-          t={t} // t prop'u geçirildi
         />
       )}
       <View style={styles.gridContainer}>
@@ -479,18 +475,18 @@ export default function HomeScreen() {
               <Feather name="package" size={64} color={Colors.gray300} />
             </View>
             <Text style={styles.emptyTitle}>
-              {searchQuery ? t('home.noResults') : t('home.noProducts')}
+              {searchQuery ? 'Sonuç Bulunamadı' : 'Henüz Ürün Yok'}
             </Text>
             <Text style={styles.emptySubtitle}>
               {searchQuery
-                ? t('home.noResultsSubtitle', { query: searchQuery })
-                : t('home.noProductsSubtitle')
+                ? `"${searchQuery}" için sonuç bulunamadı.`
+                : 'İlk ürününü oluşturmak için + butonuna dokun.'
               }
             </Text>
             {!searchQuery && (
               <TouchableOpacity style={styles.emptyButton} onPress={handleCreateNewProduct}>
                 <Feather name="plus" size={20} color={Colors.primary} />
-                <Text style={styles.emptyButtonText}>{t('home.createFirstProduct')}</Text>
+                <Text style={styles.emptyButtonText}>İlk Ürününü Oluştur</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -520,21 +516,7 @@ export default function HomeScreen() {
             initialNumToRender={15}
             removeClippedSubviews={true}
             isEmpty={filteredProducts.length === 0}
-            loadingComponent={
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.primary} />
-                <Text style={styles.loadingText}>{t('common.loading')}</Text>
-              </View>
-            }
-            emptyComponent={
-              <View style={styles.emptyContainer}>
-                <View style={styles.emptyIcon}>
-                  <Feather name="package" size={64} color={Colors.gray300} />
-                </View>
-                <Text style={styles.emptyTitle}>{t('common.noContent')}</Text>
-                <Text style={styles.emptySubtitle}>{t('common.contentWillAppearHere')}</Text>
-              </View>
-            }
+            loadingComponent={null}
           />
         )}
       </View>

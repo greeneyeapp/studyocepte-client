@@ -3,7 +3,6 @@ import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 import { captureRef } from 'react-native-view-shot';
 import { EditorSettings } from '@/stores/useEnhancedEditorStore';
-import i18n from '@/i18n'; // i18n import edildi
 
 export const imageProcessor = {
   /**
@@ -34,9 +33,9 @@ export const imageProcessor = {
       console.log('✅ High quality thumbnail moved to permanent location:', permanentUri);
       return permanentUri;
 
-    } catch (error: any) { // error type any eklendi
+    } catch (error) {
       console.error('❌ High quality thumbnail creation failed:', error);
-      throw new Error(i18n.t('imageProcessing.createThumbnailFailed')); // Lokalize edildi
+      throw new Error('Yüksek kalite thumbnail oluşturulamadı');
     }
   },
 
@@ -70,9 +69,9 @@ export const imageProcessor = {
 
       return permanentUri;
 
-    } catch (error: any) { // error type any eklendi
+    } catch (error) {
       console.error('❌ Failed to move to documents:', error);
-      throw new Error(i18n.t('imageProcessing.moveToPermanentFailed')); // Lokalize edildi
+      throw new Error('Dosya kalıcı konuma taşınamadı');
     }
   },
 
@@ -109,7 +108,7 @@ export const imageProcessor = {
       // Kalıcı konuma taşı
       const permanentUri = await imageProcessor.moveToDocuments(
         tempFiltered,
-        `filtered_hq_${Date.now()}.png`
+        `filtered_thumb_hq_${Date.now()}.png`
       );
 
       // Eğer farklı dosyalarsa geçici dosyayı da temizle
@@ -124,7 +123,7 @@ export const imageProcessor = {
       console.log('✅ HIGH QUALITY filtered thumbnail created (800x800 PNG)');
       return permanentUri;
 
-    } catch (error: any) { // error type any eklendi
+    } catch (error) {
       console.error('❌ High quality filtered thumbnail creation failed:', error);
       // Fallback: normal thumbnail oluştur
       return await imageProcessor.createThumbnail(originalUri, 'png');
@@ -170,7 +169,7 @@ export const imageProcessor = {
 
       return imageUri; // Değişiklik yoksa orijinal URI döndür
 
-    } catch (error: any) { // error type any eklendi
+    } catch (error) {
       console.error('❌ High quality filter application failed:', error);
       return imageUri; // Fallback: orijinal URI döndür
     }
@@ -209,9 +208,9 @@ export const imageProcessor = {
 
       return permanentUri;
 
-    } catch (error: any) { // error type any eklendi
+    } catch (error) {
       console.error('❌ High quality view capture failed:', error);
-      throw new Error(i18n.t('imageProcessing.captureFilteredThumbnailFailed')); // Lokalize edildi
+      throw new Error('Yüksek kalite filtered thumbnail capture başarısız');
     }
   },
 
@@ -269,9 +268,9 @@ export const imageProcessor = {
       // ⭐ GÜÇLÜ CACHE-BUSTING URI döndür
       return imageProcessor.createStrongCacheBustedUri(permanentUri, version, randomId);
 
-    } catch (error: any) { // error type any eklendi
+    } catch (error) {
       console.error('❌ High quality thumbnail save failed:', error);
-      throw new Error(`${i18n.t('imageProcessing.saveThumbnailFailed')}: ${error.message}`); // Lokalize edildi
+      throw new Error('Yüksek kalite thumbnail kaydedilemedi: ' + error.message);
     }
   },
 
@@ -384,15 +383,15 @@ export const imageProcessor = {
 
       const fileInfo = await FileSystem.getInfoAsync(permanentUri);
       if (!fileInfo.exists) {
-        throw new Error(i18n.t('imageProcessing.moveToPermanentFailed')); // Lokalize edildi
+        throw new Error('Dosya oluşturulamadı');
       }
 
       console.log('✅ HIGH QUALITY base64 file saved permanently:', permanentUri);
       return permanentUri;
 
-    } catch (error: any) { // error type any eklendi
+    } catch (error) {
       console.error('❌ Base64 file conversion failed:', error);
-      throw new Error(i18n.t('imageProcessing.base64ToFileFailed')); // Lokalize edildi
+      throw new Error('Base64 verisi dosyaya dönüştürülemedi');
     }
   },
 

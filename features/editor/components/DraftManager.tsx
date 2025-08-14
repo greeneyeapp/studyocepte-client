@@ -6,7 +6,6 @@ import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { useDraftRestore, draftUtils } from '../hooks/useDraftRestore';
 import { useEnhancedEditorStore, PhotoDraft } from '@/stores/useEnhancedEditorStore';
 import { ToastService } from '@/components/Toast/ToastService';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface DraftListItemProps {
   draft: PhotoDraft;
@@ -15,27 +14,26 @@ interface DraftListItemProps {
 }
 
 const DraftListItem: React.FC<DraftListItemProps> = ({ draft, onRestore, onDelete }) => {
-  const { t } = useTranslation(); // t hook'u kullanıldı
   const { changedSettings, hasSignificantChanges } = draftUtils.analyzeDraftChanges(draft);
-  const ageText = draftUtils.formatDraftAge(draft.timestamp, t); // t prop'u geçirildi
+  const ageText = draftUtils.formatDraftAge(draft.timestamp);
   const sizeText = draftUtils.estimateDraftSize(draft);
 
   return (
     <View style={styles.draftItem}>
       <View style={styles.draftInfo}>
-        <Text style={styles.draftTitle}>{t('editor.draftManager.photoId', { id: draft.photoId.slice(-8) })}</Text> {/* Lokalize edildi */}
+        <Text style={styles.draftTitle}>Fotoğraf: {draft.photoId.slice(-8)}</Text>
         <Text style={styles.draftSubtitle}>
-          {t('editor.draftManager.changes', { count: changedSettings })} • {ageText} • {sizeText} {/* Lokalize edildi */}
+          {changedSettings} değişiklik • {ageText} • {sizeText}
         </Text>
         {hasSignificantChanges && (
           <View style={styles.significantBadge}>
-            <Text style={styles.significantText}>{t('editor.draftManager.significantChanges')}</Text> {/* Lokalize edildi */}
+            <Text style={styles.significantText}>Önemli değişiklikler</Text>
           </View>
         )}
         {draft.autoSaved && (
           <View style={styles.autoSavedBadge}>
             <Feather name="clock" size={10} color={Colors.primary} />
-            <Text style={styles.autoSavedText}>{t('editor.draftManager.autoSaved')}</Text> {/* Lokalize edildi */}
+            <Text style={styles.autoSavedText}>Otomatik kaydedildi</Text>
           </View>
         )}
       </View>
@@ -67,24 +65,23 @@ interface DraftManagerProps {
 }
 
 export const DraftManager: React.FC<DraftManagerProps> = ({ visible, onClose }) => {
-  const { t } = useTranslation(); // t hook'u kullanıldı
   const { availableDrafts, handleManualRestore, refreshDrafts } = useDraftRestore();
   const { clearDraftForPhoto } = useEnhancedEditorStore();
 
   const handleDelete = useCallback((photoId: string) => {
     clearDraftForPhoto(photoId);
     refreshDrafts();
-    ToastService.show(t('editor.draftManager.draftClearSuccess')); // Lokalize edildi
-  }, [clearDraftForPhoto, refreshDrafts, t]);
+    ToastService.show('Taslak başarıyla silindi');
+  }, [clearDraftForPhoto, refreshDrafts]);
 
   const handleClearAll = useCallback(() => {
     availableDrafts.forEach(draft => {
       clearDraftForPhoto(draft.photoId);
     });
     refreshDrafts();
-    ToastService.show(t('editor.draftManager.multipleDraftsCleared', { count: availableDrafts.length })); // Lokalize edildi
+    ToastService.show(`${availableDrafts.length} taslak temizlendi`);
     onClose();
-  }, [availableDrafts, clearDraftForPhoto, refreshDrafts, onClose, t]);
+  }, [availableDrafts, clearDraftForPhoto, refreshDrafts, onClose]);
 
   if (!visible) return null;
 
@@ -92,11 +89,11 @@ export const DraftManager: React.FC<DraftManagerProps> = ({ visible, onClose }) 
     <View style={styles.overlay}>
       <View style={styles.modal}>
         <View style={styles.header}>
-          <Text style={styles.title}>{t('editor.draftManager.title')}</Text> {/* Lokalize edildi */}
+          <Text style={styles.title}>Kaydedilmemiş Taslaklar</Text>
           <View style={styles.headerActions}>
             {availableDrafts.length > 0 && (
               <TouchableOpacity onPress={handleClearAll} style={styles.clearAllButton}>
-                <Text style={styles.clearAllText}>{t('editor.draftManager.clearAll')}</Text> {/* Lokalize edildi */}
+                <Text style={styles.clearAllText}>Tümünü Sil</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -109,16 +106,17 @@ export const DraftManager: React.FC<DraftManagerProps> = ({ visible, onClose }) 
           {availableDrafts.length === 0 ? (
             <View style={styles.emptyState}>
               <Feather name="file-text" size={48} color={Colors.gray300} />
-              <Text style={styles.emptyTitle}>{t('editor.draftManager.noDrafts')}</Text> {/* Lokalize edildi */}
+              <Text style={styles.emptyTitle}>Taslak Bulunamadı</Text>
               <Text style={styles.emptySubtitle}>
-                {t('editor.draftManager.noDraftsSubtitle')} {/* Lokalize edildi */}
+                Henüz kaydedilmemiş değişiklik yok
               </Text>
             </View>
           ) : (
             <>
               <View style={styles.statsContainer}>
                 <Text style={styles.statsText}>
-                  {t('editor.draftManager.totalDrafts', { count: availableDrafts.length, autoSaved: availableDrafts.filter(d => d.autoSaved).length })} {/* Lokalize edildi */}
+                  Toplam {availableDrafts.length} taslak • 
+                  {availableDrafts.filter(d => d.autoSaved).length} otomatik
                 </Text>
               </View>
               {availableDrafts.map((draft) => (

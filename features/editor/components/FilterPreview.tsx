@@ -5,7 +5,6 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { FilterPreset } from '../config/filters';
 import { generateAdvancedImageStyle } from '../utils/cssFilterGenerator';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface FilterPreviewProps {
   filter: FilterPreset;
@@ -22,7 +21,6 @@ export const FilterPreview: React.FC<FilterPreviewProps> = ({
   isSelected,
   onPress,
 }) => {
-  const { t } = useTranslation(); // t hook'u kullanıldı
   // Filter ayarlarını CSS stiline çevir
   const filterStyle = generateAdvancedImageStyle(filter.settings, 'product', false);
 
@@ -59,7 +57,7 @@ export const FilterPreview: React.FC<FilterPreviewProps> = ({
         ]}
         numberOfLines={1}
       >
-        {t(`editor.filterNames.${filter.key}`)} {/* Lokalize edildi */}
+        {filter.name}
       </Text>
       
       {/* Seçili durumu göstergesi */}

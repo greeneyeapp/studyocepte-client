@@ -4,11 +4,10 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface FeatureButtonProps {
   icon: string;
-  label: string; // label prop'u artık doğrudan çeviri anahtarı değil, gösterilecek metin olacak
+  label: string;
   value: number;
   isActive: boolean;
   onPress: () => void;
@@ -27,7 +26,6 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
   productValue = 0,
   backgroundValue = 0,
 }) => {
-  const { t } = useTranslation(); // t hook'u kullanıldı
   const handlePress = () => {
     console.log('🔘 Feature button pressed:', label, 'Current value:', value, 'Active:', isActive);
     onPress();
@@ -143,7 +141,7 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
         minimumFontScale={0.75} // %75'e kadar küçülme
         textAlign="center"
       >
-        {label} {/* label prop'u doğrudan kullanıldı */}
+        {label}
       </Text>
       
       {/* Debug bilgisi */}

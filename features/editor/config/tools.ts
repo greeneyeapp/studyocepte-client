@@ -6,46 +6,46 @@ export type TargetType = 'product' | 'background' | 'all';
 export interface ToolConfig {
   key: ToolType;
   icon: string;
-  labelKey: string; // label yerine labelKey kullanıldı
-  descriptionKey?: string; // description yerine descriptionKey kullanıldı
+  label: string;
+  description?: string;
 }
 
 export interface TargetConfig {
   key: TargetType;
-  labelKey: string; // label yerine labelKey kullanıldı
-  descriptionKey?: string; // description yerine descriptionKey kullanıldı
+  label: string;
+  description?: string;
 }
 
 export const MAIN_TOOLS: ToolConfig[] = [
   {
     key: 'background',
     icon: 'image',
-    labelKey: 'editor.toolLabels.background', // Lokalize edildi
+    label: 'Arka Plan',
   },
   {
     key: 'adjust',
     icon: 'sliders',
-    labelKey: 'editor.toolLabels.adjust', // Lokalize edildi
+    label: 'Ayarla',
   },
   {
     key: 'filter',
     icon: 'filter',
-    labelKey: 'editor.toolLabels.filter', // Lokalize edildi
+    label: 'Filtreler',
   },
   {
     key: 'crop', // YENİ
     icon: 'crop',
-    labelKey: 'editor.toolLabels.crop', // Lokalize edildi
+    label: 'Kırp',
   },
   {
     key: 'export',
     icon: 'download',
-    labelKey: 'editor.toolLabels.export', // Lokalize edildi
+    label: 'Export',
   },
 ];
 
 export const TARGET_SELECTOR: TargetConfig[] = [
-  { key: 'product', labelKey: 'editor.targetLabels.product' }, // Lokalize edildi
-  { key: 'background', labelKey: 'editor.targetLabels.background' }, // Lokalize edildi
-  { key: 'all', labelKey: 'editor.targetLabels.all' }, // Lokalize edildi
+  { key: 'product', label: 'Ürün' },
+  { key: 'background', label: 'Arka Plan' },
+  { key: 'all', label: 'Tümü' },
 ];

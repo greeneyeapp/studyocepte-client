@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { backgroundThumbnailManager } from '@/services/backgroundThumbnailManager';
 
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 interface Background {
   id: string;
   name: string;
@@ -22,7 +21,6 @@ interface BackgroundLoadState {
  * This hook eliminates the white screen issue by properly managing loading states
  */
 export const useBackgroundLoader = (selectedBackground: Background | undefined) => {
-  const { t } = useTranslation(); // t hook'u kullanıldı
   const [loadState, setLoadState] = useState<BackgroundLoadState>({
     isLoading: false,
     hasError: false,
@@ -100,7 +98,7 @@ export const useBackgroundLoader = (selectedBackground: Background | undefined) 
           isLoading: false,
           hasError: true,
           resolvedUri: null,
-          errorMessage: error.message || t('backgrounds.loadFailed') // Lokalize edildi
+          errorMessage: error.message || 'Background yüklenemedi'
         });
       }
     };

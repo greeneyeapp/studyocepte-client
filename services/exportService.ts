@@ -4,7 +4,6 @@ import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { ExportPreset, ShareOption } from '@/features/editor/config/exportTools';
-import i18n from '@/i18n'; // i18n import edildi
 
 interface SharePayload {
   shareOption: ShareOption;
@@ -29,7 +28,7 @@ export class ExportService {
     // Dosyanın gerçekten oluştuğunu kontrol et
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
     if (!fileInfo.exists) {
-      throw new Error(i18n.t('imageProcessing.moveToPermanentFailed')); // Lokalize edildi
+      throw new Error('Dosya oluşturulamadı');
     }
     
     console.log('✅ File created successfully:', fileInfo.size, 'bytes');
@@ -45,7 +44,7 @@ export class ExportService {
 
     console.log('🚀 Starting export:', {
       shareType: shareOption.type,
-      preset: preset.nameKey, // nameKey kullanıldı
+      preset: preset.name,
       dimensions: preset.dimensions,
       format: preset.format
     });
@@ -53,11 +52,11 @@ export class ExportService {
     try {
       fileUri = await this.writeBase64ToFile(base64Data, filename);
 
-      if (shareOption.type === 'gallery') { // quick_custom kaldırıldı
+      if (shareOption.type === 'gallery' || shareOption.type === 'quick_custom') {
         // Galeri izni iste
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status !== 'granted') {
-          throw new Error(i18n.t('permissions.galleryMessage')); // Lokalize edildi
+          throw new Error('Galeri izni gerekli. Lütfen ayarlardan izin verin.');
         }
         
         // Galeriye kaydet
@@ -68,16 +67,16 @@ export class ExportService {
         // Generic paylaşım
         const isAvailable = await Sharing.isAvailableAsync();
         if (!isAvailable) {
-          throw new Error(i18n.t('common.sharingNotAvailable')); // Lokalize edildi
+          throw new Error('Paylaşım özelliği bu cihazda kullanılamıyor.');
         }
 
         await Sharing.shareAsync(fileUri, {
           mimeType: preset.format === 'png' ? 'image/png' : 'image/jpeg',
-          dialogTitle: i18n.t('common.shareTitle', { presetName: i18n.t(preset.nameKey) }), // Lokalize edildi
+          dialogTitle: `${preset.name} Paylaş`,
         });
         console.log('📤 Shared successfully');
       }
-    } catch (error: any) { // error type any eklendi
+    } catch (error) {
       console.error('❌ Export error:', error);
       throw error;
     } finally {
@@ -94,14 +93,38 @@ export class ExportService {
   }
 
   /**
-   * Hızlı export için özel fonksiyon (Kaldırıldı)
-   * static async quickExport(
-   *   base64Data: string, 
-   *   width: number, 
-   *   height: number
-   * ): Promise<void> {
-   *   // Bu fonksiyon artık kullanılmıyor ve kaldırıldı.
-   *   // İlgili çağıran yerlerin de güncellenmesi gerekmektedir.
-   * }
+   * Hızlı export için özel fonksiyon
    */
+  static async quickExport(
+    base64Data: string, 
+    width: number, 
+    height: number
+  ): Promise<void> {
+    const preset: ExportPreset = {
+      id: `quick_${Date.now()}`,
+      name: `Özel ${width}×${height}`,
+      description: `Hızlı export`,
+      dimensions: { width, height },
+      format: 'png',
+      quality: 0.95,
+      category: 'custom',
+      icon: 'zap',
+    };
+
+    const shareOption: ShareOption = {
+      id: 'quick_gallery',
+      name: 'Hızlı Kaydet',
+      icon: 'zap',
+      type: 'quick_custom',
+    };
+
+    const filename = `studyo-cepte-quick-${width}x${height}-${Date.now()}.png`;
+
+    await this.shareWithOption({
+      shareOption,
+      preset,
+      base64Data,
+      filename,
+    });
+  }
 }

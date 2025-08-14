@@ -8,16 +8,14 @@ import {
   ScrollView,
   Switch,
   StyleSheet,
-  Dimensions
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface SearchFilters {
   sortBy: 'name' | 'createdAt' | 'photoCount';
   sortOrder: 'asc' | 'desc';
-  hasPhotos: boolean | null; // true: only with photos, false: only without, null: both
+  hasPhotos: boolean | null;
   dateRange: { start?: Date; end?: Date } | null;
 }
 
@@ -38,9 +36,6 @@ export const EnhancedSearchBar: React.FC<EnhancedSearchBarProps> = ({
     hasPhotos: null,
     dateRange: null,
   });
-
-  // ✅ DÜZELTME: useTranslation hook'unu doğrudan kullan
-  const { t } = useTranslation();
 
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
@@ -112,21 +107,21 @@ export const EnhancedSearchBar: React.FC<EnhancedSearchBarProps> = ({
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowFilters(false)}>
-              <Text style={styles.modalCancel}>{t('common.cancel')}</Text>
+              <Text style={styles.modalCancel}>İptal</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>{t('common.filters')}</Text>
+            <Text style={styles.modalTitle}>Filtreler</Text>
             <TouchableOpacity onPress={clearFilters}>
-              <Text style={styles.modalClear}>{t('common.clear')}</Text>
+              <Text style={styles.modalClear}>Temizle</Text>
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.modalContent}>
             {/* Sort Options */}
             <View style={styles.filterSection}>
-              <Text style={styles.sectionTitle}>{t('common.sorting')}</Text>
+              <Text style={styles.sectionTitle}>Sıralama</Text>
               
               <View style={styles.filterRow}>
-                <Text style={styles.filterLabel}>{t('common.sortBy')}</Text>
+                <Text style={styles.filterLabel}>Sırala</Text>
                 <View style={styles.sortButtons}>
                   {(['name', 'createdAt', 'photoCount'] as const).map((option) => (
                     <TouchableOpacity
@@ -141,7 +136,7 @@ export const EnhancedSearchBar: React.FC<EnhancedSearchBarProps> = ({
                         styles.sortButtonText,
                         filters.sortBy === option && styles.sortButtonTextActive
                       ]}>
-                        {option === 'name' ? t('common.name') : option === 'createdAt' ? t('common.date') : t('common.photoCount')}
+                        {option === 'name' ? 'İsim' : option === 'createdAt' ? 'Tarih' : 'Fotoğraf Sayısı'}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -149,7 +144,7 @@ export const EnhancedSearchBar: React.FC<EnhancedSearchBarProps> = ({
               </View>
 
               <View style={styles.filterRow}>
-                <Text style={styles.filterLabel}>{t('common.order')}</Text>
+                <Text style={styles.filterLabel}>Düzen</Text>
                 <View style={styles.sortButtons}>
                   <TouchableOpacity
                     style={[
@@ -162,7 +157,7 @@ export const EnhancedSearchBar: React.FC<EnhancedSearchBarProps> = ({
                       styles.sortButtonText,
                       filters.sortOrder === 'asc' && styles.sortButtonTextActive
                     ]}>
-                      {t('common.ascending')}
+                      Artan
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -176,7 +171,7 @@ export const EnhancedSearchBar: React.FC<EnhancedSearchBarProps> = ({
                       styles.sortButtonText,
                       filters.sortOrder === 'desc' && styles.sortButtonTextActive
                     ]}>
-                      {t('common.descending')}
+                      Azalan
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -185,10 +180,10 @@ export const EnhancedSearchBar: React.FC<EnhancedSearchBarProps> = ({
 
             {/* Photo Filter */}
             <View style={styles.filterSection}>
-              <Text style={styles.sectionTitle}>{t('common.photoStatus')}</Text>
+              <Text style={styles.sectionTitle}>Fotoğraf Durumu</Text>
               
               <View style={styles.filterRow}>
-                <Text style={styles.filterLabel}>{t('common.productsWithPhotosOnly')}</Text>
+                <Text style={styles.filterLabel}>Sadece fotoğraflı ürünler</Text>
                 <Switch
                   value={filters.hasPhotos === true}
                   onValueChange={(value) => 
@@ -206,7 +201,7 @@ export const EnhancedSearchBar: React.FC<EnhancedSearchBarProps> = ({
               style={styles.applyButton}
               onPress={() => setShowFilters(false)}
             >
-              <Text style={styles.applyButtonText}>{t('common.apply')}</Text>
+              <Text style={styles.applyButtonText}>Uygula</Text>
             </TouchableOpacity>
           </View>
         </View>

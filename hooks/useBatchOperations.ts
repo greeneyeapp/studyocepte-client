@@ -1,11 +1,9 @@
 // hooks/useBatchOperations.ts - Düzeltilmiş
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { api, BatchOperation } from '@/services/api';
-import { ToastService } from '@/components/Toast/ToastService';
-import { useTranslation } from 'react-i18next';
+import { ToastService } from '@/components/Toast/ToastService'; // HATA DÜZELTİLDİ: Eksik import eklendi
 
 export const useBatchOperations = () => {
-  const { t } = useTranslation();
   const [operations, setOperations] = useState<Map<string, BatchOperation>>(new Map());
   const [isStarting, setIsStarting] = useState(false);
   const pollIntervals = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -70,11 +68,11 @@ export const useBatchOperations = () => {
         return newMap;
       });
       
-      ToastService.show(t('common.batchCancelledSuccess')); // Lokalize edildi
+      ToastService.show('Batch operation was cancelled successfully');
     } catch (error: any) {
       ToastService.show(error.message);
     }
-  }, [t]);
+  }, []);
 
   const getOperation = useCallback((batchId: string) => {
     return operations.get(batchId);

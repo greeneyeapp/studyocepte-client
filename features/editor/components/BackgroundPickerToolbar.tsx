@@ -5,7 +5,6 @@ import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { BACKGROUND_CATEGORIES, Background } from '../config/backgrounds';
 import { BackgroundItem } from './BackgroundItem';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 // Servisleri import et
 import { backgroundThumbnailManager } from '@/services/backgroundThumbnailManager';
@@ -25,7 +24,6 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
   selectedBackgroundId,
   onBackgroundSelect
 }) => {
-  const { t } = useTranslation(); // t hook'u kullanıldı
   const [activeCategory, setActiveCategory] = useState(BACKGROUND_CATEGORIES[0]?.id || 'home');
   const [categorySelected, setCategorySelected] = useState<boolean>(false); // ✅ YENİ: Kategori seçildi mi?
   const [resolvedThumbnails, setResolvedThumbnails] = useState<Map<string, string>>(new Map());
@@ -80,7 +78,7 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
             console.error(`❌ Thumbnail yükleme hatası for ${bg.id}:`, error.message);
             // Hata durumunda bile, diğerlerini etkilemeden boş bırak
             newResolvedMap.set(bg.id, ''); // Hata durumunda boş string veya özel bir placeholder URI
-            setThumbnailLoadError(t('editor.imageLoadError')); // Lokalize edildi
+            setThumbnailLoadError(`Görsel yüklenemedi: ${bg.id}`);
           }
         }
       });
@@ -98,7 +96,7 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
     return () => {
       isMounted = false; // Temizleme
     };
-  }, [activeCategoryData, categorySelected, t]); // t dependency eklendi
+  }, [activeCategoryData, categorySelected]); // ✅ categorySelected dependency eklendi
 
   // Hata durumu kontrolü (eğer kategori verisi yoksa)
   if (!activeCategoryData) {
@@ -106,8 +104,8 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Feather name="alert-triangle" size={24} color={Colors.error} />
-          <Text style={styles.errorText}>{t('editor.backgroundsLoadError')}</Text> {/* Lokalize edildi */}
-          <Text style={styles.errorSubtext}>{t('editor.backgroundsLoadErrorSub')}</Text> {/* Lokalize edildi */}
+          <Text style={styles.errorText}>Arka plan kategorileri yüklenemedi.</Text>
+          <Text style={styles.errorSubtext}>Lütfen uygulamayı yeniden başlatın.</Text>
         </View>
       </View>
     );
@@ -137,10 +135,10 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
             activeOpacity={0.7}
           >
             <Feather name="arrow-left" size={20} color={Colors.primary} />
-            <Text style={styles.backButtonText}>{t('editor.backgroundCategories')}</Text> {/* Lokalize edildi */}
+            <Text style={styles.backButtonText}>Kategoriler</Text>
           </TouchableOpacity>
           <Text style={styles.selectedCategoryTitle}>
-            {t(`backgrounds.category.${activeCategoryData.id}`)} {/* Kategori adı lokalize edildi */}
+            {activeCategoryData.name}
           </Text>
         </View>
       )}
@@ -172,10 +170,10 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
                   />
                 </View>
                 <Text style={styles.categoryText}>
-                  {t(`backgrounds.category.${category.id}`)} {/* Kategori adı lokalize edildi */}
+                  {category.name}
                 </Text>
                 <Text style={styles.categoryCount}>
-                  {category.backgrounds.length} {t('editor.imageCountLabel')} {/* Lokalize edildi */}
+                  {category.backgrounds.length} görsel
                 </Text>
               </TouchableOpacity>
             ))}
@@ -189,12 +187,12 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
           {loadingThumbnails ? (
             <View style={styles.loadingThumbnailsContainer}>
               <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.loadingThumbnailsText}>{t('editor.backgroundsLoading')}</Text> {/* Lokalize edildi */}
+              <Text style={styles.loadingThumbnailsText}>Arka planlar yükleniyor...</Text>
             </View>
           ) : thumbnailLoadError ? (
             <View style={styles.errorContainer}>
               <Feather name="image-off" size={24} color={Colors.error} />
-              <Text style={styles.errorText}>{t('editor.imageLoadError')}</Text> {/* Lokalize edildi */}
+              <Text style={styles.errorText}>Görsel yükleme hatası!</Text>
               <Text style={styles.errorSubtext}>{thumbnailLoadError}</Text>
             </View>
           ) : (

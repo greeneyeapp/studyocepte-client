@@ -4,7 +4,6 @@ import { Colors, BorderRadius, Typography, Spacing } from '@/constants';
 import { Feather } from '@expo/vector-icons';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface BackgroundRemovalAnimationProps {
   originalUri: string;
@@ -117,7 +116,6 @@ const FloatingIcon: React.FC<{ icon: string; delay: number; index: number; isAct
 export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProps> = ({
     originalUri, processedUri, isAnimating, onAnimationComplete
 }) => {
-    const { t } = useTranslation(); // t hook'u kullanıldı
     const slideAnim = useRef(new Animated.Value(0)).current;
     const [animationPhase, setAnimationPhase] = useState<'waiting' | 'sliding' | 'completed'>('waiting');
 
@@ -147,9 +145,9 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
     }, [isAnimating]);
 
     const getInfoText = () => {
-        if (animationPhase === 'sliding') return t('imageProcessing.backgroundsBeingCleaned');
-        if (animationPhase === 'completed') return t('imageProcessing.operationCompleted');
-        return t('imageProcessing.pleaseWait');
+        if (animationPhase === 'sliding') return "Arka Plan Temizleniyor...";
+        if (animationPhase === 'completed') return "İşlem Tamamlandı!";
+        return "Lütfen bekleyiniz...";
     };
 
     const imageWidth = modalWidth * 0.9;

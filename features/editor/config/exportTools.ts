@@ -1,10 +1,9 @@
 // features/editor/config/exportTools.ts - TAM VE EKSİKSİZ VERSİYON (KATEGORİ BAŞINA 10 PRESET)
-import i18n from '@/i18n'; // i18n import edildi
 
 export interface ExportPreset {
   id: string;
-  nameKey: string; // Lokalizasyon için nameKey eklendi
-  descriptionKey: string; // Lokalizasyon için descriptionKey eklendi
+  name: string;
+  description: string;
   dimensions: { width: number; height: number };
   format: 'jpg' | 'png';
   quality: number;
@@ -14,17 +13,17 @@ export interface ExportPreset {
 
 export interface ShareOption {
   id: string;
-  nameKey: string; // Lokalizasyon için nameKey eklendi
+  name: string;
   icon: string;
-  type: 'gallery' | 'generic'; // 'quick_custom' kaldırıldı
+  type: 'gallery' | 'generic';
 }
 
 export const EXPORT_PRESETS: ExportPreset[] = [
   // === SOSYAL MEDYA (Şimdi 10 Seçenek) ===
   { 
     id: 'instagram_square', 
-    nameKey: 'exportPresets.instagram_square.name', 
-    descriptionKey: 'exportPresets.instagram_square.description', 
+    name: 'Instagram Kare (1:1)', 
+    description: '1080x1080 - Akış gönderileri için ideal', 
     dimensions: { width: 1080, height: 1080 }, 
     format: 'jpg', 
     quality: 0.9, 
@@ -33,8 +32,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'instagram_story', 
-    nameKey: 'exportPresets.instagram_story.name', 
-    descriptionKey: 'exportPresets.instagram_story.description', 
+    name: 'Instagram Hikaye', 
+    description: '1080x1920 - Dikey story formatı', 
     dimensions: { width: 1080, height: 1920 }, 
     format: 'jpg', 
     quality: 0.9, 
@@ -43,8 +42,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'instagram_portrait', 
-    nameKey: 'exportPresets.instagram_portrait.name', 
-    descriptionKey: 'exportPresets.instagram_portrait.description', 
+    name: 'Instagram Dikey (4:5)', 
+    description: '1080x1350 - Portre gönderi formatı', 
     dimensions: { width: 1080, height: 1350 }, 
     format: 'jpg', 
     quality: 0.9, 
@@ -53,8 +52,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'youtube_thumbnail', 
-    nameKey: 'exportPresets.youtube_thumbnail.name', 
-    descriptionKey: 'exportPresets.youtube_thumbnail.description', 
+    name: 'YouTube Thumbnail', 
+    description: '1280x720 - Video kapak fotoğrafı', 
     dimensions: { width: 1280, height: 720 }, 
     format: 'jpg', 
     quality: 0.9, 
@@ -63,8 +62,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'facebook_post', 
-    nameKey: 'exportPresets.facebook_post.name', 
-    descriptionKey: 'exportPresets.facebook_post.description', 
+    name: 'Facebook Gönderi', 
+    description: '1200x630 - Yatay paylaşımlar için', 
     dimensions: { width: 1200, height: 630 }, 
     format: 'jpg', 
     quality: 0.85, 
@@ -73,8 +72,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'pinterest_pin', 
-    nameKey: 'exportPresets.pinterest_pin.name', 
-    descriptionKey: 'exportPresets.pinterest_pin.description', 
+    name: 'Pinterest Pin', 
+    description: '1000x1500 - Standart dikey Pin oranı', 
     dimensions: { width: 1000, height: 1500 }, 
     format: 'jpg', 
     quality: 0.9, 
@@ -83,8 +82,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'twitter_post', 
-    nameKey: 'exportPresets.twitter_post.name', 
-    descriptionKey: 'exportPresets.twitter_post.description', 
+    name: 'X (Twitter) Gönderi', 
+    description: '1600x900 - Geniş formatlı tweet görüntüsü', 
     dimensions: { width: 1600, height: 900 }, 
     format: 'png', 
     quality: 0.9, 
@@ -93,8 +92,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'snapchat_story',
-    nameKey: 'exportPresets.snapchat_story.name',
-    descriptionKey: 'exportPresets.snapchat_story.description',
+    name: 'Snapchat Hikaye',
+    description: '1080x1920 - Full ekran dikey görsel',
     dimensions: { width: 1080, height: 1920 },
     format: 'jpg',
     quality: 0.88,
@@ -103,8 +102,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'linkedin_post',
-    nameKey: 'exportPresets.linkedin_post.name',
-    descriptionKey: 'exportPresets.linkedin_post.description',
+    name: 'LinkedIn Gönderi',
+    description: '1200x627 - Profesyonel paylaşımlar için',
     dimensions: { width: 1200, height: 627 },
     format: 'jpg',
     quality: 0.9,
@@ -113,8 +112,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'tiktok_cover',
-    nameKey: 'exportPresets.tiktok_cover.name',
-    descriptionKey: 'exportPresets.tiktok_cover.description',
+    name: 'TikTok Kapak',
+    description: '1080x1920 - Dikey video kapak görseli',
     dimensions: { width: 1080, height: 1920 },
     format: 'jpg',
     quality: 0.88,
@@ -125,8 +124,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   // === E-TİCARET (Şimdi 10 Seçenek) ===
   { 
     id: 'trendyol_main', 
-    nameKey: 'exportPresets.trendyol_main.name', 
-    descriptionKey: 'exportPresets.trendyol_main.description', 
+    name: 'Trendyol', 
+    description: '1200x1800 - Dikey ürün fotoğrafı formatı', 
     dimensions: { width: 1200, height: 1800 }, 
     format: 'jpg', 
     quality: 0.9, 
@@ -135,8 +134,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'hepsiburada_main', 
-    nameKey: 'exportPresets.hepsiburada_main.name', 
-    descriptionKey: 'exportPresets.hepsiburada_main.description', 
+    name: 'Hepsiburada', 
+    description: '1500x1500 - Standart kare ürün fotoğrafı', 
     dimensions: { width: 1500, height: 1500 }, 
     format: 'jpg', 
     quality: 0.9, 
@@ -145,8 +144,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'amazon_main', 
-    nameKey: 'exportPresets.amazon_main.name', 
-    descriptionKey: 'exportPresets.amazon_main.description', 
+    name: 'Amazon', 
+    description: '2000x2000 - Yüksek çözünürlüklü kare format', 
     dimensions: { width: 2000, height: 2000 }, 
     format: 'jpg', 
     quality: 0.95, 
@@ -155,8 +154,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'shopify_product', 
-    nameKey: 'exportPresets.shopify_product.name', 
-    descriptionKey: 'exportPresets.shopify_product.description', 
+    name: 'Shopify', 
+    description: '2048x2048 - Yüksek kaliteli kare ürün görseli', 
     dimensions: { width: 2048, height: 2048 }, 
     format: 'jpg', 
     quality: 0.92, 
@@ -165,8 +164,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'etsy_listing', 
-    nameKey: 'exportPresets.etsy_listing.name', 
-    descriptionKey: 'exportPresets.etsy_listing.description', 
+    name: 'Etsy', 
+    description: '2700x2025 - Yatay listeleme fotoğrafı (4:3)', 
     dimensions: { width: 2700, height: 2025 }, 
     format: 'jpg', 
     quality: 0.92, 
@@ -175,8 +174,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'generic_ecommerce', 
-    nameKey: 'exportPresets.generic_ecommerce.name', 
-    descriptionKey: 'exportPresets.generic_ecommerce.description', 
+    name: 'Genel E-ticaret Kare', 
+    description: '1000x1000 - Çoğu platformla uyumlu standart boyut', 
     dimensions: { width: 1000, height: 1000 }, 
     format: 'jpg', 
     quality: 0.85, 
@@ -185,8 +184,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'ebay_listing',
-    nameKey: 'exportPresets.ebay_listing.name',
-    descriptionKey: 'exportPresets.ebay_listing.description',
+    name: 'eBay Listeleme',
+    description: '1600x1600 - eBay ürün görselleri için',
     dimensions: { width: 1600, height: 1600 },
     format: 'jpg',
     quality: 0.9,
@@ -195,8 +194,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'aliexpress_product',
-    nameKey: 'exportPresets.aliexpress_product.name',
-    descriptionKey: 'exportPresets.aliexpress_product.description',
+    name: 'AliExpress Ürün',
+    description: '800x800 - AliExpress için kare format',
     dimensions: { width: 800, height: 800 },
     format: 'jpg',
     quality: 0.8,
@@ -205,8 +204,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'google_shopping',
-    nameKey: 'exportPresets.google_shopping.name',
-    descriptionKey: 'exportPresets.google_shopping.description',
+    name: 'Google Alışveriş',
+    description: '1200x1200 - Google Merchant Center için kare',
     dimensions: { width: 1200, height: 1200 },
     format: 'jpg',
     quality: 0.9,
@@ -215,8 +214,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'z_fashion_platform',
-    nameKey: 'exportPresets.z_fashion_platform.name',
-    descriptionKey: 'exportPresets.z_fashion_platform.description',
+    name: 'Moda Platformu',
+    description: '1080x1440 - Dikey moda görselleri için',
     dimensions: { width: 1080, height: 1440 },
     format: 'jpg',
     quality: 0.88,
@@ -227,8 +226,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   // === WEB & DİJİTAL (Şimdi 10 Seçenek) ===
   { 
     id: 'web_hero', 
-    nameKey: 'exportPresets.web_hero.name', 
-    descriptionKey: 'exportPresets.web_hero.description', 
+    name: 'Website Hero Image', 
+    description: '1920x1080 - Full HD ana görsel formatı', 
     dimensions: { width: 1920, height: 1080 }, 
     format: 'jpg', 
     quality: 0.88, 
@@ -237,8 +236,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'web_banner_wide', 
-    nameKey: 'exportPresets.web_banner_wide.name', 
-    descriptionKey: 'exportPresets.web_banner_wide.description', 
+    name: 'Geniş Banner', 
+    description: '728x90 - "Leaderboard" reklam banner formatı', 
     dimensions: { width: 728, height: 90 }, 
     format: 'png', 
     quality: 0.9, 
@@ -247,8 +246,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'web_banner_square', 
-    nameKey: 'exportPresets.web_banner_square.name', 
-    descriptionKey: 'exportPresets.web_banner_square.description', 
+    name: 'Kare Banner', 
+    description: '300x250 - "Medium Rectangle" reklam formatı', 
     dimensions: { width: 300, height: 250 }, 
     format: 'png', 
     quality: 0.9, 
@@ -257,8 +256,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'web_blog_featured', 
-    nameKey: 'exportPresets.web_blog_featured.name', 
-    descriptionKey: 'exportPresets.web_blog_featured.description', 
+    name: 'Öne Çıkan Blog Görseli', 
+    description: '1200x800 - Blog makaleleri için standart görsel', 
     dimensions: { width: 1200, height: 800 }, 
     format: 'jpg', 
     quality: 0.85, 
@@ -267,8 +266,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'web_favicon', 
-    nameKey: 'exportPresets.web_favicon.name', 
-    descriptionKey: 'exportPresets.web_favicon.description', 
+    name: 'Favicon', 
+    description: '64x64 - Website ikonu, şeffaf arka plan', 
     dimensions: { width: 64, height: 64 }, 
     format: 'png', 
     quality: 1.0, 
@@ -277,8 +276,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'email_header', 
-    nameKey: 'exportPresets.email_header.name', 
-    descriptionKey: 'exportPresets.email_header.description', 
+    name: 'E-posta Başlığı', 
+    description: '600x200 - E-bülten ve e-posta başlık görseli', 
     dimensions: { width: 600, height: 200 }, 
     format: 'jpg', 
     quality: 0.85, 
@@ -287,8 +286,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'web_profile_banner',
-    nameKey: 'exportPresets.web_profile_banner.name',
-    descriptionKey: 'exportPresets.web_profile_banner.description',
+    name: 'Web Profil Banner',
+    description: '1500x500 - Web profil sayfaları için banner',
     dimensions: { width: 1500, height: 500 },
     format: 'jpg',
     quality: 0.88,
@@ -297,8 +296,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'mobile_wallpaper',
-    nameKey: 'exportPresets.mobile_wallpaper.name',
-    descriptionKey: 'exportPresets.mobile_wallpaper.description',
+    name: 'Mobil Duvar Kağıdı',
+    description: '1080x1920 - Genel mobil cihazlar için',
     dimensions: { width: 1080, height: 1920 },
     format: 'jpg',
     quality: 0.9,
@@ -307,8 +306,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'desktop_wallpaper_hd',
-    nameKey: 'exportPresets.desktop_wallpaper_hd.name',
-    descriptionKey: 'exportPresets.desktop_wallpaper_hd.description',
+    name: 'Masaüstü Duvar Kağıdı (HD)',
+    description: '1920x1080 - Genel masaüstü cihazlar için',
     dimensions: { width: 1920, height: 1080 },
     format: 'jpg',
     quality: 0.9,
@@ -317,8 +316,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'newsletter_ad_small',
-    nameKey: 'exportPresets.newsletter_ad_small.name',
-    descriptionKey: 'exportPresets.newsletter_ad_small.description',
+    name: 'E-posta Reklamı (Küçük)',
+    description: '320x100 - E-posta bültenleri için küçük reklam alanı',
     dimensions: { width: 320, height: 100 },
     format: 'png',
     quality: 0.85,
@@ -329,8 +328,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   // === BASKI (Şimdi 10 Seçenek) ===
   { 
     id: 'print_a4', 
-    nameKey: 'exportPresets.print_a4.name', 
-    descriptionKey: 'exportPresets.print_a4.description', 
+    name: 'A4 Kağıt (300 DPI)', 
+    description: '2480x3508px - Katalog ve belge baskısı', 
     dimensions: { width: 2480, height: 3508 }, 
     format: 'png', 
     quality: 1.0, 
@@ -339,8 +338,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'print_a5', 
-    nameKey: 'exportPresets.print_a5.name', 
-    descriptionKey: 'exportPresets.print_a5.description', 
+    name: 'A5 Kağıt (300 DPI)', 
+    description: '1748x2480px - Broşür ve el ilanı baskısı', 
     dimensions: { width: 1748, height: 2480 }, 
     format: 'png', 
     quality: 1.0, 
@@ -349,8 +348,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'print_10x15', 
-    nameKey: 'exportPresets.print_10x15.name', 
-    descriptionKey: 'exportPresets.print_10x15.description', 
+    name: '10x15 Fotoğraf Baskı', 
+    description: '1181x1772px - Standart fotoğraf stüdyosu baskısı', 
     dimensions: { width: 1181, height: 1772 }, 
     format: 'jpg', 
     quality: 0.98, 
@@ -359,8 +358,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'print_13x18', 
-    nameKey: 'exportPresets.print_13x18.name', 
-    descriptionKey: 'exportPresets.print_13x18.description', 
+    name: '13x18 Fotoğraf Baskı', 
+    description: '1535x2126px - Büyük boy fotoğraf baskısı', 
     dimensions: { width: 1535, height: 2126 }, 
     format: 'jpg', 
     quality: 0.98, 
@@ -369,8 +368,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'print_business_card', 
-    nameKey: 'exportPresets.print_business_card.name', 
-    descriptionKey: 'exportPresets.print_business_card.description', 
+    name: 'Kartvizit (EU Standard)', 
+    description: '1004x650px - Standart 85x55mm kartvizit baskısı', 
     dimensions: { width: 1004, height: 650 }, 
     format: 'png', 
     quality: 1.0, 
@@ -379,8 +378,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'print_poster', 
-    nameKey: 'exportPresets.print_poster.name', 
-    descriptionKey: 'exportPresets.print_poster.description', 
+    name: 'Afiş (A3)', 
+    description: '3508x4961px - A3 boyutunda afiş baskısı', 
     dimensions: { width: 3508, height: 4961 }, 
     format: 'png', 
     quality: 1.0, 
@@ -389,8 +388,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'print_flyer_a6',
-    nameKey: 'exportPresets.print_flyer_a6.name',
-    descriptionKey: 'exportPresets.print_flyer_a6.description',
+    name: 'El İlanı (A6)',
+    description: '1240x1748px - Küçük el ilanları için',
     dimensions: { width: 1240, height: 1748 },
     format: 'png',
     quality: 0.98,
@@ -399,8 +398,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'print_post_card_a6',
-    nameKey: 'exportPresets.print_post_card_a6.name',
-    descriptionKey: 'exportPresets.print_post_card_a6.description',
+    name: 'Kartpostal (A6 Yatay)',
+    description: '1748x1240px - Standart kartpostal boyutu',
     dimensions: { width: 1748, height: 1240 },
     format: 'jpg',
     quality: 0.95,
@@ -409,8 +408,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'print_us_letter',
-    nameKey: 'exportPresets.print_us_letter.name',
-    descriptionKey: 'exportPresets.print_us_letter.description',
+    name: 'US Letter (300 DPI)',
+    description: '2550x3300px - Amerikan standart doküman boyutu',
     dimensions: { width: 2550, height: 3300 },
     format: 'png',
     quality: 1.0,
@@ -419,8 +418,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'print_magazine_spread',
-    nameKey: 'exportPresets.print_magazine_spread.name',
-    descriptionKey: 'exportPresets.print_magazine_spread.description',
+    name: 'Dergi Sayfa (Çift)',
+    description: '5100x3300px - Dergi içi çift sayfa reklam',
     dimensions: { width: 5100, height: 3300 },
     format: 'png',
     quality: 1.0,
@@ -431,8 +430,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   // === ÖZEL (Şimdi 10 Seçenek) ===
   { 
     id: 'custom_widescreen', 
-    nameKey: 'exportPresets.custom_widescreen.name', 
-    descriptionKey: 'exportPresets.custom_widescreen.description', 
+    name: 'Geniş Ekran (16:9)', 
+    description: '1920x1080 - TV ve monitör görüntüleme oranı', 
     dimensions: { width: 1920, height: 1080 }, 
     format: 'png', 
     quality: 0.95, 
@@ -441,8 +440,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'custom_classic_photo', 
-    nameKey: 'exportPresets.custom_classic_photo.name', 
-    descriptionKey: 'exportPresets.custom_classic_photo.description', 
+    name: 'Klasik Fotoğraf (3:2)', 
+    description: '1080x720 - 35mm film fotoğrafı oranı', 
     dimensions: { width: 1080, height: 720 }, 
     format: 'png', 
     quality: 0.95, 
@@ -451,8 +450,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'custom_portrait', 
-    nameKey: 'exportPresets.custom_portrait.name', 
-    descriptionKey: 'exportPresets.custom_portrait.description', 
+    name: 'Dikey Portre (2:3)', 
+    description: '720x1080 - Dikey fotoğraf portre oranı', 
     dimensions: { width: 720, height: 1080 }, 
     format: 'png', 
     quality: 0.95, 
@@ -461,8 +460,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'custom_cinematic', 
-    nameKey: 'exportPresets.custom_cinematic.name', 
-    descriptionKey: 'exportPresets.custom_cinematic.description', 
+    name: 'Sinematik (21:9)', 
+    description: '2560x1080 - Ultra geniş sinema ekranı oranı', 
     dimensions: { width: 2560, height: 1080 }, 
     format: 'png', 
     quality: 0.95, 
@@ -471,8 +470,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'custom_square_hd', 
-    nameKey: 'exportPresets.custom_square_hd.name', 
-    descriptionKey: 'exportPresets.custom_square_hd.description', 
+    name: 'HD Kare', 
+    description: '1920x1920 - Yüksek çözünürlüklü kare format', 
     dimensions: { width: 1920, height: 1920 }, 
     format: 'png', 
     quality: 0.95, 
@@ -481,8 +480,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   { 
     id: 'custom_a4_landscape', 
-    nameKey: 'exportPresets.custom_a4_landscape.name', 
-    descriptionKey: 'exportPresets.custom_a4_landscape.description', 
+    name: 'A4 Yatay', 
+    description: '3508x2480px - Yatay A4 belge/sunum formatı', 
     dimensions: { width: 3508, height: 2480 }, 
     format: 'png', 
     quality: 0.95, 
@@ -491,8 +490,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'custom_4k_uhd',
-    nameKey: 'exportPresets.custom_4k_uhd.name',
-    descriptionKey: 'exportPresets.custom_4k_uhd.description',
+    name: '4K Ultra HD',
+    description: '3840x2160 - Ultra yüksek çözünürlüklü ekranlar için',
     dimensions: { width: 3840, height: 2160 },
     format: 'png',
     quality: 0.98,
@@ -501,8 +500,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'custom_long_vertical',
-    nameKey: 'exportPresets.custom_long_vertical.name',
-    descriptionKey: 'exportPresets.custom_long_vertical.description',
+    name: 'Uzun Dikey',
+    description: '800x2000 - Özel dikey tasarımlar için',
     dimensions: { width: 800, height: 2000 },
     format: 'png',
     quality: 0.95,
@@ -511,8 +510,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'custom_ultra_wide_monitor',
-    nameKey: 'exportPresets.custom_ultra_wide_monitor.name',
-    descriptionKey: 'exportPresets.custom_ultra_wide_monitor.description',
+    name: 'Ultra Geniş Monitör',
+    description: '3440x1440 - Geniş formatlı monitörler için',
     dimensions: { width: 3440, height: 1440 },
     format: 'png',
     quality: 0.95,
@@ -521,8 +520,8 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   },
   {
     id: 'custom_square_small',
-    nameKey: 'exportPresets.custom_square_small.name',
-    descriptionKey: 'exportPresets.custom_square_small.description',
+    name: 'Küçük Kare',
+    description: '500x500 - Özel küçük kare boyutları',
     dimensions: { width: 500, height: 500 },
     format: 'jpg',
     quality: 0.8,
@@ -534,24 +533,24 @@ export const EXPORT_PRESETS: ExportPreset[] = [
 export const SHARE_OPTIONS: ShareOption[] = [
   { 
     id: 'gallery', 
-    nameKey: 'editor.shareOptions.gallery', 
+    name: 'Galeriye Kaydet', 
     icon: 'download', 
     type: 'gallery' 
   },
   { 
     id: 'share', 
-    nameKey: 'editor.shareOptions.share', 
+    name: 'Paylaş...', 
     icon: 'share-2', 
     type: 'generic' 
   },
 ];
 
 export const EXPORT_CATEGORIES = [
-  { key: 'social', nameKey: 'editor.presetCategories.social', icon: 'share-2' },
-  { key: 'marketplace', nameKey: 'editor.presetCategories.marketplace', icon: 'shopping-cart' },
-  { key: 'web', nameKey: 'editor.presetCategories.web', icon: 'globe' },
-  { key: 'print', nameKey: 'editor.presetCategories.print', icon: 'printer' },
-  { key: 'custom', nameKey: 'editor.presetCategories.custom', icon: 'settings' }
+  { key: 'social', name: 'Sosyal Medya', icon: 'share-2' },
+  { key: 'marketplace', name: 'E-ticaret', icon: 'shopping-cart' },
+  { key: 'web', name: 'Web', icon: 'globe' },
+  { key: 'print', name: 'Baskı', icon: 'printer' },
+  { key: 'custom', name: 'Özel', icon: 'settings' }
 ] as const;
 
 // === UTILITY FONKSİYONLARI ===
@@ -663,14 +662,14 @@ export const validateCustomDimensions = (width: number, height: number): {
   if (width < MIN_SIZE || height < MIN_SIZE) {
     return {
       isValid: false,
-      message: i18n.t('editor.minDimensionError', { minSize: MIN_SIZE }) // Lokalize edildi
+      message: `Minimum boyut ${MIN_SIZE}x${MIN_SIZE} piksel olmalıdır`
     };
   }
   
   if (width > MAX_SIZE || height > MAX_SIZE) {
     return {
       isValid: false,
-      message: i18n.t('editor.maxDimensionError', { maxSize: MAX_SIZE }) // Lokalize edildi
+      message: `Maksimum boyut ${MAX_SIZE}x${MAX_SIZE} piksel olmalıdır`
     };
   }
   
@@ -680,7 +679,7 @@ export const validateCustomDimensions = (width: number, height: number): {
   if (totalPixels > MAX_PIXELS) {
     return {
       isValid: false,
-      message: i18n.t('editor.maxPixelCountError') // Lokalize edildi
+      message: 'Toplam piksel sayısı çok büyük. Daha küçük boyutlar deneyin.'
     };
   }
   
@@ -688,9 +687,7 @@ export const validateCustomDimensions = (width: number, height: number): {
 };
 
 /**
- * Dinamik preset oluşturur.
- * nameKey ve descriptionKey, i18n dosyalarındaki anahtarlara referans verir.
- * Gösterilirken dinamik değerler (width, height) interpolate edilmelidir.
+ * Dinamik preset oluşturur
  */
 export const createCustomPreset = (
   width: number, 
@@ -699,7 +696,7 @@ export const createCustomPreset = (
   format: 'jpg' | 'png' = 'png'
 ): ExportPreset => {
   const aspectRatio = width / height;
-  const defaultNameKey = name || 'exportPresets.customGeneratedName'; // Ham metin yerine anahtar
+  const defaultName = name || `Özel ${width}×${height}`;
   
   // En boy oranına göre kategori belirle
   let category: ExportPreset['category'] = 'custom';
@@ -708,9 +705,9 @@ export const createCustomPreset = (
   else if (aspectRatio < 0.8) category = 'social';
   
   return {
-    id: `custom_${width}x${height}_${Date.now()}`, // Unique ID
-    nameKey: defaultNameKey, // Bu bir i18n anahtarı olacak, bileşen tarafında {width, height} ile çevrilecek
-    descriptionKey: 'exportPresets.customGeneratedDescription', // Bu da bir i18n anahtarı olacak
+    id: `custom_${width}x${height}_${Date.now()}`,
+    name: defaultName,
+    description: `Kullanıcı tanımlı ${width}×${height} boyutu`,
     dimensions: { width, height },
     format,
     quality: format === 'png' ? 0.95 : 0.9,

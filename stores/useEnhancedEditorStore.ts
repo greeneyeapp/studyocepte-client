@@ -8,7 +8,6 @@ import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/f
 import { TargetType } from '@/features/editor/config/tools';
 import { useProductStore, ProductPhoto } from './useProductStore';
 import { imageProcessor } from '@/services/imageProcessor';
-import i18n from '@/i18n'; // i18n import edildi
 
 /**
  * Editor'da kullanılabilecek tüm ayarları içeren kapsamlı arayüz
@@ -313,19 +312,18 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
             hasDraftChanges: false
           });
 
-          // Lokalize edildi
-          ToastService.show(previewRef ? i18n.t('editor.changesSavedAndThumbnail') : i18n.t('editor.settingsSaved'));
+          ToastService.show(previewRef ? 'Yüksek kalite değişiklikler ve thumbnail kaydedildi' : 'Ayarlar kaydedildi');
 
           console.log('✅ HIGH QUALITY saveChanges completed successfully');
 
-        } catch (error: any) { // error type any eklendi
+        } catch (error: any) {
           console.error('❌ HIGH QUALITY save failed:', error);
           set({
             isSaving: false,
-            thumbnailError: error.message || i18n.t('editor.settingsSaveFailed') // Lokalize edildi
+            thumbnailError: error.message || 'Kayıt başarısız'
           });
 
-          ToastService.show(error.message || i18n.t('editor.settingsSaveFailed')); // Lokalize edildi
+          ToastService.show(error.message || 'Yüksek kalite değişiklikler kaydedilemedi.');
 
           throw error;
         }
@@ -556,11 +554,11 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
           console.log('✅ HIGH QUALITY thumbnail update completed successfully (800x800 PNG)');
 
-        } catch (error: any) { // error type any eklendi
+        } catch (error: any) {
           console.error('❌ HIGH QUALITY thumbnail update failed:', error);
           set({
             isUpdatingThumbnail: false,
-            thumbnailError: error.message || i18n.t('editor.thumbnailUpdateFailed') // Lokalize edildi
+            thumbnailError: error.message || 'Yüksek kalite thumbnail güncellenemedi'
           });
 
           // Hata durumunda da cache'i temizle
@@ -625,7 +623,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         get().updateSettings({ visualCrop });
         get().addSnapshotToHistory();
 
-        ToastService.show(i18n.t('editor.cropApplied')); // Lokalize edildi
+        ToastService.show('Yüksek kalite kırpma ayarları başarıyla uygulandı');
       },
 
       clearStore: () => {

@@ -2,10 +2,8 @@
 import { useState, useCallback } from 'react';
 import { api, SecurityInfo, FileValidationResult } from '@/services/api';
 import { ToastService } from '@/components/Toast/ToastService'; // HATA DÜZELTİLDİ: Eksik import eklendi
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 export const useSecurityValidation = () => {
-  const { t } = useTranslation(); // t hook'u kullanıldı
   const [securityInfo, setSecurityInfo] = useState<SecurityInfo | null>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
@@ -49,13 +47,13 @@ export const useSecurityValidation = () => {
   const reportSecurityIssue = useCallback(async (description: string) => {
     try {
       const result = await api.reportSecurityIssue(description); // Artık hata vermeyecek
-      ToastService.show(t('common.success')); // Reference ID'sini göstermek yerine genel bir başarı mesajı
+      ToastService.show(`Reference ID: ${result.reference_id}`);
       return result;
     } catch (error: any) {
       ToastService.show(error.message);
       throw error;
     }
-  }, [t]);
+  }, []);
 
   const checkRateLimit = useCallback(async () => {
     try {

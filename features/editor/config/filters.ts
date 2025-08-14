@@ -2,9 +2,9 @@
 
 export interface FilterPreset {
   key: string;
-  nameKey: string; // Lokalizasyon için nameKey eklendi
-  descriptionKey?: string; // Lokalizasyon için descriptionKey eklendi
+  name: string;
   settings: Record<string, number>;
+  description?: string;
 }
 
 /**
@@ -15,14 +15,13 @@ export interface FilterPreset {
 export const ALL_FILTERS: FilterPreset[] = [
   {
     key: 'original',
-    nameKey: 'editor.filterNames.original', // Lokalize edildi
-    descriptionKey: 'editor.filterNames.original', // Lokalize edildi
+    name: 'Orijinal',
     settings: {},
+    description: 'Uygulanan tüm ayarları sıfırlar.',
   },
   {
     key: 'clean_ecommerce',
-    nameKey: 'editor.filterNames.clean_ecommerce', // Lokalize edildi
-    descriptionKey: 'editor.filterNames.clean_ecommerce', // Lokalize edildi
+    name: 'Temiz E-Ticaret',
     settings: {
       product_exposure: 10,
       product_brightness: 5,
@@ -31,11 +30,11 @@ export const ALL_FILTERS: FilterPreset[] = [
       background_exposure: 15,
       background_brightness: 10,
     },
+    description: 'Ürünü öne çıkaran, aydınlık, net ve ticari çekimler için ideal görünüm.',
   },
   {
     key: 'vivid_pop',
-    nameKey: 'editor.filterNames.vivid_pop', // Lokalize edildi
-    descriptionKey: 'editor.filterNames.vivid_pop', // Lokalize edildi
+    name: 'Canlı Pop',
     settings: {
       product_vibrance: 30,
       product_contrast: 15,
@@ -43,11 +42,11 @@ export const ALL_FILTERS: FilterPreset[] = [
       background_saturation: 15,
       background_contrast: 5,
     },
+    description: 'Renkleri patlatan, enerjik ve dikkat çekici bir stil.',
   },
   {
     key: 'dramatic_contrast',
-    nameKey: 'editor.filterNames.dramatic_contrast', // Lokalize edildi
-    descriptionKey: 'editor.filterNames.dramatic_contrast', // Lokalize edildi
+    name: 'Dramatik Kontrast',
     settings: {
       product_contrast: 35,
       product_clarity: 25,
@@ -56,11 +55,11 @@ export const ALL_FILTERS: FilterPreset[] = [
       background_exposure: -10,
       background_vignette: 40,
     },
+    description: 'Derin gölgeler ve güçlü vurgularla etkileyici ve çarpıcı bir hava.',
   },
   {
     key: 'vintage_dream',
-    nameKey: 'editor.filterNames.vintage_dream', // Lokalize edildi
-    descriptionKey: 'editor.filterNames.vintage_dream', // Lokalize edildi
+    name: 'Vintage Rüya',
     settings: {
       product_warmth: 20,
       product_contrast: -15,
@@ -71,11 +70,11 @@ export const ALL_FILTERS: FilterPreset[] = [
       background_vignette: 50,
       background_blur: 5,
     },
+    description: 'Sıcak tonlar, soluk siyahlar ve vinyet ile nostaljik film estetiği.',
   },
   {
     key: 'cinematic_teal_orange',
-    nameKey: 'editor.filterNames.cinematic_teal_orange', // Lokalize edildi
-    descriptionKey: 'editor.filterNames.cinematic_teal_orange', // Lokalize edildi
+    name: 'Sinematik (T&O)',
     settings: {
       product_warmth: 15,    // Ürünü turuncuya/sıcağa çeker
       product_contrast: 20,
@@ -84,11 +83,11 @@ export const ALL_FILTERS: FilterPreset[] = [
       background_contrast: 10,
       background_vignette: 30,
     },
+    description: 'Popüler "Teal & Orange" renk paletiyle modern film görünümü.',
   },
   {
     key: 'golden_hour',
-    nameKey: 'editor.filterNames.golden_hour', // Lokalize edildi
-    descriptionKey: 'editor.filterNames.golden_hour', // Lokalize edildi
+    name: 'Altın Saat',
     settings: {
       product_warmth: 35,
       product_exposure: 5,
@@ -98,11 +97,11 @@ export const ALL_FILTERS: FilterPreset[] = [
       background_exposure: 10,
       background_blur: 8,
     },
+    description: 'Gün batımının yumuşak ve sıcak ışığını taklit eden büyülü tonlar.',
   },
   {
     key: 'film_noir',
-    nameKey: 'editor.filterNames.film_noir', // Lokalize edildi
-    descriptionKey: 'editor.filterNames.film_noir', // Lokalize edildi
+    name: 'Film Noir',
     settings: {
       product_saturation: -100,
       background_saturation: -100,
@@ -113,11 +112,11 @@ export const ALL_FILTERS: FilterPreset[] = [
       background_vignette: 35,
       background_exposure: -15,
     },
+    description: 'Yüksek kontrastlı, grenli ve gizemli klasik siyah beyaz film stili.',
   },
   {
     key: 'soft_portrait',
-    nameKey: 'editor.filterNames.soft_portrait', // Lokalize edildi
-    descriptionKey: 'editor.filterNames.soft_portrait', // Lokalize edildi
+    name: 'Yumuşak Portre',
     settings: {
       product_clarity: -15, // Cildi veya yüzeyi yumuşatır
       product_warmth: 10,
@@ -127,11 +126,11 @@ export const ALL_FILTERS: FilterPreset[] = [
       background_exposure: 5,
       background_saturation: -10,
     },
+    description: 'Özneyi yumuşatarak öne çıkaran ve arka planı bulanıklaştıran portre filtresi.',
   },
   {
     key: 'arctic_blue',
-    nameKey: 'editor.filterNames.arctic_blue', // Lokalize edildi
-    descriptionKey: 'editor.filterNames.arctic_blue', // Lokalize edildi
+    name: 'Arktik Mavi',
     settings: {
         product_warmth: -25,
         product_contrast: 10,
@@ -140,5 +139,6 @@ export const ALL_FILTERS: FilterPreset[] = [
         background_exposure: 10,
         background_contrast: 5,
     },
+    description: 'Soğuk, temiz ve modern bir görünüm için buzlu mavi tonları.',
   }
 ];

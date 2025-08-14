@@ -10,7 +10,6 @@ import { useEditorGestures } from '../hooks/useEditorGestures';
 import { SimpleVignetteOverlay } from './VignetteOverlay';
 import { generateAdvancedImageStyle } from '../utils/cssFilterGenerator';
 import { CropOverlay } from './CropOverlay';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface EditorPreviewProps {
   activePhoto: ProductPhoto;
@@ -31,7 +30,6 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   onShowOriginalChange, onLayout, updateSettings, previewSize, isCropping,
   style
 }, ref) => {
-  const { t } = useTranslation(); // t hook'u kullanıldı
   const [isLayoutStable, setIsLayoutStable] = useState(false);
   const [stablePreviewSize, setStablePreviewSize] = useState({ width: 0, height: 0 });
   
@@ -152,7 +150,7 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
       <View style={[styles.container, style]} onLayout={handleLayoutEvent}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>{t('editor.previewLoading')}</Text> {/* Lokalize edildi */}
+          <Text style={styles.loadingText}>Görsel Yükleniyor...</Text>
         </View>
       </View>
     );
@@ -221,14 +219,14 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
               
               {showOriginal && style?.opacity !== 0 && (
                 <View style={styles.originalOverlay}>
-                  <Text style={styles.originalText}>{t('editor.original')}</Text> {/* Lokalize edildi */}
+                  <Text style={styles.originalText}>Orijinal</Text>
                 </View>
               )}
             </View>
           ) : (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.loadingText}>{t('editor.previewLoading')}</Text> {/* Lokalize edildi */}
+              <Text style={styles.loadingText}>Görsel Yükleniyor...</Text>
             </View>
           )}
         </Animated.View>

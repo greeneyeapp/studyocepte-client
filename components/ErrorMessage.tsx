@@ -5,7 +5,6 @@ import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing } from '@/constants';
 import { Button } from './Button';
 import { Layout } from '@/constants/Layout';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface ErrorMessageProps {
   message: string;
@@ -16,18 +15,15 @@ interface ErrorMessageProps {
 export const ErrorMessage: React.FC<ErrorMessageProps> = ({
   message,
   onRetry,
-  retryText, // retryText prop'u artık optional
+  retryText = 'Retry',
 }) => {
-  const { t } = useTranslation(); // t hook'u kullanıldı
-  const displayedRetryText = retryText || t('common.retry'); // Varsayılan değer t() ile alındı
-  
   return (
     <View style={styles.container}>
       <Feather name="alert-circle" size={Layout.isTablet ? 72 : 48} color={Colors.error} />
       <Text style={styles.message}>{message}</Text>
       {onRetry && (
         <Button
-          title={displayedRetryText}
+          title={retryText}
           onPress={onRetry}
           variant="outline"
           style={styles.retryButton}
