@@ -91,7 +91,7 @@ export default function RootLayout() {
   });
 
   const [assets, assetsError] = useAssets([
-    require('@/assets/images/icon-transparant.png')
+    require('@/assets/images/icon-transparent.png')
   ]);
 
   // ⭐ DİL SEÇİMİNİ KONTROL ETME EFFECT'İ

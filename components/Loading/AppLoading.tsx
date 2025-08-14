@@ -68,7 +68,7 @@ const AppLoading = forwardRef<AppLoadingRef, AppLoadingProps>((props, ref) => {
     <View style={styles.overlay}>
       <Animated.View style={animatedStyle}>
         <Image
-          source={require('@/assets/images/icon-transparant.png')}
+          source={require('@/assets/images/icon-transparent.png')}
           style={styles.logo}
         />
       </Animated.View>

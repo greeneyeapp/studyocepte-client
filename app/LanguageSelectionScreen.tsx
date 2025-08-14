@@ -128,7 +128,7 @@ export default function LanguageSelectionScreen({ onLanguageSelected }: Language
             <View style={styles.header}>
               <View style={styles.logoContainer}>
                 <Image
-                  source={require('@/assets/images/icon-transparant.png')}
+                  source={require('@/assets/images/icon-transparent.png')}
                   style={styles.logo}
                   resizeMode="contain"
                 />
