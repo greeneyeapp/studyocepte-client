@@ -162,14 +162,7 @@
     "shareOptions": {
       "gallery": "Save to Gallery",
       "galleryDescription": "Save with selected format",
-<<<<<<< HEAD
       "share": "Share..."
-=======
-      "share": "Share...",
-      "shareDescription": "Share with selected format",
-      "quickCustom": "Quick custom size",
-      "quickCustomDescription": "Quick custom size"
->>>>>>> 1245f7f (test)
     },
     "quality": "Quality: {{quality}}%",
     "dimensions": "{{width}} × {{height}}",
