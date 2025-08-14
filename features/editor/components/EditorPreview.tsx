@@ -1,4 +1,4 @@
-// features/editor/components/EditorPreview.tsx - EXPORT REF HATASI DÜZELTİLMİŞ VERSİYON
+// features/editor/components/EditorPreview.tsx - ÇIFT BACKGROUND VE TEXT ERROR DÜZELTİLMİŞ
 
 import React, { forwardRef, useMemo, useState, useEffect, useImperativeHandle } from 'react';
 import { View, Pressable, Text, StyleSheet, ActivityIndicator, Image, ViewStyle } from 'react-native';
@@ -10,10 +10,10 @@ import { useEditorGestures } from '../hooks/useEditorGestures';
 import { SimpleVignetteOverlay } from './VignetteOverlay';
 import { generateAdvancedImageStyle } from '../utils/cssFilterGenerator';
 import { CropOverlay } from './CropOverlay';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
+import { useTranslation } from 'react-i18next';
 
 interface EditorPreviewProps {
-  activePhoto: ProductPhoto;
+  activePhoto: ProductPhoto & { processedImageUrl?: string };
   selectedBackground?: Background;
   backgroundDisplayUri?: string;
   settings: EditorSettings;
@@ -31,49 +31,61 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
   onShowOriginalChange, onLayout, updateSettings, previewSize, isCropping,
   style
 }, ref) => {
-  const { t } = useTranslation(); // t hook'u kullanıldı
+  const { t } = useTranslation();
   const [isLayoutStable, setIsLayoutStable] = useState(false);
   const [stablePreviewSize, setStablePreviewSize] = useState({ width: 0, height: 0 });
-  
+
   // ✅ DÜZELTME: Export için ayrı bir internal ref oluştur
   const internalRef = React.useRef<View>(null);
 
-  // ✅ DÜZELTME: useImperativeHandle ile ref'i expose et - export modunda bile çalışsın
+  // ✅ DÜZELTME: useImperativeHandle ile ref'i expose et
   useImperativeHandle(ref, () => {
     console.log('🔧 useImperativeHandle called, internalRef.current:', !!internalRef.current);
-    
-    // Export modunda bile ref'in çalışmasını sağla
+
     if (!internalRef.current) {
       console.warn('⚠️ internalRef.current is null in useImperativeHandle');
-      // Return a dummy object to prevent null reference
       return {
-        measure: () => {},
-        measureInWindow: () => {},
-        measureLayout: () => {},
-        setNativeProps: () => {},
-        focus: () => {},
-        blur: () => {},
+        measure: () => { },
+        measureInWindow: () => { },
+        measureLayout: () => { },
+        setNativeProps: () => { },
+        focus: () => { },
+        blur: () => { },
       } as View;
     }
-    
-    return internalRef.current;
-  }, [internalRef.current]); // ✅ Dependency'ye internalRef.current eklendi
 
-  // KESİN ÇÖZÜM: Layout stability kontrolü (sadece geçerli boyutlar için)
+    return internalRef.current;
+  }, [internalRef.current]);
+
+  // ✅ DÜZELTME: GÜVENLİ TRANSLATION FONKSIYONLARI
+  const safeTranslate = (key: string, fallback: string = '') => {
+    try {
+      const translated = t(key);
+      return translated && typeof translated === 'string' && translated !== key ? translated : fallback;
+    } catch (error) {
+      console.warn('Translation error for key:', key, error);
+      return fallback;
+    }
+  };
+
+  const loadingText = useMemo(() => safeTranslate('editor.previewLoading', 'Loading...'), [t]);
+  const originalText = useMemo(() => safeTranslate('editor.original', 'Original'), [t]);
+
+  // Layout stability kontrolü
   useEffect(() => {
     const isValidSize = previewSize.width > 50 && previewSize.height > 50;
-    
+
     if (isValidSize) {
       const widthDiff = Math.abs(previewSize.width - stablePreviewSize.width);
       const heightDiff = Math.abs(previewSize.height - stablePreviewSize.height);
-      
+
       if (!isLayoutStable || widthDiff > 10 || heightDiff > 10) {
         console.log('📐 Layout stabilizing:', {
           from: stablePreviewSize,
           to: previewSize,
           isFirstTime: !isLayoutStable
         });
-        
+
         setStablePreviewSize(previewSize);
         setIsLayoutStable(true);
       }
@@ -84,11 +96,11 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
     }
   }, [previewSize, stablePreviewSize, isLayoutStable]);
 
-  // KESİN ÇÖZÜM: Gesture handler'ı sadece stable layout'ta ve pozitif boyutlarda kullan
-  const { photoX, photoY, photoScale, combinedGesture } = useEditorGestures({ 
-    settings, 
+  // Gesture handler'ı sadece stable layout'ta kullan
+  const { photoX, photoY, photoScale, combinedGesture } = useEditorGestures({
+    settings,
     previewSize: isLayoutStable && stablePreviewSize.width > 0 ? stablePreviewSize : { width: 0, height: 0 },
-    updateSettings 
+    updateSettings
   });
 
   const hasVisualCrop = settings.visualCrop?.isApplied;
@@ -104,14 +116,55 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
 
   const productFilterStyle = useMemo(() => generateAdvancedImageStyle(settings, 'product', showOriginal), [settings, showOriginal]);
   const backgroundFilterStyle = useMemo(() => generateAdvancedImageStyle(settings, 'background', showOriginal), [settings, showOriginal]);
-  const imageUriToShow = activePhoto?.processedImageUrl || activePhoto?.thumbnailUrl;
-  
-  const backgroundUri = backgroundDisplayUri; 
+
+  // ✅ DÜZELTME: ULTRA GÜVENLİ URI KONTROLÜ
+  const finalImageUri = useMemo(() => {
+    const uri = activePhoto?.processedImageUrl || activePhoto?.thumbnailUri;
+
+    if (!uri) {
+      console.warn('⚠️ No image URI available');
+      return undefined;
+    }
+
+    if (typeof uri !== 'string') {
+      console.warn('⚠️ Image URI is not a string:', typeof uri, uri);
+      return undefined;
+    }
+
+    if (uri.trim() === '' || uri === 'null' || uri === 'undefined') {
+      console.warn('⚠️ Invalid image URI:', uri);
+      return undefined;
+    }
+
+    console.log('✅ Valid image URI:', uri);
+    return uri;
+  }, [activePhoto?.processedImageUrl, activePhoto?.thumbnailUri]);
+
+  // ✅ DÜZELTME: ULTRA GÜVENLİ BACKGROUND URI KONTROLÜ
+  const finalBackgroundUri = useMemo(() => {
+    // Settings'te background none ise hiç background gösterme
+    if (settings.backgroundId === 'none') {
+      console.log('🎨 Background ID is none, not showing any background');
+      return undefined;
+    }
+
+    // Normal background logic
+    if (backgroundDisplayUri && backgroundDisplayUri.length > 0) {
+      return backgroundDisplayUri;
+    }
+
+    if (selectedBackground?.thumbnailUrl && !backgroundDisplayUri) {
+      return selectedBackground.thumbnailUrl;
+    }
+
+    return undefined;
+  }, [backgroundDisplayUri, selectedBackground, settings.backgroundId]); // ← Bu dependency'yi ekle
+
   const vignetteIntensity = (settings as any).background_vignette || 0;
 
   const handleLayoutEvent = (event: any) => {
     const { width, height } = event.nativeEvent.layout;
-    
+
     if (width > 50 && height > 50) {
       onLayout(event);
     }
@@ -121,20 +174,20 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
     if (hasVisualCrop && !isCropping && settings.visualCrop && isLayoutStable && stablePreviewSize.width > 0) {
       const crop = settings.visualCrop;
       let cropAspectRatio;
-      if (!crop.aspectRatio || crop.aspectRatio === 'original') { 
-        cropAspectRatio = stablePreviewSize.width / stablePreviewSize.height; 
-      } else { 
-        const [w, h] = crop.aspectRatio.split(':').map(Number); 
-        cropAspectRatio = w && h ? w / h : stablePreviewSize.width / stablePreviewSize.height; 
+      if (!crop.aspectRatio || crop.aspectRatio === 'original') {
+        cropAspectRatio = stablePreviewSize.width / stablePreviewSize.height;
+      } else {
+        const [w, h] = crop.aspectRatio.split(':').map(Number);
+        cropAspectRatio = w && h ? w / h : stablePreviewSize.width / stablePreviewSize.height;
       }
-      
+
       let containerWidth = stablePreviewSize.width;
       let containerHeight = containerWidth / cropAspectRatio;
-      if (containerHeight > stablePreviewSize.height) { 
-        containerHeight = stablePreviewSize.height; 
-        containerWidth = containerHeight * cropAspectRatio; 
+      if (containerHeight > stablePreviewSize.height) {
+        containerHeight = stablePreviewSize.height;
+        containerWidth = containerHeight * cropAspectRatio;
       }
-      
+
       const scale = stablePreviewSize.width / (containerWidth * crop.width);
       const translateX = (-crop.x * stablePreviewSize.width) / crop.width;
       const translateY = (-crop.y * stablePreviewSize.height) / crop.width;
@@ -146,89 +199,104 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
     return { transform: [{ scale: 1 }, { translateX: 0 }, { translateY: 0 }] };
   });
 
-  // KESİN ÇÖZÜM: Layout stable değilse veya görsel yoksa loading göster
-  if (!isLayoutStable || stablePreviewSize.width === 0 || !imageUriToShow) {
+  // Layout stable değilse veya görsel yoksa loading göster
+  if (!isLayoutStable || stablePreviewSize.width === 0 || !finalImageUri) {
     return (
       <View style={[styles.container, style]} onLayout={handleLayoutEvent}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>{t('editor.previewLoading')}</Text> {/* Lokalize edildi */}
+          {loadingText ? <Text style={styles.loadingText}>{loadingText}</Text> : null}
         </View>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, style]} onLayout={handleLayoutEvent}> 
-      <Pressable 
-        style={styles.pressable} 
-        onPressIn={() => onShowOriginalChange(true)} 
+    <View style={[styles.container, style]} onLayout={handleLayoutEvent}>
+      <Pressable
+        style={styles.pressable}
+        onPressIn={() => onShowOriginalChange(true)}
         onPressOut={() => onShowOriginalChange(false)}
       >
-        {/* ✅ DÜZELTME: internalRef'i Animated.View'e atıyoruz ve export modunda bile erişilebilir olmasını sağlıyoruz */}
-        <Animated.View 
-          style={[styles.previewWrapper, visualCropAnimatedStyle]} 
+        <Animated.View
+          style={[styles.previewWrapper, visualCropAnimatedStyle]}
           ref={internalRef}
           collapsable={false}
-          // ✅ DÜZELTME: Export modunda bile görünür kalmasını sağla
           pointerEvents={style?.opacity === 0 ? 'none' : 'auto'}
         >
-          {imageUriToShow ? (
+          {finalImageUri ? (
             <View style={styles.imageContainer}>
-              {backgroundUri && (
+              {/* ✅ DÜZELTME: Sadece geçerli background URI varsa render et */}
+              {finalBackgroundUri && typeof finalBackgroundUri === 'string' && (
                 <View style={styles.backgroundContainer}>
-                  <Image 
-                    source={{ uri: backgroundUri }} 
-                    style={[styles.backgroundImage, backgroundFilterStyle]} 
-                    resizeMode="cover" 
-                    onError={(e) => console.error('Background Image Load Error:', backgroundUri, e.nativeEvent.error)}
+                  <Image
+                    source={{ uri: finalBackgroundUri }}
+                    style={[styles.backgroundImage, backgroundFilterStyle]}
+                    resizeMode="cover"
+                    onError={(e) => {
+                      console.error('Background Image Load Error:', finalBackgroundUri, e.nativeEvent.error);
+                    }}
+                    onLoad={() => {
+                      console.log('✅ Background image loaded successfully:', finalBackgroundUri);
+                    }}
                   />
                   {vignetteIntensity > 0 && <SimpleVignetteOverlay intensity={vignetteIntensity} />}
                 </View>
               )}
-              
-              {/* ✅ DÜZELTME: Export modunda gesture'ları devre dışı bırak ama görsel'i göster */}
+
+              {/* Export modunda gesture'ları devre dışı bırak ama görsel'i göster */}
               {isLayoutStable && stablePreviewSize.width > 0 && style?.opacity !== 0 ? (
                 <GestureDetector gesture={combinedGesture}>
                   <Animated.View style={[styles.productContainer, productAnimatedStyle]}>
-                    <Image 
-                      source={{ uri: imageUriToShow }} 
-                      style={[styles.productImage, productFilterStyle]} 
-                      resizeMode="contain" 
-                      onError={(e) => console.error('Product Image Load Error:', imageUriToShow, e.nativeEvent.error)}
+                    <Image
+                      source={{ uri: finalImageUri }}
+                      style={[styles.productImage, productFilterStyle]}
+                      resizeMode="contain"
+                      onError={(e) => {
+                        console.error('Product Image Load Error:', finalImageUri, e.nativeEvent.error);
+                      }}
+                      onLoad={() => {
+                        console.log('✅ Product image loaded successfully:', finalImageUri);
+                      }}
                     />
                   </Animated.View>
                 </GestureDetector>
               ) : (
                 <Animated.View style={[styles.productContainer, productAnimatedStyle]}>
                   <Image
-                    source={{ uri: imageUriToShow }}
+                    source={{ uri: finalImageUri }}
                     style={[styles.productImage, productFilterStyle]}
                     resizeMode="contain"
-                    onError={(e) => console.error('Product Image Load Error (export mode):', imageUriToShow, e.nativeEvent.error)}
+                    onError={(e) => {
+                      console.error('Product Image Load Error (export mode):', finalImageUri, e.nativeEvent.error);
+                    }}
+                    onLoad={() => {
+                      console.log('✅ Product image loaded successfully (export mode):', finalImageUri);
+                    }}
                   />
                 </Animated.View>
               )}
-              
+
               {isCropping && style?.opacity !== 0 && (
                 <View style={styles.cropOverlayContainer} pointerEvents="none">
-                  <CropOverlay 
-                    previewSize={stablePreviewSize} 
+                  <CropOverlay
+                    previewSize={stablePreviewSize}
                     aspectRatioString={settings.cropAspectRatio || 'original'}
                   />
                 </View>
               )}
-              
-              {showOriginal && style?.opacity !== 0 && (
+
+              {/* ✅ DÜZELTME: GÜVENLİ TEXT RENDERING */}
+              {showOriginal && style?.opacity !== 0 && originalText && (
                 <View style={styles.originalOverlay}>
-                  <Text style={styles.originalText}>{t('editor.original')}</Text> {/* Lokalize edildi */}
+                  <Text style={styles.originalText}>{originalText}</Text>
                 </View>
               )}
             </View>
           ) : (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.loadingText}>{t('editor.previewLoading')}</Text> {/* Lokalize edildi */}
+              {loadingText ? <Text style={styles.loadingText}>{loadingText}</Text> : null}
             </View>
           )}
         </Animated.View>
@@ -240,25 +308,25 @@ export const EditorPreview = forwardRef<View, EditorPreviewProps>(({
 EditorPreview.displayName = 'EditorPreview';
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    width: '100%', 
-    backgroundColor: Colors.background, 
-    padding: Spacing.sm, 
-    justifyContent: 'center', 
+  container: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: Colors.background,
+    padding: Spacing.sm,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  pressable: { 
-    width: '100%', 
-    height: '100%', 
-    justifyContent: 'center', 
+  pressable: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  previewWrapper: { 
-    overflow: 'hidden', 
-    backgroundColor: Colors.gray100, 
-    borderRadius: BorderRadius.lg, 
-    width: '100%', 
+  previewWrapper: {
+    overflow: 'hidden',
+    backgroundColor: Colors.gray100,
+    borderRadius: BorderRadius.lg,
+    width: '100%',
     height: '100%',
   },
   imageContainer: { ...StyleSheet.absoluteFillObject },
@@ -267,26 +335,26 @@ const styles = StyleSheet.create({
   productContainer: { ...StyleSheet.absoluteFillObject, zIndex: 2 },
   productImage: { width: '100%', height: '100%', backgroundColor: 'transparent' },
   cropOverlayContainer: { ...StyleSheet.absoluteFillObject, zIndex: 10 },
-  loadingContainer: { 
-    flex: 1, 
-    justifyContent: 'center', 
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: { 
-    ...Typography.body, 
-    color: Colors.textSecondary, 
+  loadingText: {
+    ...Typography.body,
+    color: Colors.textSecondary,
     marginTop: Spacing.sm,
     textAlign: 'center'
   },
-  originalOverlay: { 
-    position: 'absolute', 
-    bottom: Spacing.lg, 
-    alignSelf: 'center', 
-    backgroundColor: 'rgba(0,0,0,0.7)', 
-    paddingHorizontal: Spacing.lg, 
-    paddingVertical: Spacing.sm, 
-    borderRadius: BorderRadius.full, 
-    zIndex: 100 
+  originalOverlay: {
+    position: 'absolute',
+    bottom: Spacing.lg,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    zIndex: 100
   },
   originalText: { ...Typography.caption, color: Colors.card },
 });

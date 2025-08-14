@@ -171,29 +171,56 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       // ===== TEMEL EDITOR ACTIONS =====
 
       setActivePhoto: (photo: ProductPhoto) => {
-        const currentActivePhoto = get().activePhoto;
-        if (currentActivePhoto && currentActivePhoto.id === photo.id) {
-          console.log('📸 Active photo already set, skipping re-initialization.');
-          return;
-        }
-
         console.log('📸 Setting active photo for HIGH QUALITY editing:', photo.id);
 
         // Önce mevcut photo için draft kaydet
         const currentPhoto = get().activePhoto;
-        if (currentPhoto && get().hasDraftChanges) {
+        if (currentPhoto && currentPhoto.id !== photo.id && get().hasDraftChanges) {
           get().saveDraftForPhoto(currentPhoto.id);
+        }
+
+        // ✅ ÇİFT BACKGROUND SORUNU İÇİN: Photo status kontrolü
+        let needsBackgroundCheck = false;
+        const currentActivePhoto = get().activePhoto;
+
+        if (currentActivePhoto && currentActivePhoto.id === photo.id) {
+          // Aynı photo ama background kontrolü yapılmamış olabilir
+          const currentBackgroundId = get().settings.backgroundId;
+          const hasBackground = photo.editorSettings?.backgroundId && photo.editorSettings.backgroundId !== 'none';
+
+          if (photo.status === 'processed' && hasBackground && currentBackgroundId !== 'none') {
+            console.log('📸 Same photo but needs background fix for processed photo');
+            needsBackgroundCheck = true;
+          } else {
+            console.log('📸 Active photo already set, skipping re-initialization.');
+            return;
+          }
         }
 
         // Yeni photo için draft var mı kontrol et ve otomatik yükle
         const existingDraft = get().loadDraftForPhoto(photo.id);
         let loadedSettings: EditorSettings;
 
-        if (existingDraft) {
+        if (existingDraft && !needsBackgroundCheck) {
           console.log('📂 Auto-loading existing HIGH QUALITY draft for photo:', photo.id);
           loadedSettings = existingDraft.settings;
         } else {
-          loadedSettings = { ...defaultSettings, ...(photo.editorSettings || {}) };
+          // ✅ ÇİFT BACKGROUND SORUNU ÇÖZÜMÜ
+          const baseSettings = photo.editorSettings || {};
+
+          if (photo.status === 'processed' && baseSettings.backgroundId && baseSettings.backgroundId !== 'none') {
+            console.log('🎨 PROCESSED photo with background detected - DISABLING background layer to prevent double rendering');
+            console.log('🎨 Photo status:', photo.status, 'Background ID:', baseSettings.backgroundId);
+
+            loadedSettings = {
+              ...defaultSettings,
+              ...baseSettings,
+              backgroundId: 'none' // Background'ı devre dışı bırak
+            };
+          } else {
+            loadedSettings = { ...defaultSettings, ...baseSettings };
+            console.log('🎨 RAW photo or no background - normal settings applied');
+          }
         }
 
         const initialEntry = { settings: loadedSettings, timestamp: Date.now() };
@@ -201,7 +228,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           activePhoto: photo,
           settings: loadedSettings,
           hasUnsavedChanges: false,
-          hasDraftChanges: !!existingDraft,
+          hasDraftChanges: !!existingDraft && !needsBackgroundCheck,
           history: [initialEntry],
           currentHistoryIndex: 0,
           activeFilterKey: 'original',
@@ -210,18 +237,99 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         });
       },
 
-      updateSettings: (newSettings: Partial<EditorSettings>) => {
-        const updatedSettings = { ...get().settings, ...newSettings };
+      updateSettings: async (newSettings: Partial<EditorSettings>) => {
+        const currentSettings = get().settings;
+        const activePhoto = get().activePhoto;
+
+        console.log('⚙️ updateSettings called:', {
+          newSettings,
+          currentBackgroundId: currentSettings.backgroundId,
+          photoStatus: activePhoto?.status
+        });
+
+        // ✅ BACKGROUND DEĞİŞİKLİĞİ ALGILA
+        const isBackgroundChange = newSettings.backgroundId &&
+          newSettings.backgroundId !== 'none' &&
+          currentSettings.backgroundId !== newSettings.backgroundId;
+
+        const isProcessedPhoto = activePhoto?.status === 'processed';
+        const hasExistingBackground = currentSettings.backgroundId && currentSettings.backgroundId !== 'none';
+
+        if (isBackgroundChange && isProcessedPhoto && hasExistingBackground) {
+          console.log('🔄 Background change detected on processed photo, reverting to raw');
+          console.log('🔄 From:', currentSettings.backgroundId, 'To:', newSettings.backgroundId);
+
+          try {
+            // ✅ 1. Fotoğrafı raw durumuna döndür
+            await useProductStore.getState().revertToRawForBackgroundChange(
+              activePhoto.productId,
+              activePhoto.id
+            );
+
+            // ✅ 2. Active photo'yu güncelle
+            const updatedPhoto = {
+              ...activePhoto,
+              status: 'raw' as const,
+              editorSettings: {
+                ...activePhoto.editorSettings,
+                backgroundId: 'none'
+              }
+            };
+
+            // ✅ 3. Settings'i sıfırla ve yeni background'ı uygula
+            const resetSettings = {
+              ...defaultSettings,
+              backgroundId: newSettings.backgroundId
+            };
+
+            const initialEntry = { settings: resetSettings, timestamp: Date.now() };
+
+            set({
+              activePhoto: updatedPhoto,
+              settings: resetSettings,
+              history: [initialEntry],
+              currentHistoryIndex: 0,
+              hasUnsavedChanges: true,
+              hasDraftChanges: true,
+              activeFilterKey: 'custom',
+              lastAutoSave: Date.now()
+            });
+
+            console.log('✅ Photo reverted to raw and new background applied');
+
+            // ✅ 4. Auto-save trigger
+            setTimeout(() => {
+              const state = get();
+              if (state.activePhoto?.id === updatedPhoto.id && state.hasDraftChanges) {
+                state.performAutoSave();
+              }
+            }, 2000);
+
+            return; // Erken çık, normal updateSettings logic'ini atla
+
+          } catch (error) {
+            console.error('❌ Failed to revert photo for background change:', error);
+            // Hata durumunda normal flow'a devam et
+          }
+        }
+
+        // ✅ NORMAL SETTINGS UPDATE (background değişikliği değilse veya raw fotoğraf ise)
+        const updatedSettings = { ...currentSettings, ...newSettings };
 
         set(state => ({
           settings: updatedSettings,
           hasUnsavedChanges: true,
           hasDraftChanges: true,
-          activeFilterKey: 'custom',
+          activeFilterKey: newSettings.backgroundId ? 'custom' : state.activeFilterKey,
           lastAutoSave: Date.now()
         }));
 
-        // AUTO-SAVE HEP AÇIK: Her değişiklikte otomatik save trigger
+        console.log('⚙️ Normal settings update completed:', {
+          updatedBackgroundId: updatedSettings.backgroundId,
+          hasUnsavedChanges: true
+        });
+
+        // ✅ AUTO-SAVE HEP AÇIK: Her değişiklikte otomatik save trigger
         const currentPhoto = get().activePhoto;
         if (currentPhoto) {
           // 2 saniye sonra auto-save (debounced)
@@ -543,11 +651,11 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
             try {
               // Image cache temizle
               await imageProcessor.clearImageCache();
-              
+
               // Force product store reload
               const productStore = useProductStore.getState();
               await productStore.loadProducts();
-              
+
               console.log('🔄 HIGH QUALITY forced product store refresh for UI update');
             } catch (refreshError) {
               console.warn('⚠️ Cache refresh warning:', refreshError);

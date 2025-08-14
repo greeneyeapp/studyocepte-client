@@ -90,7 +90,9 @@
     "noResults": "No Results Found",
     "noResultsSubtitle": "No results found for \"{{query}}\".",
     "createFirstProduct": "Create Your First Product",
-    "emptyProductNameError": "Please enter a name for the product."
+    "emptyProductNameError": "Please enter a name for the product.",
+    "newProductNamePlaceholder": "New product name",
+    "createProductTitle": "Product name"
   },
   "productDetail": {
     "photoCount": "{{count}} photos",
@@ -99,7 +101,6 @@
     "deleteSelectedPhotosTitle": "Delete Selected Photos",
     "deleteSelectedPhotosMessage": "Are you sure you want to delete {{count}} selected photos? This action cannot be undone.",
     "editProductName": "Edit Product Name",
-    "newProductNamePlaceholder": "New product name",
     "deleteProductTitle": "Delete Product",
     "deleteProductMessage": "Are you sure you want to delete this product and all its photos? This action cannot be undone.",
     "removeBackgroundTitle": "Remove Background",
@@ -171,7 +172,8 @@
       "warmth": "Warmth",
       "clarity": "Clarity",
       "vignette": "Vignette",
-      "blur": "Blur"
+      "blur": "Blur",
+      "reset": "Reset"
     },
     "filterNames": {
       "original": "Original",
@@ -337,61 +339,207 @@
     }
   },
   "exportPresets": {
-    "instagram_square": { "name": "Instagram Square (1:1)", "description": "1080x1080 - Ideal for feed posts" },
-    "instagram_story": { "name": "Instagram Story", "description": "1080x1920 - Vertical story format" },
-    "instagram_portrait": { "name": "Instagram Portrait (4:5)", "description": "1080x1350 - Portrait post format" },
-    "youtube_thumbnail": { "name": "YouTube Thumbnail", "description": "1280x720 - Video cover photo" },
-    "facebook_post": { "name": "Facebook Post", "description": "1200x630 - For horizontal shares" },
-    "pinterest_pin": { "name": "Pinterest Pin", "description": "1000x1500 - Standard vertical Pin ratio" },
-    "twitter_post": { "name": "X (Twitter) Post", "description": "1600x900 - Wide format tweet image" },
-    "snapchat_story": { "name": "Snapchat Story", "description": "1080x1920 - Full screen vertical image" },
-    "linkedin_post": { "name": "LinkedIn Post", "description": "1200x627 - For professional shares" },
-    "tiktok_cover": { "name": "TikTok Cover", "description": "1080x1920 - Vertical video cover image" },
-
-    "trendyol_main": { "name": "Trendyol", "description": "1200x1800 - Vertical product photo format" },
-    "hepsiburada_main": { "name": "Hepsiburada", "description": "1500x1500 - Standard square product photo" },
-    "amazon_main": { "name": "Amazon", "description": "2000x2000 - High-resolution square format" },
-    "shopify_product": { "name": "Shopify", "description": "2048x2048 - High-quality square product image" },
-    "etsy_listing": { "name": "Etsy", "description": "2700x2025 - Horizontal listing photo (4:3)" },
-    "generic_ecommerce": { "name": "Generic E-commerce Square", "description": "1000x1000 - Standard size compatible with most platforms" },
-    "ebay_listing": { "name": "eBay Listing", "description": "1600x1600 - For eBay product images" },
-    "aliexpress_product": { "name": "AliExpress Product", "description": "800x800 - Square format for AliExpress" },
-    "google_shopping": { "name": "Google Shopping", "description": "1200x1200 - Square for Google Merchant Center" },
-    "z_fashion_platform": { "name": "Fashion Platform", "description": "1080x1440 - For vertical fashion images" },
-
-    "web_hero": { "name": "Website Hero Image", "description": "1920x1080 - Full HD main image format" },
-    "web_banner_wide": { "name": "Wide Banner", "description": "728x90 - \"Leaderboard\" ad banner format" },
-    "web_banner_square": { "name": "Square Banner", "description": "300x250 - \"Medium Rectangle\" ad format" },
-    "web_blog_featured": { "name": "Featured Blog Image", "description": "1200x800 - Standard image for blog articles" },
-    "web_favicon": { "name": "Favicon", "description": "64x64 - Website icon, transparent background" },
-    "email_header": { "name": "Email Header", "description": "600x200 - Newsletter and email header image" },
-    "web_profile_banner": { "name": "Web Profile Banner", "description": "1500x500 - Banner for web profile pages" },
-    "mobile_wallpaper": { "name": "Mobile Wallpaper", "description": "1080x1920 - For general mobile devices" },
-    "desktop_wallpaper_hd": { "name": "Desktop Wallpaper (HD)", "description": "1920x1080 - For general desktop devices" },
-    "newsletter_ad_small": { "name": "Email Ad (Small)", "description": "320x100 - Small ad space for email newsletters" },
-
-    "print_a4": { "name": "A4 Paper (300 DPI)", "description": "2480x3508px - Catalog and document printing" },
-    "print_a5": { "name": "A5 Paper (300 DPI)", "description": "1748x2480px - Brochure and flyer printing" },
-    "print_10x15": { "name": "10x15 Photo Print", "description": "1181x1772px - Standard photo studio print" },
-    "print_13x18": { "name": "13x18 Photo Print", "description": "1535x2126px - Large size photo print" },
-    "print_business_card": { "name": "Business Card (EU Standard)", "description": "1004x650px - Standard 85x55mm business card print" },
-    "print_poster": { "name": "Poster (A3)", "description": "3508x4961px - A3 size poster print" },
-    "print_flyer_a6": { "name": "Flyer (A6)", "description": "1240x1748px - For small flyers" },
-    "print_post_card_a6": { "name": "Postcard (A6 Horizontal)", "description": "1748x1240px - Standard postcard size" },
-    "print_us_letter": { "name": "US Letter (300 DPI)", "description": "2550x3300px - American standard document size" },
-    "print_magazine_spread": { "name": "Magazine Spread (Double)", "description": "5100x3300px - Double page ad inside magazine" },
-
-    "custom_widescreen": { "name": "Widescreen (16:9)", "description": "1920x1080 - TV and monitor display ratio" },
-    "custom_classic_photo": { "name": "Classic Photo (3:2)", "description": "1080x720 - 35mm film photo ratio" },
-    "custom_portrait": { "name": "Vertical Portrait (2:3)", "description": "720x1080 - Vertical photo portrait ratio" },
-    "custom_cinematic": { "name": "Cinematic (21:9)", "description": "2560x1080 - Ultra-wide cinema screen ratio" },
+    "instagram_square": {
+      "name": "Instagram Square (1:1)",
+      "description": "1080x1080 - Ideal for feed posts"
+    },
+    "instagram_story": {
+      "name": "Instagram Story",
+      "description": "1080x1920 - Vertical story format"
+    },
+    "instagram_portrait": {
+      "name": "Instagram Portrait (4:5)",
+      "description": "1080x1350 - Portrait post format"
+    },
+    "youtube_thumbnail": {
+      "name": "YouTube Thumbnail",
+      "description": "1280x720 - Video cover photo"
+    },
+    "facebook_post": {
+      "name": "Facebook Post",
+      "description": "1200x630 - For horizontal shares"
+    },
+    "pinterest_pin": {
+      "name": "Pinterest Pin",
+      "description": "1000x1500 - Standard vertical Pin ratio"
+    },
+    "twitter_post": {
+      "name": "X (Twitter) Post",
+      "description": "1600x900 - Wide format tweet image"
+    },
+    "snapchat_story": {
+      "name": "Snapchat Story",
+      "description": "1080x1920 - Full screen vertical image"
+    },
+    "linkedin_post": {
+      "name": "LinkedIn Post",
+      "description": "1200x627 - For professional shares"
+    },
+    "tiktok_cover": {
+      "name": "TikTok Cover",
+      "description": "1080x1920 - Vertical video cover image"
+    },
+    "trendyol_main": {
+      "name": "Trendyol",
+      "description": "1200x1800 - Vertical product photo format"
+    },
+    "hepsiburada_main": {
+      "name": "Hepsiburada",
+      "description": "1500x1500 - Standard square product photo"
+    },
+    "amazon_main": {
+      "name": "Amazon",
+      "description": "2000x2000 - High-resolution square format"
+    },
+    "shopify_product": {
+      "name": "Shopify",
+      "description": "2048x2048 - High-quality square product image"
+    },
+    "etsy_listing": {
+      "name": "Etsy",
+      "description": "2700x2025 - Horizontal listing photo (4:3)"
+    },
+    "generic_ecommerce": {
+      "name": "Generic E-commerce Square",
+      "description": "1000x1000 - Standard size compatible with most platforms"
+    },
+    "ebay_listing": {
+      "name": "eBay Listing",
+      "description": "1600x1600 - For eBay product images"
+    },
+    "aliexpress_product": {
+      "name": "AliExpress Product",
+      "description": "800x800 - Square format for AliExpress"
+    },
+    "google_shopping": {
+      "name": "Google Shopping",
+      "description": "1200x1200 - Square for Google Merchant Center"
+    },
+    "z_fashion_platform": {
+      "name": "Fashion Platform",
+      "description": "1080x1440 - For vertical fashion images"
+    },
+    "web_hero": {
+      "name": "Website Hero Image",
+      "description": "1920x1080 - Full HD main image format"
+    },
+    "web_banner_wide": {
+      "name": "Wide Banner",
+      "description": "728x90 - \"Leaderboard\" ad banner format"
+    },
+    "web_banner_square": {
+      "name": "Square Banner",
+      "description": "300x250 - \"Medium Rectangle\" ad format"
+    },
+    "web_blog_featured": {
+      "name": "Featured Blog Image",
+      "description": "1200x800 - Standard image for blog articles"
+    },
+    "web_favicon": {
+      "name": "Favicon",
+      "description": "64x64 - Website icon, transparent background"
+    },
+    "email_header": {
+      "name": "Email Header",
+      "description": "600x200 - Newsletter and email header image"
+    },
+    "web_profile_banner": {
+      "name": "Web Profile Banner",
+      "description": "1500x500 - Banner for web profile pages"
+    },
+    "mobile_wallpaper": {
+      "name": "Mobile Wallpaper",
+      "description": "1080x1920 - For general mobile devices"
+    },
+    "desktop_wallpaper_hd": {
+      "name": "Desktop Wallpaper (HD)",
+      "description": "1920x1080 - For general desktop devices"
+    },
+    "newsletter_ad_small": {
+      "name": "Email Ad (Small)",
+      "description": "320x100 - Small ad space for email newsletters"
+    },
+    "print_a4": {
+      "name": "A4 Paper (300 DPI)",
+      "description": "2480x3508px - Catalog and document printing"
+    },
+    "print_a5": {
+      "name": "A5 Paper (300 DPI)",
+      "description": "1748x2480px - Brochure and flyer printing"
+    },
+    "print_10x15": {
+      "name": "10x15 Photo Print",
+      "description": "1181x1772px - Standard photo studio print"
+    },
+    "print_13x18": {
+      "name": "13x18 Photo Print",
+      "description": "1535x2126px - Large size photo print"
+    },
+    "print_business_card": {
+      "name": "Business Card (EU Standard)",
+      "description": "1004x650px - Standard 85x55mm business card print"
+    },
+    "print_poster": {
+      "name": "Poster (A3)",
+      "description": "3508x4961px - A3 size poster print"
+    },
+    "print_flyer_a6": {
+      "name": "Flyer (A6)",
+      "description": "1240x1748px - For small flyers"
+    },
+    "print_post_card_a6": {
+      "name": "Postcard (A6 Horizontal)",
+      "description": "1748x1240px - Standard postcard size"
+    },
+    "print_us_letter": {
+      "name": "US Letter (300 DPI)",
+      "description": "2550x3300px - American standard document size"
+    },
+    "print_magazine_spread": {
+      "name": "Magazine Spread (Double)",
+      "description": "5100x3300px - Double page ad inside magazine"
+    },
+    "custom_widescreen": {
+      "name": "Widescreen (16:9)",
+      "description": "1920x1080 - TV and monitor display ratio"
+    },
+    "custom_classic_photo": {
+      "name": "Classic Photo (3:2)",
+      "description": "1080x720 - 35mm film photo ratio"
+    },
+    "custom_portrait": {
+      "name": "Vertical Portrait (2:3)",
+      "description": "720x1080 - Vertical photo portrait ratio"
+    },
+    "custom_cinematic": {
+      "name": "Cinematic (21:9)",
+      "description": "2560x1080 - Ultra-wide cinema screen ratio"
+    },
     "customGeneratedName": "Custom {{width}}x{{height}}",
     "customGeneratedDescription": "User-defined {{width}}x{{height}} size",
-    "custom_square_hd": { "name": "HD Square", "description": "1920x1920 - High-resolution square format" },
-    "custom_a4_landscape": { "name": "A4 Landscape", "description": "3508x2480px - Horizontal A4 document/presentation format" },
-    "custom_4k_uhd": { "name": "4K Ultra HD", "description": "3840x2160 - For ultra-high resolution screens" },
-    "custom_long_vertical": { "name": "Long Vertical", "description": "800x2000 - For custom vertical designs" },
-    "custom_ultra_wide_monitor": { "name": "Ultra-Wide Monitor", "description": "3440x1440 - For wide format monitors" },
-    "custom_square_small": { "name": "Small Square", "description": "500x500 - Custom small square sizes" }
+    "custom_square_hd": {
+      "name": "HD Square",
+      "description": "1920x1920 - High-resolution square format"
+    },
+    "custom_a4_landscape": {
+      "name": "A4 Landscape",
+      "description": "3508x2480px - Horizontal A4 document/presentation format"
+    },
+    "custom_4k_uhd": {
+      "name": "4K Ultra HD",
+      "description": "3840x2160 - For ultra-high resolution screens"
+    },
+    "custom_long_vertical": {
+      "name": "Long Vertical",
+      "description": "800x2000 - For custom vertical designs"
+    },
+    "custom_ultra_wide_monitor": {
+      "name": "Ultra-Wide Monitor",
+      "description": "3440x1440 - For wide format monitors"
+    },
+    "custom_square_small": {
+      "name": "Small Square",
+      "description": "500x500 - Custom small square sizes"
+    }
   }
 }

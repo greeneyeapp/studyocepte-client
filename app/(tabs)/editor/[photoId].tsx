@@ -39,6 +39,9 @@ import { imageProcessor } from '@/services/imageProcessor';
 import { DialogService } from '@/components/Dialog/DialogService';
 import { InputDialogService } from '@/components/Dialog/InputDialogService';
 import { BottomSheetService } from '@/components/BottomSheet/BottomSheetService';
+// 👇 ÖNEMLİ: LoadingService'i import edin
+import { LoadingService } from '@/components/Loading/LoadingService';
+
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -102,6 +105,17 @@ export default function EnhancedEditorScreen() {
   const { isExporting, shareWithOption, skiaViewRef } = useExportManager();
   const { currentScrollRef } = useScrollManager({ activeTool, activeTarget, activeFeature, isSliderActive });
 
+  // 👇 ÖNEMLİ: AppLoading'in bu ekran için gizlenip gizlenmediğini takip eden ref
+  const appLoadingHiddenForThisLoad = useRef(false);
+
+  // 👇 ÖNEMLİ: Editörün görsel olarak "tamamen hazır" olduğu durumu belirleyen bir `useMemo`
+  const isEditorTrulyReady = useMemo(() => {
+    // activePhoto yüklenmiş OLMALI
+    // previewSize, EditorPreview'ın layoutunu almış OLMALI (genişlik ve yükseklik 0'dan büyük)
+    // Kaydetme veya thumbnail güncelleme gibi işlemler aktif OLMAMALI
+    return activePhoto && previewSize.width > 0 && previewSize.height > 0 && !isSaving && !isUpdatingThumbnail;
+  }, [activePhoto, previewSize, isSaving, isUpdatingThumbnail]);
+
   // ===== MEMORY OPTIMIZATION =====
   useEffect(() => {
     const handleAppStateChange = (nextAppState: string) => {
@@ -115,9 +129,12 @@ export default function EnhancedEditorScreen() {
     return () => subscription?.remove();
   }, []);
 
-  // ===== PHOTO LOADING EFFECT =====
+  // ===== PHOTO LOADING EFFECT (ve AppLoading gizleme) =====
   useEffect(() => {
     console.log('✨ Editor mounted');
+    // Bu flag'i resetliyoruz, çünkü bu useEffect genellikle yeni bir fotoğraf/productId için çalışır.
+    appLoadingHiddenForThisLoad.current = false;
+
     if (photoId && productId) {
       const product = getProductById(productId);
       const photo = product?.photos.find(p => p.id === photoId);
@@ -143,8 +160,21 @@ export default function EnhancedEditorScreen() {
       InputDialogService.hide();
       ToastService.hide();
       BottomSheetService.hide();
+      // Komponent unmount olduğunda AppLoading'i gizliyoruz,
+      // her ihtimale karşı açık kalmasın diye.
+      LoadingService.hide();
     };
   }, [photoId, productId, getProductById, setActivePhoto, clearStore, router]);
+
+  // 👇 ÖNEMLİ: Editör gerçekten hazır olduğunda AppLoading'i gizle
+  useEffect(() => {
+    if (isEditorTrulyReady && !appLoadingHiddenForThisLoad.current) {
+      console.log('✅ Editör gerçekten hazır, AppLoading gizleniyor.');
+      LoadingService.hide();
+      appLoadingHiddenForThisLoad.current = true; // Bu yükleme için gizlendi olarak işaretle
+    }
+  }, [isEditorTrulyReady]); // isEditorTrulyReady değiştiğinde tetiklenir
+
 
   // ===== ARKA PLAN URI ÇÖZÜMLEMESİ =====
   const selectedBackgroundConfig = useMemo(() => {
@@ -278,7 +308,7 @@ export default function EnhancedEditorScreen() {
     return (settings as any)[settingKey] ?? 0;
   }, [settings, activeTarget]);
 
-  const handlePreviewLayout = (event: any) => {
+  const handlePreviewLayout = useCallback((event: any) => { // Callback olarak sarıldı
     const { width, height } = event.nativeEvent.layout;
 
     const isValidLayout = width > 200 && height > 200;
@@ -302,7 +332,8 @@ export default function EnhancedEditorScreen() {
         reason: !isValidLayout ? 'Invalid size' : 'Size not changed significantly'
       });
     }
-  };
+  }, [previewSize, activeTool]); // Dependency array'e previewSize ve activeTool eklendi
+
 
   const handleApplyCrop = () => {
     applyCrop();
@@ -396,16 +427,14 @@ export default function EnhancedEditorScreen() {
   }, [settings.backgroundId, selectedBackgroundConfig, resolvedBackgroundUri, activeTool]);
 
   // ===== BACKGROUND HANDLER =====
-  const handleBackgroundSelect = (background: Background) => {
-    if (__DEV__) {
-      console.log('🖼️ Background selection started:', background.name, background.id);
-    }
+  const handleBackgroundSelect = async (background: Background) => {
+    console.log('🖼️ Background selection started:', background.name, background.id);
+
     try {
-      updateSettings({ backgroundId: background.id });
+      // ✅ updateSettings async olabilir artık
+      await updateSettings({ backgroundId: background.id });
       addSnapshotToHistory();
-      if (__DEV__) {
-        console.log('✅ Background selection completed:', background.name);
-      }
+      console.log('✅ Background selection completed:', background.name);
     } catch (error) {
       console.error('❌ Background selection failed:', error);
     }
@@ -457,15 +486,16 @@ export default function EnhancedEditorScreen() {
     };
   }, [activeTool]);
 
-  // ===== LOADING STATE =====
-  if (!activePhoto) {
-    return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>{t('editor.previewLoading')}</Text>
-      </SafeAreaView>
-    );
-  }
+  // Validate image URI before passing it to EditorPreview
+  const imageUriForPreview = useMemo(() => {
+    const uri = activePhoto?.processedImageUrl || activePhoto?.thumbnailUrl;
+    return uri && uri.length > 0 ? uri : undefined; // Convert "" to undefined
+  }, [activePhoto?.processedImageUrl, activePhoto?.thumbnailUrl]);
+
+  // Validate background URI before passing it to EditorPreview
+  const backgroundUriForPreview = useMemo(() => {
+    return resolvedBackgroundUri && resolvedBackgroundUri.length > 0 ? resolvedBackgroundUri : undefined; // Convert "" to undefined
+  }, [resolvedBackgroundUri]);
 
   const featuresForCurrentTarget = activeTarget === 'background' ? BACKGROUND_FEATURES : ADJUST_FEATURES;
   const currentFeatureConfig = featuresForCurrentTarget.find(f => f.key === activeFeature);
@@ -495,13 +525,13 @@ export default function EnhancedEditorScreen() {
             key={`preview-${activePhoto?.id || 'none'}`}
             ref={skiaViewRef}
             style={previewComponentStyle}
-            activePhoto={{ ...activePhoto, processedImageUrl: activePhoto.processedUri }}
+            activePhoto={{ ...activePhoto, processedImageUrl: imageUriForPreview }} // Pass validated URI
             selectedBackground={selectedBackgroundConfig}
-            backgroundDisplayUri={resolvedBackgroundUri}
+            backgroundDisplayUri={backgroundUriForPreview} // Pass validated URI
             settings={settings}
             showOriginal={showOriginal}
             onShowOriginalChange={setShowOriginal}
-            onLayout={handlePreviewLayout}
+            onLayout={handlePreviewLayout} // handlePreviewLayout useCallback ile sarılı
             updateSettings={updateSettings}
             previewSize={previewSize}
             isCropping={activeTool === 'crop'}
@@ -591,8 +621,8 @@ export default function EnhancedEditorScreen() {
                             <FilterPreview
                               key={f.key}
                               filter={f}
-                              imageUri={activePhoto.processedUri!}
-                              backgroundUri={resolvedBackgroundUri}
+                              imageUri={imageUriForPreview!} // Use validated URI
+                              backgroundUri={backgroundUriForPreview} // Use validated URI
                               isSelected={activeFilterKey === f.key}
                               onPress={() => applyFilter(f.key, activeTarget)}
                             />

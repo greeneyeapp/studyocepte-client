@@ -172,7 +172,8 @@
       "warmth": "Sıcaklık",
       "clarity": "Netlik",
       "vignette": "Vinyet",
-      "blur": "Bulanıklık"
+      "blur": "Bulanıklık",
+      "reset": "Sıfırla"
     },
     "filterNames": {
       "original": "Orijinal",

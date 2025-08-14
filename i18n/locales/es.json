@@ -90,7 +90,9 @@
     "noResults": "No se encontraron resultados",
     "noResultsSubtitle": "No se encontraron resultados para \"{{query}}\".",
     "createFirstProduct": "Crea tu primer producto",
-    "emptyProductNameError": "Por favor, introduce un nombre para el producto."
+    "emptyProductNameError": "Por favor, introduce un nombre para el producto.",
+    "newProductNamePlaceholder": "Nuevo nombre del producto",
+    "createProductTitle": "Nombre del producto"
   },
   "productDetail": {
     "photoCount": "{{count}} fotos",
@@ -99,7 +101,6 @@
     "deleteSelectedPhotosTitle": "Eliminar fotos seleccionadas",
     "deleteSelectedPhotosMessage": "¿Estás seguro de que quieres eliminar {{count}} fotos seleccionadas? Esta acción no se puede deshacer.",
     "editProductName": "Editar nombre del producto",
-    "newProductNamePlaceholder": "Nuevo nombre del producto",
     "deleteProductTitle": "Eliminar producto",
     "deleteProductMessage": "¿Estás seguro de que quieres eliminar este producto y todas sus fotos? Esta acción no se puede deshacer.",
     "removeBackgroundTitle": "Eliminar fondo",
@@ -171,7 +172,8 @@
       "warmth": "Calidez",
       "clarity": "Claridad",
       "vignette": "Viñeta",
-      "blur": "Desenfoque"
+      "blur": "Desenfoque",
+      "reset": "Restablecer"
     },
     "filterNames": {
       "original": "Original",
@@ -337,61 +339,207 @@
     }
   },
   "exportPresets": {
-    "instagram_square": { "name": "Instagram Cuadrado (1:1)", "description": "1080x1080 - Ideal para publicaciones en el feed" },
-    "instagram_story": { "name": "Historia de Instagram", "description": "1080x1920 - Formato de historia vertical" },
-    "instagram_portrait": { "name": "Instagram Retrato (4:5)", "description": "1080x1350 - Formato de publicación vertical" },
-    "youtube_thumbnail": { "name": "Miniatura de YouTube", "description": "1280x720 - Foto de portada de video" },
-    "facebook_post": { "name": "Publicación de Facebook", "description": "1200x630 - Para comparticiones horizontales" },
-    "pinterest_pin": { "name": "Pin de Pinterest", "description": "1000x1500 - Relación de Pin vertical estándar" },
-    "twitter_post": { "name": "Publicación de X (Twitter)", "description": "1600x900 - Imagen de tweet en formato ancho" },
-    "snapchat_story": { "name": "Historia de Snapchat", "description": "1080x1920 - Imagen vertical de pantalla completa" },
-    "linkedin_post": { "name": "Publicación de LinkedIn", "description": "1200x627 - Para comparticiones profesionales" },
-    "tiktok_cover": { "name": "Portada de TikTok", "description": "1080x1920 - Imagen de portada de video vertical" },
-
-    "trendyol_main": { "name": "Trendyol", "description": "1200x1800 - Formato de foto de producto vertical" },
-    "hepsiburada_main": { "name": "Hepsiburada", "description": "1500x1500 - Foto de producto cuadrada estándar" },
-    "amazon_main": { "name": "Amazon", "description": "2000x2000 - Formato cuadrado de alta resolución" },
-    "shopify_product": { "name": "Producto Shopify", "description": "2048x2048 - Imagen de producto cuadrada de alta calidad" },
-    "etsy_listing": { "name": "Anuncio de Etsy", "description": "2700x2025 - Foto de listado horizontal (4:3)" },
-    "generic_ecommerce": { "name": "Cuadrado E-commerce Genérico", "description": "1000x1000 - Tamaño estándar compatible con la mayoría de plataformas" },
-    "ebay_listing": { "name": "Listado de eBay", "description": "1600x1600 - Para imágenes de productos de eBay" },
-    "aliexpress_product": { "name": "AliExpress Producto", "description": "800x800 - Formato cuadrado para AliExpress" },
-    "google_shopping": { "name": "Google Shopping", "description": "1200x1200 - Cuadrado para Google Merchant Center" },
-    "z_fashion_platform": { "name": "Plataforma de Moda", "description": "1080x1440 - Para imágenes de moda verticales" },
-
-    "web_hero": { "name": "Imagen de Héroe del sitio web", "description": "1920x1080 - Formato de imagen principal Full HD" },
-    "web_banner_wide": { "name": "Banner Ancho", "description": "728x90 - \"Leaderboard\" de anuncio" },
-    "web_banner_square": { "name": "Banner Cuadrado", "description": "300x250 - \"Medium Rectangle\" de anuncio" },
-    "web_blog_featured": { "name": "Imagen destacada del blog", "description": "1200x800 - Imagen estándar para artículos de blog" },
-    "web_favicon": { "name": "Favicon", "description": "64x64 - Icono del sitio web, fondo transparente" },
-    "email_header": { "name": "Encabezado de correo electrónico", "description": "600x200 - Imagen de encabezado de boletín y correo electrónico" },
-    "web_profile_banner": { "name": "Banner de perfil web", "description": "1500x500 - Banner para páginas de perfil web" },
-    "mobile_wallpaper": { "name": "Fondo de pantalla móvil", "description": "1080x1920 - Para dispositivos móviles generales" },
-    "desktop_wallpaper_hd": { "name": "Fondo de pantalla de escritorio (HD)", "description": "1920x1080 - Para dispositivos de escritorio generales" },
-    "newsletter_ad_small": { "name": "Anuncio por correo electrónico (pequeño)", "description": "320x100 - Pequeño espacio publicitario para boletines por correo electrónico" },
-
-    "print_a4": { "name": "Papel A4 (300 DPI)", "description": "2480x3508px - Impresión de catálogos y documentos" },
-    "print_a5": { "name": "Papel A5 (300 DPI)", "description": "1748x2480px - Impresión de folletos y volantes" },
-    "print_10x15": { "name": "Impresión de foto 10x15", "description": "1181x1772px - Impresión estándar de estudio fotográfico" },
-    "print_13x18": { "name": "Impresión de foto 13x18", "description": "1535x2126px - Impresión de foto de gran tamaño" },
-    "print_business_card": { "name": "Tarjeta de visita (estándar de la UE)", "description": "1004x650px - Impresión de tarjeta de visita estándar de 85x55 mm" },
-    "print_poster": { "name": "Póster (A3)", "description": "3508x4961px - Impresión de póster de tamaño A3" },
-    "print_flyer_a6": { "name": "Volante (A6)", "description": "1240x1748px - Para volantes pequeños" },
-    "print_post_card_a6": { "name": "Tarjeta postal (A6 Horizontal)", "description": "1748x1240px - Tamaño de tarjeta postal estándar" },
-    "print_us_letter": { "name": "Carta de EE. UU. (300 DPI)", "description": "2550x3300px - Tamaño de documento estándar americano" },
-    "print_magazine_spread": { "name": "Doble página de revista", "description": "5100x3300px - Anuncio de doble página dentro de la revista" },
-
-    "custom_widescreen": { "name": "Pantalla ancha (16:9)", "description": "1920x1080 - Relación de aspecto de TV y monitor" },
-    "custom_classic_photo": { "name": "Foto clásica (3:2)", "description": "1080x720 - Relación de aspecto de foto de película de 35 mm" },
-    "custom_portrait": { "name": "Retrato vertical (2:3)", "description": "720x1080 - Relación de aspecto de retrato de foto vertical" },
-    "custom_cinematic": { "name": "Cinemático (21:9)", "description": "2560x1080 - Relación de aspecto de pantalla de cine ultra ancha" },
+    "instagram_square": {
+      "name": "Instagram Cuadrado (1:1)",
+      "description": "1080x1080 - Ideal para publicaciones en el feed"
+    },
+    "instagram_story": {
+      "name": "Historia de Instagram",
+      "description": "1080x1920 - Formato de historia vertical"
+    },
+    "instagram_portrait": {
+      "name": "Instagram Retrato (4:5)",
+      "description": "1080x1350 - Formato de publicación vertical"
+    },
+    "youtube_thumbnail": {
+      "name": "Miniatura de YouTube",
+      "description": "1280x720 - Foto de portada de video"
+    },
+    "facebook_post": {
+      "name": "Publicación de Facebook",
+      "description": "1200x630 - Para comparticiones horizontales"
+    },
+    "pinterest_pin": {
+      "name": "Pin de Pinterest",
+      "description": "1000x1500 - Relación de Pin vertical estándar"
+    },
+    "twitter_post": {
+      "name": "Publicación de X (Twitter)",
+      "description": "1600x900 - Imagen de tweet en formato ancho"
+    },
+    "snapchat_story": {
+      "name": "Historia de Snapchat",
+      "description": "1080x1920 - Imagen vertical de pantalla completa"
+    },
+    "linkedin_post": {
+      "name": "Publicación de LinkedIn",
+      "description": "1200x627 - Para comparticiones profesionales"
+    },
+    "tiktok_cover": {
+      "name": "Portada de TikTok",
+      "description": "1080x1920 - Imagen de portada de video vertical"
+    },
+    "trendyol_main": {
+      "name": "Trendyol",
+      "description": "1200x1800 - Formato de foto de producto vertical"
+    },
+    "hepsiburada_main": {
+      "name": "Hepsiburada",
+      "description": "1500x1500 - Foto de producto cuadrada estándar"
+    },
+    "amazon_main": {
+      "name": "Amazon",
+      "description": "2000x2000 - Formato cuadrado de alta resolución"
+    },
+    "shopify_product": {
+      "name": "Producto Shopify",
+      "description": "2048x2048 - Imagen de producto cuadrada de alta calidad"
+    },
+    "etsy_listing": {
+      "name": "Anuncio de Etsy",
+      "description": "2700x2025 - Foto de listado horizontal (4:3)"
+    },
+    "generic_ecommerce": {
+      "name": "Cuadrado E-commerce Genérico",
+      "description": "1000x1000 - Tamaño estándar compatible con la mayoría de plataformas"
+    },
+    "ebay_listing": {
+      "name": "Listado de eBay",
+      "description": "1600x1600 - Para imágenes de productos de eBay"
+    },
+    "aliexpress_product": {
+      "name": "AliExpress Producto",
+      "description": "800x800 - Formato cuadrado para AliExpress"
+    },
+    "google_shopping": {
+      "name": "Google Shopping",
+      "description": "1200x1200 - Cuadrado para Google Merchant Center"
+    },
+    "z_fashion_platform": {
+      "name": "Plataforma de Moda",
+      "description": "1080x1440 - Para imágenes de moda verticales"
+    },
+    "web_hero": {
+      "name": "Imagen de Héroe del sitio web",
+      "description": "1920x1080 - Formato de imagen principal Full HD"
+    },
+    "web_banner_wide": {
+      "name": "Banner Ancho",
+      "description": "728x90 - \"Leaderboard\" de anuncio"
+    },
+    "web_banner_square": {
+      "name": "Banner Cuadrado",
+      "description": "300x250 - \"Medium Rectangle\" de anuncio"
+    },
+    "web_blog_featured": {
+      "name": "Imagen destacada del blog",
+      "description": "1200x800 - Imagen estándar para artículos de blog"
+    },
+    "web_favicon": {
+      "name": "Favicon",
+      "description": "64x64 - Icono del sitio web, fondo transparente"
+    },
+    "email_header": {
+      "name": "Encabezado de correo electrónico",
+      "description": "600x200 - Imagen de encabezado de boletín y correo electrónico"
+    },
+    "web_profile_banner": {
+      "name": "Banner de perfil web",
+      "description": "1500x500 - Banner para páginas de perfil web"
+    },
+    "mobile_wallpaper": {
+      "name": "Fondo de pantalla móvil",
+      "description": "1080x1920 - Para dispositivos móviles generales"
+    },
+    "desktop_wallpaper_hd": {
+      "name": "Fondo de pantalla de escritorio (HD)",
+      "description": "1920x1080 - Para dispositivos de escritorio generales"
+    },
+    "newsletter_ad_small": {
+      "name": "Anuncio por correo electrónico (pequeño)",
+      "description": "320x100 - Pequeño espacio publicitario para boletines por correo electrónico"
+    },
+    "print_a4": {
+      "name": "Papel A4 (300 DPI)",
+      "description": "2480x3508px - Impresión de catálogos y documentos"
+    },
+    "print_a5": {
+      "name": "Papel A5 (300 DPI)",
+      "description": "1748x2480px - Impresión de folletos y volantes"
+    },
+    "print_10x15": {
+      "name": "Impresión de foto 10x15",
+      "description": "1181x1772px - Impresión estándar de estudio fotográfico"
+    },
+    "print_13x18": {
+      "name": "Impresión de foto 13x18",
+      "description": "1535x2126px - Impresión de foto de gran tamaño"
+    },
+    "print_business_card": {
+      "name": "Tarjeta de visita (estándar de la UE)",
+      "description": "1004x650px - Impresión de tarjeta de visita estándar de 85x55 mm"
+    },
+    "print_poster": {
+      "name": "Póster (A3)",
+      "description": "3508x4961px - Impresión de póster de tamaño A3"
+    },
+    "print_flyer_a6": {
+      "name": "Volante (A6)",
+      "description": "1240x1748px - Para volantes pequeños"
+    },
+    "print_post_card_a6": {
+      "name": "Tarjeta postal (A6 Horizontal)",
+      "description": "1748x1240px - Tamaño de tarjeta postal estándar"
+    },
+    "print_us_letter": {
+      "name": "Carta de EE. UU. (300 DPI)",
+      "description": "2550x3300px - Tamaño de documento estándar americano"
+    },
+    "print_magazine_spread": {
+      "name": "Doble página de revista",
+      "description": "5100x3300px - Anuncio de doble página dentro de la revista"
+    },
+    "custom_widescreen": {
+      "name": "Pantalla ancha (16:9)",
+      "description": "1920x1080 - Relación de aspecto de TV y monitor"
+    },
+    "custom_classic_photo": {
+      "name": "Foto clásica (3:2)",
+      "description": "1080x720 - Relación de aspecto de foto de película de 35 mm"
+    },
+    "custom_portrait": {
+      "name": "Retrato vertical (2:3)",
+      "description": "720x1080 - Relación de aspecto de retrato de foto vertical"
+    },
+    "custom_cinematic": {
+      "name": "Cinemático (21:9)",
+      "description": "2560x1080 - Relación de aspecto de pantalla de cine ultra ancha"
+    },
     "customGeneratedName": "Personalizado {{width}}x{{height}}",
     "customGeneratedDescription": "Tamaño {{width}}x{{height}} definido por el usuario",
-    "custom_square_hd": { "name": "HD Cuadrado", "description": "1920x1920 - Formato cuadrado de alta resolución" },
-    "custom_a4_landscape": { "name": "A4 Horizontal", "description": "3508x2480px - Formato horizontal de documento/presentación A4" },
-    "custom_4k_uhd": { "name": "4K Ultra HD", "description": "3840x2160 - Para pantallas de ultra alta resolución" },
-    "custom_long_vertical": { "name": "Vertical largo", "description": "800x2000 - Para diseños verticales personalizados" },
-    "custom_ultra_wide_monitor": { "name": "Monitor ultra ancho", "description": "3440x1440 - Para monitores de formato ancho" },
-    "custom_square_small": { "name": "Cuadrado pequeño", "description": "500x500 - Tamaños cuadrados pequeños personalizados" }
+    "custom_square_hd": {
+      "name": "HD Cuadrado",
+      "description": "1920x1920 - Formato cuadrado de alta resolución"
+    },
+    "custom_a4_landscape": {
+      "name": "A4 Horizontal",
+      "description": "3508x2480px - Formato horizontal de documento/presentación A4"
+    },
+    "custom_4k_uhd": {
+      "name": "4K Ultra HD",
+      "description": "3840x2160 - Para pantallas de ultra alta resolución"
+    },
+    "custom_long_vertical": {
+      "name": "Vertical largo",
+      "description": "800x2000 - Para diseños verticales personalizados"
+    },
+    "custom_ultra_wide_monitor": {
+      "name": "Monitor ultra ancho",
+      "description": "3440x1440 - Para monitores de formato ancho"
+    },
+    "custom_square_small": {
+      "name": "Cuadrado pequeño",
+      "description": "500x500 - Tamaños cuadrados pequeños personalizados"
+    }
   }
 }

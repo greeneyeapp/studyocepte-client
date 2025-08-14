@@ -16,6 +16,9 @@ import { InputDialogService } from '@/components/Dialog/InputDialogService';
 import { ImagePickerService } from '@/services/ui';
 import { BackgroundRemovalAnimation } from '@/components/BackgroundRemovalAnimation';
 import AppLoading, { AppLoadingRef } from '@/components/Loading/AppLoading';
+// 👇 ÖNEMLİ: LoadingService'i import edin
+import { LoadingService } from '@/components/Loading/LoadingService';
+
 
 /**
  * ⭐ YÜKSEK KALİTE: PhotoItem component with advanced image optimization
@@ -118,8 +121,8 @@ interface AnimationState { isAnimating: boolean; originalUri: string | null; pro
 export default function ProductDetailScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { productId } = useLocalSearchParams<{ productId: string }>();
-
+  const { productId } = useLocalSearchParams<{ photoId: string, productId: string }>(); // photoId eklendi
+  
   const { products, addMultiplePhotos, deletePhoto, removeMultipleBackgrounds, removeSingleBackground, updateProductName, deleteProduct } = useProductStore();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -397,10 +400,24 @@ export default function ProductDetailScreen() {
     }
   }, [product, removeSingleBackground]);
 
+  // handleEditPhoto fonksiyonu güncellendi
   const handleEditPhoto = useCallback((photo: ProductPhoto) => {
     if (!product?.id) return;
+
+    // 👇 AppLoading'i genel servis üzerinden göster.
+    // Metni de ekleyebiliriz (örneğin: "Editör Hazırlanıyor...")
+    LoadingService.show({ text: t('editor.preparingEditor') || t('appLoading.transitioning') });
+
+    // Yönlendirmeyi başlat
     router.push({ pathname: '/(tabs)/editor/[photoId]', params: { photoId: photo.id, productId: product.id } });
-  }, [product?.id, router]);
+
+    // 🔴 ÖNEMLİ: Buradaki setTimeout'ı kaldırıyoruz.
+    // AppLoading'i gizleme sorumluluğu artık Editor sayfasına ait.
+    // setTimeout(() => {
+    //   loadingRef.current?.hide();
+    // }, 500); // Bu satır kaldırıldı
+  }, [product?.id, router, t]); // t'yi dependency array'e ekledik
+
 
   const handlePhotoPress = useCallback((photo: ProductPhoto) => {
     if (isSelectionMode) {
@@ -469,7 +486,7 @@ export default function ProductDetailScreen() {
         <View style={styles.headerLeft}>
           <TouchableOpacity
             onPress={() => {
-              console.log('🔙 Back button: always navigating to home');
+              console.log('🔙 Back button: navigating to home');
               router.push('/(tabs)/home');
             }}
             style={styles.headerBackButton}
