@@ -21,7 +21,14 @@
       "permissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.VIBRATE",
+        "com.android.vending.BILLING",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
       ]
     },
     "ios": {
@@ -30,7 +37,14 @@
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "App needs access to your photos to let you select product images and add backgrounds.",
         "NSCameraUsageDescription": "App needs access to your camera to let you take photos of your products.",
-        "NSPhotoLibraryAddUsageDescription": "App needs permission to save your edited product images to your photo library."
+        "NSPhotoLibraryAddUsageDescription": "App needs permission to save your edited product images to your photo library.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      },
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "web": {
