@@ -3,6 +3,7 @@ node_modules/
 android
 package-lock.json
 assets
+eas.json
 
 # expo
 .expo/
