@@ -1,4 +1,4 @@
-// app/(tabs)/editor/[photoId].tsx - Loading states kontrol edildi ve düzeltildi
+// app/(tabs)/editor/[photoId].tsx - DÜZELTİLDİ
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { SafeAreaView, StyleSheet, ActivityIndicator, View, ScrollView, Text, LayoutAnimation, UIManager, Platform, AppState } from 'react-native';
@@ -53,7 +53,6 @@ export default function EnhancedEditorScreen() {
   const {
     activePhoto,
     settings,
-    // ✅ KONTROL: isSaving zaten editor store'dan geliyor, bu doğru
     isSaving,
     activeFilterKey,
     applyFilter,
@@ -106,23 +105,23 @@ export default function EnhancedEditorScreen() {
   useEffect(() => {
     const handleAppStateChange = (nextAppState: string) => {
       if (nextAppState === 'background') {
-        console.log('📱 App backgrounding, optimizing memory...');
+        console.log(t('app.memoryOptimizationWarning'));
         imageProcessor.optimizeMemoryUsage();
       }
     };
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription?.remove();
-  }, []);
+  }, [t]);
 
   // ===== PHOTO LOADING EFFECT =====
   useEffect(() => {
-    console.log('✨ Editor mounted');
+    console.log(t('editor.mountedLog'));
     if (photoId && productId) {
       const product = getProductById(productId);
       const photo = product?.photos.find(p => p.id === photoId);
       if (photo) {
-        console.log('📸 Loading photo with auto-save enabled:', photo.id);
+        console.log(t('editor.loadingPhotoLog'), photo.id);
         setActivePhoto(photo);
       } else {
         router.back();
@@ -130,10 +129,10 @@ export default function EnhancedEditorScreen() {
     }
 
     return () => {
-      console.log('🔄 Editor unmounting');
+      console.log(t('editor.unmountingLog'));
       const state = useEnhancedEditorStore.getState();
       if (state.activePhoto && state.hasDraftChanges) {
-        console.log('💾 Saving draft on unmount');
+        console.log(t('editor.savingDraftOnUnmountLog'));
         state.saveDraft();
       }
 
@@ -144,15 +143,16 @@ export default function EnhancedEditorScreen() {
       ToastService.hide();
       BottomSheetService.hide();
     };
-  }, [photoId, productId, getProductById, setActivePhoto, clearStore, router]);
+  }, [photoId, productId, getProductById, setActivePhoto, clearStore, router, t]);
 
   // ===== ARKA PLAN URI ÇÖZÜMLEMESİ =====
   const selectedBackgroundConfig = useMemo(() => {
-    console.log('🎨 Current background ID:', settings.backgroundId);
+    console.log(t('editor.currentBackgroundIdLog'), settings.backgroundId);
     const config = getBackgroundById(settings.backgroundId);
-    console.log('🎨 Found background config:', config ? config.name : 'NOT FOUND');
+    // config.name artık çeviri anahtarı, bu yüzden t() ile çevrilmeli
+    console.log(t('editor.foundBackgroundConfigLog'), config ? t(config.name) : t('common.notFound'));
     return config;
-  }, [settings.backgroundId]);
+  }, [settings.backgroundId, t]);
 
   const [resolvedBackgroundUri, setResolvedBackgroundUri] = useState<string | undefined>(undefined);
 
@@ -161,25 +161,25 @@ export default function EnhancedEditorScreen() {
 
     const resolveBackgroundUri = async () => {
       if (!selectedBackgroundConfig) {
-        console.log('🎨 No background config, clearing URI');
+        console.log(t('editor.noBackgroundConfigLog'));
         if (isMounted) {
           setResolvedBackgroundUri(undefined);
         }
         return;
       }
 
-      console.log('🎨 Starting background URI resolution for:', selectedBackgroundConfig.id);
+      console.log(t('editor.startingBackgroundResolutionLog'), selectedBackgroundConfig.id);
 
       try {
         if (typeof selectedBackgroundConfig.thumbnailUrl === 'string') {
-          console.log('🎨 Using direct string thumbnail URL');
+          console.log(t('editor.directThumbnailUrlLog'));
           if (isMounted) {
             setResolvedBackgroundUri(selectedBackgroundConfig.thumbnailUrl);
           }
           return;
         }
 
-        console.log('🎨 Resolving asset-based thumbnail');
+        console.log(t('editor.resolvingAssetThumbnailLog'));
 
         const resolvePromise = backgroundThumbnailManager.getThumbnail(
           selectedBackgroundConfig.id,
@@ -187,17 +187,17 @@ export default function EnhancedEditorScreen() {
         );
 
         const timeoutPromise = new Promise<string | null>((_, reject) => {
-          setTimeout(() => reject(new Error('Resolution timeout')), 2000);
+          setTimeout(() => reject(new Error(t('editor.resolutionTimeout'))), 2000);
         });
 
         const resolvedUri = await Promise.race([resolvePromise, timeoutPromise]);
 
         if (isMounted) {
           if (resolvedUri) {
-            console.log('✅ Background URI resolved:', selectedBackgroundConfig.id);
+            console.log(t('editor.backgroundUriResolvedLog'), selectedBackgroundConfig.id);
             setResolvedBackgroundUri(resolvedUri);
           } else {
-            console.warn('⚠️ Background URI resolution returned null, using fallback');
+            console.warn(t('editor.backgroundUriNullFallbackLog'));
             try {
               const Asset = require('expo-asset').Asset;
               const asset = Asset.fromModule(selectedBackgroundConfig.thumbnailUrl);
@@ -205,13 +205,13 @@ export default function EnhancedEditorScreen() {
               const fallbackUri = asset.localUri || asset.uri;
 
               if (fallbackUri && isMounted) {
-                console.log('✅ Using fallback asset URI:', selectedBackgroundConfig.id);
+                console.log(t('editor.usingFallbackAssetUriLog'), selectedBackgroundConfig.id);
                 setResolvedBackgroundUri(fallbackUri);
               } else {
                 setResolvedBackgroundUri(undefined);
               }
             } catch (fallbackError) {
-              console.warn('⚠️ Fallback asset resolution failed:', fallbackError);
+              console.warn(t('editor.fallbackAssetResolutionFailedLog'), fallbackError);
               if (isMounted) {
                 setResolvedBackgroundUri(undefined);
               }
@@ -220,7 +220,7 @@ export default function EnhancedEditorScreen() {
         }
 
       } catch (error) {
-        console.error('❌ Background URI resolution failed:', selectedBackgroundConfig.id, error);
+        console.error(t('editor.backgroundUriResolutionFailedLog'), selectedBackgroundConfig.id, error);
         if (isMounted) {
           setResolvedBackgroundUri(undefined);
         }
@@ -232,7 +232,7 @@ export default function EnhancedEditorScreen() {
     return () => {
       isMounted = false;
     };
-  }, [selectedBackgroundConfig]);
+  }, [selectedBackgroundConfig, t]);
 
   // ===== HANDLERS =====
   const animateLayout = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -285,7 +285,7 @@ export default function EnhancedEditorScreen() {
     const isSizeChanged = Math.abs(width - previewSize.width) > 5 || Math.abs(height - previewSize.height) > 5;
 
     if (isValidLayout && isSizeChanged) {
-      console.log('📐 Preview layout updated:', {
+      console.log(t('editor.previewLayoutUpdatedLog'), {
         width,
         height,
         previous: previewSize,
@@ -293,13 +293,13 @@ export default function EnhancedEditorScreen() {
       });
       setPreviewSize({ width, height });
     } else {
-      console.log('📐 Layout event filtered:', {
+      console.log(t('editor.layoutEventFilteredLog'), {
         width,
         height,
         isValidLayout,
         isSizeChanged,
         activeTool,
-        reason: !isValidLayout ? 'Invalid size' : 'Size not changed significantly'
+        reason: !isValidLayout ? t('common.invalidSize') : t('common.sizeNotChanged')
       });
     }
   };
@@ -310,39 +310,39 @@ export default function EnhancedEditorScreen() {
   };
 
   const handleSave = async (withThumbnailUpdate: boolean = false) => {
-    console.log('💾 Save triggered with thumbnail update:', withThumbnailUpdate);
+    console.log(t('editor.saveTriggeredLog'), withThumbnailUpdate);
 
     try {
       if (withThumbnailUpdate && skiaViewRef.current) {
-        console.log('🖼️ Saving with thumbnail update');
+        console.log(t('editor.savingWithThumbnailLog'));
         await store.saveChanges(skiaViewRef);
       } else {
-        console.log('💾 Saving without thumbnail update');
+        console.log(t('editor.savingWithoutThumbnailLog'));
         await store.saveChanges();
       }
 
-      console.log('🚀 Save successful, navigating back to product page');
+      console.log(t('editor.saveSuccessfulLog'));
 
       setTimeout(() => {
         if (productId) {
-          console.log('📱 Navigating to product:', productId);
+          console.log(t('editor.navigateToProductLog'), productId);
           router.push({
             pathname: '/(tabs)/product/[productId]',
             params: { productId }
           });
         } else {
-          console.log('📱 No productId, going back');
+          console.log(t('editor.noProductIdBackLog'));
           router.back();
         }
       }, 500);
 
     } catch (error) {
-      console.error('❌ Save failed, staying on editor:', error);
+      console.error(t('editor.saveFailedLog'), error);
     }
   };
 
   const handleResetAll = () => {
-    console.log('🔄 Reset all settings');
+    console.log(t('editor.resetAllSettingsLog'));
     resetAllSettings();
     store.clearDraft();
   };
@@ -353,48 +353,47 @@ export default function EnhancedEditorScreen() {
       handleToolChange('adjust');
     } else {
       if (hasDraftChanges) {
-        console.log('📂 Saving draft before exit');
+        console.log(t('editor.savingDraftBeforeExitLog'));
         saveDraft();
       }
 
-      console.log('🔙 Cancel: always navigating back to product page');
+      console.log(t('editor.cancelNavigateBackLog'));
 
-      // ✅ HER ZAMAN productId sayfasına geri dön
       if (productId) {
         router.push({
           pathname: '/(tabs)/product/[productId]',
           params: { productId }
         });
       } else {
-        // Fallback: productId yoksa home'a git
         router.push('/(tabs)/home');
       }
     }
   };
 
   useEffect(() => {
-    console.log('🎨 Background state update:', {
+    console.log(t('editor.backgroundStateUpdateLog'), {
       selectedBackgroundId: settings.backgroundId,
       hasConfig: !!selectedBackgroundConfig,
-      configName: selectedBackgroundConfig?.name,
-      resolvedUri: resolvedBackgroundUri ? 'RESOLVED' : 'NOT_RESOLVED',
+      // config.name artık çeviri anahtarı, bu yüzden t() ile çevrilmeli
+      configName: selectedBackgroundConfig ? t(selectedBackgroundConfig.name) : t('common.notFound'),
+      resolvedUri: resolvedBackgroundUri ? t('common.resolved') : t('common.notResolved'),
       activeTool
     });
-  }, [settings.backgroundId, selectedBackgroundConfig, resolvedBackgroundUri, activeTool]);
+  }, [settings.backgroundId, selectedBackgroundConfig, resolvedBackgroundUri, activeTool, t]);
 
   // ===== BACKGROUND HANDLER =====
   const handleBackgroundSelect = (background: Background) => {
     if (__DEV__) {
-      console.log('🖼️ Background selection started:', background.name, background.id);
+      console.log(t('editor.backgroundSelectionStartedLog'), background.name, background.id);
     }
     try {
       updateSettings({ backgroundId: background.id });
       addSnapshotToHistory();
       if (__DEV__) {
-        console.log('✅ Background selection completed:', background.name);
+        console.log(t('editor.backgroundSelectionCompletedLog'), background.name);
       }
     } catch (error) {
-      console.error('❌ Background selection failed:', error);
+      console.error(t('editor.backgroundSelectionFailedLog'), error);
     }
   };
 
@@ -449,6 +448,7 @@ export default function EnhancedEditorScreen() {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>{t('editor.photoLoading')}</Text>
       </SafeAreaView>
     );
   }
@@ -463,7 +463,6 @@ export default function EnhancedEditorScreen() {
         <EditorHeader
           onCancel={handleCancel}
           onSave={handleSave}
-          // ✅ KONTROL: isSaving editor store'dan geliyor, bu doğru
           isSaving={isSaving}
           canUndo={canUndo()}
           canRedo={canRedo()}
@@ -556,8 +555,8 @@ export default function EnhancedEditorScreen() {
                           {featuresForCurrentTarget.map(f =>
                             <FeatureButton
                               key={f.key}
+                              label={f.label} // label artık çeviri anahtarı, FeatureButton içinde t() çağrılıyor
                               icon={f.icon}
-                              label={f.label}
                               value={getSliderValue(f.key)}
                               isActive={activeFeature === f.key}
                               onPress={() => handleFeaturePress(f.key)}
@@ -652,5 +651,11 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
     paddingVertical: Spacing.md,
     minHeight: 80,
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    marginTop: Spacing.sm,
+    textAlign: 'center'
   },
 });

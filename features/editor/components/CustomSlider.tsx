@@ -4,6 +4,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Colors, Typography, Spacing } from '@/constants';
 import { FeatureConfig } from '../config/features';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface CustomSliderProps {
   feature: FeatureConfig;
@@ -21,6 +22,7 @@ export const CustomSlider: React.FC<CustomSliderProps> = ({
   feature, value, onValueChange, onSlidingStart, onSlidingComplete, isActive,
   hasMixedValues = false, productValue = 0, backgroundValue = 0,
 }) => {
+  const { t } = useTranslation();
   const handleValueChange = useCallback((newValue: number) => onValueChange(Math.round(newValue)), [onValueChange]);
   const formattedValue = useMemo(() => (value > 0 ? `+${value}` : `${value}`), [value]);
 
@@ -29,7 +31,7 @@ export const CustomSlider: React.FC<CustomSliderProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.featureLabel}>{feature.label}</Text>
+        <Text style={styles.featureLabel}>{t(`editor.feature.${feature.key}`)}</Text>
         <Text style={styles.featureValue}>{formattedValue}</Text>
       </View>
       <Slider
@@ -54,7 +56,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: Colors.card,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm, // Dikey boşluk azaltıldı
+    paddingVertical: Spacing.sm,
     width: '100%',
   },
   header: {
@@ -62,7 +64,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: Spacing.md,
-    marginBottom: Spacing.xs, // Boşluk azaltıldı
+    marginBottom: Spacing.xs,
   },
   featureLabel: {
     ...Typography.body,
@@ -72,11 +74,11 @@ const styles = StyleSheet.create({
     ...Typography.bodyMedium,
     color: Colors.textPrimary,
     fontWeight: '600',
-    minWidth: 40, // Değer için sabit genişlik
+    minWidth: 40,
     textAlign: 'center',
   },
   slider: {
     width: '100%',
-    height: 40, // Standart slider yüksekliği
+    height: 40,
   },
 });

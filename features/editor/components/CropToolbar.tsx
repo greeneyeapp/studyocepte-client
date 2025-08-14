@@ -4,22 +4,23 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '@/constants';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface CropToolbarProps {
   onAspectRatioSelect: (ratio: string) => void;
   onRotate: () => void;
   onReset: () => void;
-  onApplyCrop: () => void; // Crop'u uygula ve çık
+  onApplyCrop: () => void;
   activeRatio: string;
 }
 
 const ASPECT_RATIOS = [
-  { key: 'original', label: 'Orijinal' },
-  { key: '1:1', label: 'Kare' },
-  { key: '4:5', label: '4:5' },
-  { key: '3:4', label: '3:4' },
-  { key: '2:3', label: '2:3' },
-  { key: '16:9', label: '16:9' },
+  { key: 'original', labelKey: 'editor.crop.ratio.original' },
+  { key: '1:1', labelKey: 'editor.crop.ratio.1:1' },
+  { key: '4:5', labelKey: 'editor.crop.ratio.4:5' },
+  { key: '3:4', labelKey: 'editor.crop.ratio.3:4' },
+  { key: '2:3', labelKey: 'editor.crop.ratio.2:3' },
+  { key: '16:9', labelKey: 'editor.crop.ratio.16:9' },
 ];
 
 const ACTION_BUTTON_DIMENSIONS = {
@@ -34,6 +35,7 @@ export const CropToolbar: React.FC<CropToolbarProps> = ({
   onApplyCrop,
   activeRatio,
 }) => {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       {/* Üst Kısım: En-boy oranı seçenekleri */}
@@ -45,9 +47,8 @@ export const CropToolbar: React.FC<CropToolbarProps> = ({
               style={[styles.ratioButton, activeRatio === ratio.key && styles.ratioButtonActive]}
               onPress={() => onAspectRatioSelect(ratio.key)}
             >
-              {/* KESİN ÇÖZÜM: ratio.label zaten string olmalı ama garanti için String() kullanımı */}
               <Text style={[styles.ratioText, activeRatio === ratio.key && styles.ratioTextActive]}>
-                {String(ratio.label)} 
+                {t(ratio.labelKey)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -61,7 +62,7 @@ export const CropToolbar: React.FC<CropToolbarProps> = ({
           {/* İçerik sarmalayan View */}
           <View style={styles.actionButtonContent}>
             <Feather name="rotate-cw" size={20} color={Colors.textPrimary} />
-            <Text style={styles.actionText}>Döndür</Text>
+            <Text style={styles.actionText}>{t('editor.crop.action.rotate')}</Text>
           </View>
         </TouchableOpacity>
         
@@ -70,7 +71,7 @@ export const CropToolbar: React.FC<CropToolbarProps> = ({
           {/* İçerik sarmalayan View */}
           <View style={styles.actionButtonContent}>
             <Feather name="refresh-ccw" size={20} color={Colors.textPrimary} />
-            <Text style={styles.actionText}>Sıfırla</Text>
+            <Text style={styles.actionText}>{t('editor.crop.action.reset')}</Text>
           </View>
         </TouchableOpacity>
         
@@ -79,7 +80,7 @@ export const CropToolbar: React.FC<CropToolbarProps> = ({
           {/* İçerik sarmalayan View */}
           <View style={styles.actionButtonContent}>
             <Feather name="check" size={24} color={Colors.card} />
-            <Text style={[styles.actionText, styles.applyText]}>Uygula</Text>
+            <Text style={[styles.actionText, styles.applyText]}>{t('editor.crop.action.apply')}</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -144,7 +145,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.xs, // İkon ve metin arasına boşluk koy
+    gap: Spacing.xs,
   },
   applyButton: {
     backgroundColor: Colors.primary,

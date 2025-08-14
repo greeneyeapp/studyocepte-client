@@ -50,7 +50,7 @@ const AppBottomSheet = forwardRef<AppBottomSheetRef, {}>((_, ref) => {
     }));
 
     if (!options) {
-        return <View />; // ASLA NULL DÖNDÜRME
+        return <View />;
     }
 
     return (

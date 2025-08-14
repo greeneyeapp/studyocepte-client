@@ -5,7 +5,7 @@ import {
   SafeAreaView, ScrollView, TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -15,7 +15,7 @@ import { Button } from '@/components/Button';
 import { ToastService } from '@/components/Toast/ToastService';
 
 export default function LoginScreen() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(); // t fonksiyonu tanımlandı
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,9 +45,9 @@ export default function LoginScreen() {
     
     // Eğer işlem BAŞARISIZ olursa, toast göster ve butonları tekrar aktif hale getir.
     if (!success) {
-      const error = useAuthStore.getState().error;
-      const defaultMessage = actionType === 'login' ? t('auth.loginFailed') : 'Misafir Girişi Başarısız';
-      ToastService.show( t('auth.tryAgain'));
+      // const error = useAuthStore.getState().error; // Bu satır artık kullanılmayacak
+      // const defaultMessage = actionType === 'login' ? t('auth.loginFailed') : 'Misafir Girişi Başarısız'; // Bu satır artık kullanılmayacak
+      ToastService.show(t('auth.tryAgain'));
       setActiveAction(null); // Butonları tekrar kullanılabilir yap
     }
     // Başarılı olursa hiçbir şey yapma. _layout.tsx geçişi yönetecek ve bu component zaten yok olacak.
@@ -60,7 +60,7 @@ export default function LoginScreen() {
           <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
             <View style={styles.formWrapper}>
               <View style={styles.headerContainer}>
-                <Text style={styles.title}>Stüdyo Cepte</Text>
+                <Text style={styles.title}>{t('appName')}</Text>
                 <Text style={styles.subtitle}>{t('auth.loginSubtitle')}</Text>
               </View>
               <View style={styles.formContainer}>
@@ -69,14 +69,14 @@ export default function LoginScreen() {
                 
                 {/* Her buton artık kendi LOKAL durumunu kontrol ediyor */}
                 <Button 
-                  title="Giriş Yap" 
+                  title={t('auth.loginButton')} 
                   onPress={() => handleAction('login')} 
                   loading={activeAction === 'login'} // Sadece bu butonun eylemi aktifse loading olur
                   disabled={activeAction !== null}  // Herhangi bir eylem aktifse ikisi de disabled olur
                   size="medium" 
                 />
                 <Button 
-                  title="Misafir Olarak Devam Et" 
+                  title={t('auth.continueAsGuestButton')} 
                   onPress={() => handleAction('guest')} 
                   variant="outline" 
                   loading={activeAction === 'guest'} // Sadece bu butonun eylemi aktifse loading olur
@@ -86,7 +86,7 @@ export default function LoginScreen() {
                 />
               </View>
               <TouchableOpacity style={styles.registerLinkContainer} onPress={() => router.push('/(auth)/register')}>
-                <Text style={styles.registerText}>Hesabın yok mu? <Text style={styles.registerLink}>Kayıt Ol</Text></Text>
+                <Text style={styles.registerText}>{t('auth.noAccountPrompt')} <Text style={styles.registerLink}>{t('auth.registerNow')}</Text></Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

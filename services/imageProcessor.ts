@@ -1,52 +1,44 @@
-// services/imageProcessor.ts - YÜKSEK KALİTE THUMBNAIL VERSİYON
+// services/imageProcessor.ts - YÜKSEK KALİTE THUMBNAIL VERSİYON (ÇEVİRİ ANAHTARLARI KULLANILDI)
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 import { captureRef } from 'react-native-view-shot';
 import { EditorSettings } from '@/stores/useEnhancedEditorStore';
+import i18n from '@/i18n'; // i18n import edildi
 
 export const imageProcessor = {
-  /**
-   * ⭐ YÜKSEK KALİTE: 600px PNG kaliteli thumbnail oluştur
-   */
   createThumbnail: async (originalUri: string, format: 'jpeg' | 'png' = 'png'): Promise<string> => {
     const saveFormat = format === 'png' ? SaveFormat.PNG : SaveFormat.JPEG;
 
     try {
-      // ⭐ YÜKSEK KALİTE: 300px → 600px, 0.7 → 0.95, PNG default
       const tempResult = await manipulateAsync(
         originalUri,
-        [{ resize: { width: 600 } }], // 300px → 600px
+        [{ resize: { width: 600 } }],
         { 
-          compress: 0.95, // 0.7 → 0.95 (yüksek kalite)
-          format: SaveFormat.PNG // PNG her zaman en kaliteli
+          compress: 0.95,
+          format: SaveFormat.PNG
         }
       );
 
-      console.log('🖼️ High quality thumbnail created (600px PNG):', tempResult.uri);
+      console.log(i18n.t('imageProcessor.thumbnailCreatedLog'), tempResult.uri); // Çeviri anahtarı kullanıldı
 
-      // Geçici dosyayı kalıcı konuma taşı
       const permanentUri = await imageProcessor.moveToDocuments(
         tempResult.uri,
-        `thumb_hq_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.png` // PNG extension
+        `thumb_hq_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.png`
       );
 
-      console.log('✅ High quality thumbnail moved to permanent location:', permanentUri);
+      console.log(i18n.t('imageProcessor.thumbnailMovedToPermanentLog'), permanentUri); // Çeviri anahtarı kullanıldı
       return permanentUri;
 
-    } catch (error) {
-      console.error('❌ High quality thumbnail creation failed:', error);
-      throw new Error('Yüksek kalite thumbnail oluşturulamadı');
+    } catch (error: any) {
+      console.error(i18n.t('imageProcessor.createThumbnailFailedLog'), error.message); // Çeviri anahtarı kullanıldı
+      throw new Error(i18n.t('imageProcessor.createThumbnailFailed')); // Çeviri anahtarı kullanıldı
     }
   },
 
-  /**
-   * YENİ: Geçici dosyayı Documents klasörüne taşı
-   */
   moveToDocuments: async (tempUri: string, filename: string): Promise<string> => {
     try {
       const documentsDir = FileSystem.documentDirectory + 'temp_images/';
 
-      // Documents içinde temp klasörü oluştur
       const dirInfo = await FileSystem.getInfoAsync(documentsDir);
       if (!dirInfo.exists) {
         await FileSystem.makeDirectoryAsync(documentsDir, { intermediates: true });
@@ -54,85 +46,72 @@ export const imageProcessor = {
 
       const permanentUri = documentsDir + filename;
 
-      // Dosyayı kopyala
       await FileSystem.copyAsync({
         from: tempUri,
         to: permanentUri
       });
 
-      // Geçici dosyayı sil
       try {
         await FileSystem.deleteAsync(tempUri, { idempotent: true });
       } catch (cleanupError) {
-        console.warn('⚠️ Failed to cleanup temp file:', cleanupError);
+        console.warn(i18n.t('common.cleanupWarning'), cleanupError); // Çeviri anahtarı kullanıldı
       }
 
       return permanentUri;
 
-    } catch (error) {
-      console.error('❌ Failed to move to documents:', error);
-      throw new Error('Dosya kalıcı konuma taşınamadı');
+    } catch (error: any) {
+      console.error(i18n.t('imageProcessor.moveToDocumentsFailedLog'), error.message); // Çeviri anahtarı kullanıldı
+      throw new Error(i18n.t('imageProcessor.moveToDocumentsFailed')); // Çeviri anahtarı kullanıldı
     }
   },
 
-  /**
-   * ⭐ YÜKSEK KALİTE: 800x800 PNG filtered thumbnail oluştur
-   */
   createFilteredThumbnail: async (
     originalUri: string,
     editorSettings: EditorSettings,
     backgroundUri?: string
   ): Promise<string> => {
     try {
-      console.log('🖼️ Creating HIGH QUALITY filtered thumbnail:', {
+      console.log(i18n.t('imageProcessor.creatingFilteredThumbnailLog'), { // Çeviri anahtarı kullanıldı
         hasBackground: !!backgroundUri,
         settingsKeys: Object.keys(editorSettings)
       });
 
-      // ⭐ YÜKSEK KALİTE: 300x300 → 800x800, 0.8 → 1.0, PNG
       const tempResized = await manipulateAsync(
         originalUri,
-        [{ resize: { width: 800, height: 800 } }], // 300x300 → 800x800
+        [{ resize: { width: 800, height: 800 } }],
         {
-          compress: 1.0, // 0.8 → 1.0 (maksimum kalite)
-          format: SaveFormat.PNG // PNG for best quality
+          compress: 1.0,
+          format: SaveFormat.PNG
         }
       );
 
-      // Temel filter'ları uygula
       const tempFiltered = await imageProcessor.applyBasicFilters(
         tempResized.uri,
         editorSettings
       );
 
-      // Kalıcı konuma taşı
       const permanentUri = await imageProcessor.moveToDocuments(
         tempFiltered,
         `filtered_thumb_hq_${Date.now()}.png`
       );
 
-      // Eğer farklı dosyalarsa geçici dosyayı da temizle
       if (tempFiltered !== tempResized.uri) {
         try {
           await FileSystem.deleteAsync(tempFiltered, { idempotent: true });
         } catch (error) {
-          console.warn('⚠️ Cleanup warning:', error);
+          console.warn(i18n.t('common.cleanupWarning'), error.message); // Çeviri anahtarı kullanıldı
         }
       }
 
-      console.log('✅ HIGH QUALITY filtered thumbnail created (800x800 PNG)');
+      console.log(i18n.t('imageProcessor.filteredThumbnailCreatedLog')); // Çeviri anahtarı kullanıldı
       return permanentUri;
 
-    } catch (error) {
-      console.error('❌ High quality filtered thumbnail creation failed:', error);
-      // Fallback: normal thumbnail oluştur
+    } catch (error: any) {
+      console.error(i18n.t('imageProcessor.createFilteredThumbnailFailedLog'), error.message); // Çeviri anahtarı kullanıldı
       return await imageProcessor.createThumbnail(originalUri, 'png');
     }
   },
 
-  /**
-   * DÜZELTME: Temel filter'ları uygula ve kalıcı dosya döndür
-   */
   applyBasicFilters: async (
     imageUri: string,
     settings: EditorSettings
@@ -140,25 +119,22 @@ export const imageProcessor = {
     try {
       const actions: any[] = [];
 
-      // Rotation uygula
       if (settings.photoRotation && settings.photoRotation !== 0) {
         actions.push({
           rotate: settings.photoRotation
         });
       }
 
-      // Manipülasyonlar varsa uygula
       if (actions.length > 0) {
         const tempResult = await manipulateAsync(
           imageUri,
           actions,
           {
-            compress: 1.0, // ⭐ YÜKSEK KALİTE: 0.8 → 1.0
-            format: SaveFormat.PNG // ⭐ YÜKSEK KALİTE: PNG
+            compress: 1.0,
+            format: SaveFormat.PNG
           }
         );
 
-        // Kalıcı konuma taşı
         const permanentUri = await imageProcessor.moveToDocuments(
           tempResult.uri,
           `filtered_hq_${Date.now()}.png`
@@ -167,40 +143,35 @@ export const imageProcessor = {
         return permanentUri;
       }
 
-      return imageUri; // Değişiklik yoksa orijinal URI döndür
+      return imageUri;
 
-    } catch (error) {
-      console.error('❌ High quality filter application failed:', error);
-      return imageUri; // Fallback: orijinal URI döndür
+    } catch (error: any) {
+      console.error(i18n.t('imageProcessor.filterApplicationFailedLog'), error.message); // Çeviri anahtarı kullanıldı
+      return imageUri;
     }
   },
 
-  /**
-   * ⭐ YÜKSEK KALİTE: 800x800 view component'inden kalıcı thumbnail capture
-   */
   captureFilteredThumbnail: async (
     viewRef: any,
-    targetSize: { width: number; height: number } = { width: 800, height: 800 } // 300x300 → 800x800
+    targetSize: { width: number; height: number } = { width: 800, height: 800 }
   ): Promise<string> => {
     try {
       if (!viewRef?.current) {
-        throw new Error('View ref is not available');
+        throw new Error(i18n.t('imageProcessor.viewRefNotAvailable')); // Çeviri anahtarı kullanıldı
       }
 
-      console.log('📸 Capturing HIGH QUALITY filtered thumbnail from view (800x800)...');
+      console.log(i18n.t('imageProcessor.capturingFilteredThumbnailLog')); // Çeviri anahtarı kullanıldı
 
-      // ⭐ YÜKSEK KALİTE: PNG, yüksek kalite, büyük boyut
       const tempCaptured = await captureRef(viewRef, {
-        format: 'png', // PNG for lossless quality
-        quality: 1.0, // 0.8 → 1.0 (maksimum kalite)
-        width: targetSize.width, // 800px
-        height: targetSize.height, // 800px
+        format: 'png',
+        quality: 1.0,
+        width: targetSize.width,
+        height: targetSize.height,
         result: 'tmpfile',
       });
 
-      console.log('✅ HIGH QUALITY view captured (800x800 PNG):', tempCaptured);
+      console.log(i18n.t('imageProcessor.viewCapturedLog'), tempCaptured); // Çeviri anahtarı kullanıldı
 
-      // Kalıcı konuma taşı
       const permanentUri = await imageProcessor.moveToDocuments(
         tempCaptured,
         `captured_thumb_hq_${Date.now()}.png`
@@ -208,31 +179,26 @@ export const imageProcessor = {
 
       return permanentUri;
 
-    } catch (error) {
-      console.error('❌ High quality view capture failed:', error);
-      throw new Error('Yüksek kalite filtered thumbnail capture başarısız');
+    } catch (error: any) {
+      console.error(i18n.t('imageProcessor.captureFilteredThumbnailFailedLog'), error.message); // Çeviri anahtarı kullanıldı
+      throw new Error(i18n.t('imageProcessor.captureFilteredThumbnailFailed')); // Çeviri anahtarı kullanıldı
     }
   },
 
-  /**
-   * ⭐ GÜÇLÜ CACHE-BUSTING: Timestamp + Random ile unique thumbnail URI
-   */
   saveFilteredThumbnail: async (
     productId: string,
     photoId: string,
     sourceUri: string
   ): Promise<string> => {
     try {
-      // fileSystemManager'ı dynamic import ile al
       const { fileSystemManager } = await import('@/services/fileSystemManager');
 
-      // ⭐ GÜÇLÜ CACHE-BUSTING: Timestamp + random + version
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substr(2, 9);
-      const version = Math.floor(timestamp / 1000); // Saniye bazlı version
+      const version = Math.floor(timestamp / 1000);
       const thumbnailFilename = `thumb_hq_${photoId}_v${version}_${randomId}.png`;
 
-      console.log('💾 Saving CACHE-BUSTED high quality thumbnail:', {
+      console.log(i18n.t('imageProcessor.savingCacheBustedThumbnailLog'), { // Çeviri anahtarı kullanıldı
         photoId,
         filename: thumbnailFilename,
         timestamp,
@@ -241,23 +207,21 @@ export const imageProcessor = {
         sourceUri: sourceUri.substring(0, 50) + '...'
       });
 
-      // fileSystemManager kullanarak kalıcı ürün klasörüne kaydet
       const permanentUri = await fileSystemManager.saveImage(
         productId,
         sourceUri,
         thumbnailFilename
       );
 
-      // Kaynak dosya geçici konumdaysa sil
       if (sourceUri.includes('temp_images/') || sourceUri.includes('cache/')) {
         try {
           await FileSystem.deleteAsync(sourceUri, { idempotent: true });
         } catch (cleanupError) {
-          console.warn('⚠️ Source cleanup warning:', cleanupError);
+          console.warn(i18n.t('common.cleanupWarning'), cleanupError); // Çeviri anahtarı kullanıldı
         }
       }
 
-      console.log('✅ CACHE-BUSTED high quality thumbnail saved:', {
+      console.log(i18n.t('imageProcessor.cacheBustedThumbnailSavedLog'), { // Çeviri anahtarı kullanıldı
         photoId,
         filename: thumbnailFilename,
         uri: permanentUri,
@@ -265,18 +229,14 @@ export const imageProcessor = {
         version
       });
 
-      // ⭐ GÜÇLÜ CACHE-BUSTING URI döndür
       return imageProcessor.createStrongCacheBustedUri(permanentUri, version, randomId);
 
-    } catch (error) {
-      console.error('❌ High quality thumbnail save failed:', error);
-      throw new Error('Yüksek kalite thumbnail kaydedilemedi: ' + error.message);
+    } catch (error: any) {
+      console.error(i18n.t('imageProcessor.saveThumbnailFailedLog'), error.message); // Çeviri anahtarı kullanıldı
+      throw new Error(`${i18n.t('imageProcessor.saveThumbnailFailed')}${error.message}`); // Çeviri anahtarı kullanıldı
     }
   },
 
-  /**
-   * ⭐ GÜÇLÜ CACHE-BUSTING: Multiple parameters ile
-   */
   createStrongCacheBustedUri: (originalUri: string, version?: number, randomId?: string): string => {
     if (!originalUri) return originalUri;
 
@@ -284,20 +244,18 @@ export const imageProcessor = {
     const versionParam = version || Math.floor(timestamp / 1000);
     const randomParam = randomId || Math.random().toString(36).substr(2, 9);
     
-    // Mevcut parametreleri temizle
     let cleanUri = originalUri.split('?')[0];
     
-    // ⭐ MULTIPLE CACHE-BUSTING PARAMETERS
     const cacheBustingParams = [
-      `cb=${timestamp}`, // Cache buster timestamp
-      `v=${versionParam}`, // Version number
-      `r=${randomParam}`, // Random ID
-      `t=${Date.now()}` // Additional timestamp
+      `cb=${timestamp}`,
+      `v=${versionParam}`,
+      `r=${randomParam}`,
+      `t=${Date.now()}`
     ].join('&');
 
     const finalUri = `${cleanUri}?${cacheBustingParams}`;
     
-    console.log('🔄 STRONG cache-busted URI created:', {
+    console.log(i18n.t('imageProcessor.strongCacheBustedUriCreatedLog'), { // Çeviri anahtarı kullanıldı
       original: originalUri,
       final: finalUri,
       params: { timestamp, versionParam, randomParam }
@@ -308,11 +266,9 @@ export const imageProcessor = {
 
   refreshThumbnail: async (originalThumbnailUri: string): Promise<string> => {
     try {
-      // ⭐ GÜÇLÜ CACHE-BUSTING version oluştur
       const cacheBustedUri = imageProcessor.createStrongCacheBustedUri(originalThumbnailUri);
 
-      // React Native Image cache'ini temizle (platform-specific)
-      if (typeof global !== 'undefined' && global.__turboModuleProxy) {
+      if (typeof global !== 'undefined' && (global as any).__turboModuleProxy) {
         try {
           const { Image } = await import('react-native');
           if (Image.getSize) {
@@ -325,47 +281,42 @@ export const imageProcessor = {
             });
           }
         } catch (error) {
-          console.warn('⚠️ Image cache refresh warning:', error);
+          console.warn(i18n.t('imageProcessor.imageCacheRefreshWarning'), error); // Çeviri anahtarı kullanıldı
         }
       }
 
-      console.log('🔄 HIGH QUALITY thumbnail refreshed with strong cache busting:', {
+      console.log(i18n.t('imageProcessor.thumbnailRefreshedLog'), { // Çeviri anahtarı kullanıldı
         original: originalThumbnailUri,
         cacheBusted: cacheBustedUri
       });
 
       return cacheBustedUri;
 
-    } catch (error) {
-      console.warn('⚠️ Thumbnail refresh failed, returning original:', error);
+    } catch (error: any) {
+      console.warn(i18n.t('imageProcessor.thumbnailRefreshFailedLog'), error.message); // Çeviri anahtarı kullanıldı
       return originalThumbnailUri;
     }
   },
 
   clearImageCache: async (): Promise<void> => {
     try {
-      // React Native'de image cache temizliği
       const { Image } = await import('react-native');
 
-      // Platform-specific cache clearing
       if (typeof Image.clearMemoryCache === 'function') {
         await Image.clearMemoryCache();
-        console.log('🧹 React Native image memory cache cleared');
+        console.log(i18n.t('imageProcessor.memoryCacheClearedLog')); // Çeviri anahtarı kullanıldı
       }
 
       if (typeof Image.clearDiskCache === 'function') {
         await Image.clearDiskCache();
-        console.log('🧹 React Native image disk cache cleared');
+        console.log(i18n.t('imageProcessor.diskCacheClearedLog')); // Çeviri anahtarı kullanıldı
       }
 
-    } catch (error) {
-      console.warn('⚠️ Image cache clearing failed:', error);
+    } catch (error: any) {
+      console.warn(i18n.t('imageProcessor.imageCacheClearingFailedLog'), error.message); // Çeviri anahtarı kullanıldı
     }
   },
 
-  /**
-   * Base64 verisini kalıcı dosyaya yazar
-   */
   base64ToTempFile: async (base64Data: string, filename: string = `temp_hq_${Date.now()}.png`): Promise<string> => {
     try {
       const documentsDir = FileSystem.documentDirectory + 'temp_images/';
@@ -383,24 +334,20 @@ export const imageProcessor = {
 
       const fileInfo = await FileSystem.getInfoAsync(permanentUri);
       if (!fileInfo.exists) {
-        throw new Error('Dosya oluşturulamadı');
+        throw new Error(i18n.t('filesystem.fileSaveCheckFailed')); // Çeviri anahtarı kullanıldı
       }
 
-      console.log('✅ HIGH QUALITY base64 file saved permanently:', permanentUri);
+      console.log(i18n.t('imageProcessor.base64FileSavedPermanentlyLog'), permanentUri); // Çeviri anahtarı kullanıldı
       return permanentUri;
 
-    } catch (error) {
-      console.error('❌ Base64 file conversion failed:', error);
-      throw new Error('Base64 verisi dosyaya dönüştürülemedi');
+    } catch (error: any) {
+      console.error(i18n.t('imageProcessor.base64FileConversionFailedLog'), error.message); // Çeviri anahtarı kullanıldı
+      throw new Error(i18n.t('imageProcessor.base64ToTempFileFailed')); // Çeviri anahtarı kullanıldı
     }
   },
 
-  /**
-   * Sadece gerçek geçici dosyaları temizle
-   */
   cleanupTempFiles: async (): Promise<void> => {
     try {
-      // Cache klasöründeki ImageManipulator dosyalarını temizle
       const cacheDir = FileSystem.cacheDirectory;
       if (cacheDir) {
         const cacheFiles = await FileSystem.readDirectoryAsync(cacheDir);
@@ -412,20 +359,19 @@ export const imageProcessor = {
 
         const cacheDeletePromises = tempCacheFiles.map(file =>
           FileSystem.deleteAsync(cacheDir + file, { idempotent: true })
-            .catch(error => console.warn('⚠️ Cache cleanup warning:', file, error))
+            .catch(error => console.warn(i18n.t('common.cleanupWarning'), file, error.message)) // Çeviri anahtarı kullanıldı
         );
 
         await Promise.allSettled(cacheDeletePromises);
       }
 
-      // Documents/temp_images klasöründeki eski dosyaları temizle (7 günden eski)
       const tempImagesDir = FileSystem.documentDirectory + 'temp_images/';
       const dirInfo = await FileSystem.getInfoAsync(tempImagesDir);
 
       if (dirInfo.exists) {
         const tempFiles = await FileSystem.readDirectoryAsync(tempImagesDir);
         const now = Date.now();
-        const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 gün
+        const maxAge = 7 * 24 * 60 * 60 * 1000;
 
         const oldFilePromises = tempFiles.map(async (file) => {
           try {
@@ -436,21 +382,21 @@ export const imageProcessor = {
               const fileAge = now - fileInfo.modificationTime * 1000;
               if (fileAge > maxAge) {
                 await FileSystem.deleteAsync(fileUri, { idempotent: true });
-                console.log('🗑️ Old temp file deleted:', file);
+                console.log(i18n.t('imageProcessor.oldTempFileDeletedLog'), file); // Çeviri anahtarı kullanıldı
               }
             }
           } catch (error) {
-            console.warn('⚠️ Old file cleanup warning:', file, error);
+            console.warn(i18n.t('imageProcessor.oldFileCleanupWarning'), file, error.message); // Çeviri anahtarı kullanıldı
           }
         });
 
         await Promise.allSettled(oldFilePromises);
       }
 
-      console.log('🧹 Temp files cleanup completed');
+      console.log(i18n.t('imageProcessor.tempFilesCleanupCompletedLog')); // Çeviri anahtarı kullanıldı
 
-    } catch (error) {
-      console.warn('⚠️ Cleanup warning:', error);
+    } catch (error: any) {
+      console.warn(i18n.t('common.cleanupWarning'), error.message); // Çeviri anahtarı kullanıldı
     }
   },
 
@@ -460,22 +406,18 @@ export const imageProcessor = {
 
       if (__DEV__ && global.gc) {
         global.gc();
-        console.log('🗑️ Image processor garbage collection triggered');
+        console.log(i18n.t('imageProcessor.garbageCollectionTriggeredLog')); // Çeviri anahtarı kullanıldı
       }
-    } catch (error) {
-      console.warn('⚠️ Image processor memory optimization failed:', error);
+    } catch (error: any) {
+      console.warn(i18n.t('imageProcessor.memoryOptimizationFailedLog'), error.message); // Çeviri anahtarı kullanıldı
     }
   },
 
-  // ⚠️ DEPRECATED: createCacheBustedUri yerine createStrongCacheBustedUri kullan
   createCacheBustedUri: (originalUri: string): string => {
-    console.warn('⚠️ createCacheBustedUri deprecated, use createStrongCacheBustedUri instead');
+    console.warn(i18n.t('imageProcessor.createCacheBustedUriDeprecationWarning')); // Çeviri anahtarı kullanıldı
     return imageProcessor.createStrongCacheBustedUri(originalUri);
   },
 
-  /**
-   * Dosya varlık kontrolü ve recovery
-   */
   validateAndRecoverFile: async (uri: string): Promise<string | null> => {
     try {
       if (!uri) return null;
@@ -485,11 +427,11 @@ export const imageProcessor = {
         return uri;
       }
 
-      console.warn('⚠️ File not found, attempting recovery:', uri);
+      console.warn(i18n.t('imageProcessor.fileNotFoundRecoveryAttemptLog'), uri); // Çeviri anahtarı kullanıldı
       return null;
 
-    } catch (error) {
-      console.warn('⚠️ File validation failed:', uri, error);
+    } catch (error: any) {
+      console.warn(i18n.t('imageProcessor.fileValidationFailedLog'), uri, error.message); // Çeviri anahtarı kullanıldı
       return null;
     }
   }

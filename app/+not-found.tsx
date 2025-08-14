@@ -2,16 +2,18 @@
 import { Link, Stack } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { Colors, Spacing, Typography } from '@/constants';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 export default function NotFoundScreen() {
+  const { t } = useTranslation(); // t fonksiyonu tanımlandı
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
+      <Stack.Screen options={{ title: t('notFound.title') }} /> {/* Çeviri eklendi */}
       <View style={styles.container}>
-        <Text style={styles.title}>404</Text>
-        <Text style={styles.text}>This screen doesn't exist.</Text>
+        <Text style={styles.title}>{t('notFound.errorCode')}</Text> {/* Çeviri eklendi */}
+        <Text style={styles.text}>{t('notFound.message')}</Text> {/* Çeviri eklendi */}
         <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>Go to home screen!</Text>
+          <Text style={styles.linkText}>{t('notFound.goToHomeButton')}</Text> {/* Çeviri eklendi */}
         </Link>
       </View>
     </>

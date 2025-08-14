@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 import { useProductStore, Product } from '@/stores/useProductStore';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -29,6 +29,7 @@ const MAX_RENDER_COUNT = 50;
 
 // Optimized ProfileAvatar with memoization
 const ProfileAvatar = React.memo<{ name: string; onPress: () => void }>(({ name, onPress }) => {
+  const { t } = useTranslation(); // t fonksiyonu tanımlandı
   const PALETTE = [Colors.primary, Colors.secondary, Colors.accent, '#7D9A81', '#A288A6', '#E29578'];
 
   const { initials, backgroundColor } = useMemo(() => {
@@ -36,6 +37,10 @@ const ProfileAvatar = React.memo<{ name: string; onPress: () => void }>(({ name,
       const words = name.trim().split(' ');
       if (words.length > 1 && words[words.length - 1]) {
         return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
+      }
+      // "Misafir" veya "Guest" gibi durumlarda, baş harfleri al
+      if (name === t('auth.guest')) { // Misafir kelimesini de kontrol et
+        return name.substring(0, 2).toUpperCase();
       }
       return name.substring(0, 2).toUpperCase();
     };
@@ -51,7 +56,7 @@ const ProfileAvatar = React.memo<{ name: string; onPress: () => void }>(({ name,
       initials: getInitials(),
       backgroundColor: stringToColor(name)
     };
-  }, [name]);
+  }, [name, t]); // t'yi dependency'e ekle
 
   return (
     <TouchableOpacity onPress={onPress} style={styles.profileButton} activeOpacity={0.7}>
@@ -63,6 +68,7 @@ const ProfileAvatar = React.memo<{ name: string; onPress: () => void }>(({ name,
 });
 
 const MultiPhotoDisplay = React.memo<{ photos: any[] }>(({ photos }) => {
+  const { t } = useTranslation(); // t fonksiyonu tanımlandı
   const photoCount = photos.length;
 
   const siblingUris = useMemo(() =>
@@ -76,8 +82,8 @@ const MultiPhotoDisplay = React.memo<{ photos: any[] }>(({ photos }) => {
         <View style={itemStyles.emptyPhotoIcon}>
           <Feather name="camera" size={24} color={Colors.primary} />
         </View>
-        <Text style={itemStyles.emptyPhotoTitle}>Fotoğraf Ekle</Text>
-        <Text style={itemStyles.emptyPhotoSubtitle}>İlk fotoğrafını yükle</Text>
+        <Text style={itemStyles.emptyPhotoTitle}>{t('products.addPhoto')}</Text>
+        <Text style={itemStyles.emptyPhotoSubtitle}>{t('products.addPhotoSubtitle')}</Text>
       </View>
     );
   }
@@ -210,13 +216,14 @@ const ModernProductCard = React.memo<{
   onPress: () => void;
   index: number;
 }>(({ product, onPress, index }) => {
+  const { t } = useTranslation(); // t fonksiyonu tanımlandı
   useEffect(() => {
     renderCount++;
     if (renderCount > MAX_RENDER_COUNT && renderCount % 20 === 0) {
-      console.log(`🔄 Render count: ${renderCount}, optimizing memory...`);
+      console.log(t('home.renderCountLog', { renderCount })); // Çeviri eklendi
       LazyImageUtils.optimizeMemory();
     }
-  }, []);
+  }, [t]);
 
   return (
     <View style={itemStyles.itemContainer}>
@@ -268,6 +275,7 @@ const SearchBar = React.memo<{
   onSearchChange: (query: string) => void;
   onClear: () => void;
 }>(({ searchQuery, onSearchChange, onClear }) => {
+  const { t } = useTranslation(); // t fonksiyonu tanımlandı
   const inputRef = useRef<TextInput>(null);
   const debounceTimeout = useRef<NodeJS.Timeout>();
 
@@ -299,7 +307,7 @@ const SearchBar = React.memo<{
         <TextInput
           ref={inputRef}
           style={styles.searchInput}
-          placeholder="Ürünlerde ara..."
+          placeholder={t('home.searchPlaceholder')}
           placeholderTextColor={Colors.textSecondary}
           value={searchQuery}
           onChangeText={handleSearchChange}
@@ -331,7 +339,7 @@ export default function HomeScreen() {
   const loadingRef = useRef<AppLoadingRef>(null); // AppLoading referansı
 
   const shouldShowSearch = useMemo(() => products.length > 9, [products.length]);
-  const firstName = useMemo(() => user?.name?.split(' ')[0] || 'Misafir', [user?.name]);
+  const firstName = useMemo(() => user?.name?.split(' ')[0] || t('auth.guest'), [user?.name, t]);
 
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return products;
@@ -384,13 +392,13 @@ export default function HomeScreen() {
 
   const handleCreateNewProduct = useCallback(async () => {
     const name = await InputDialogService.show({
-      title: 'Yeni Ürün Oluştur',
-      placeholder: 'Ürün adını girin',
+      title: t('products.createProductTitle'),
+      placeholder: t('products.enterProductNamePlaceholder'),
     });
 
     if (!name?.trim()) {
       if (name !== null) {
-        ToastService.show('Lütfen ürün için bir isim girin.');
+        ToastService.show(t('products.nameRequiredMessage'));
       }
       return;
     }
@@ -416,9 +424,9 @@ export default function HomeScreen() {
       
     } catch (e: any) {
       loadingRef.current?.hide();
-      ToastService.show(e.message);
+      ToastService.show(t('common.errors.createProduct'));
     }
-  }, [createProduct, router]);
+  }, [createProduct, router, t]);
 
   const handleProductPress = useCallback((product: Product) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -449,14 +457,14 @@ export default function HomeScreen() {
       <Stack.Screen options={{ title: t('home.title'), headerShown: false }} />
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerGreeting}>Merhaba, {firstName}</Text>
+          <Text style={styles.headerGreeting}>{t('home.greeting', { firstName: firstName })}</Text>
           <Text style={styles.headerSubtitle}>
-            {products.length > 0 ? `Toplam ${products.length} ürünün var.` : 'Başlamaya hazır mısın?'}
+            {products.length > 0 ? t('home.productCount', { count: products.length }) : t('home.readyToStart')}
           </Text>
         </View>
         {user && (
           <ProfileAvatar
-            name={user.name || 'Misafir Kullanıcı'}
+            name={user.name || t('auth.guest')} // "Misafir Kullanıcı" yerine daha jenerik "Misafir"
             onPress={handleProfilePress}
           />
         )}
@@ -475,18 +483,18 @@ export default function HomeScreen() {
               <Feather name="package" size={64} color={Colors.gray300} />
             </View>
             <Text style={styles.emptyTitle}>
-              {searchQuery ? 'Sonuç Bulunamadı' : 'Henüz Ürün Yok'}
+              {searchQuery ? t('home.noResultsTitle') : t('home.emptyProductsTitle')}
             </Text>
             <Text style={styles.emptySubtitle}>
               {searchQuery
-                ? `"${searchQuery}" için sonuç bulunamadı.`
-                : 'İlk ürününü oluşturmak için + butonuna dokun.'
+                ? t('home.noResultsSubtitle', { query: searchQuery })
+                : t('home.emptyProductsSubtitle')
               }
             </Text>
             {!searchQuery && (
               <TouchableOpacity style={styles.emptyButton} onPress={handleCreateNewProduct}>
                 <Feather name="plus" size={20} color={Colors.primary} />
-                <Text style={styles.emptyButtonText}>İlk Ürününü Oluştur</Text>
+                <Text style={styles.emptyButtonText}>{t('home.createFirstProductButton')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -517,6 +525,15 @@ export default function HomeScreen() {
             removeClippedSubviews={true}
             isEmpty={filteredProducts.length === 0}
             loadingComponent={null}
+            emptyComponent={
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIcon}>
+                  <Feather name="package" size={64} color={Colors.gray300} />
+                </View>
+                <Text style={styles.emptyTitle}>{t('common.emptyContentTitle')}</Text>
+                <Text style={styles.emptySubtitle}>{t('common.emptyContentSubtitle')}</Text>
+              </View>
+            }
           />
         )}
       </View>

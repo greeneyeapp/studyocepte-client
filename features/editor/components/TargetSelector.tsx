@@ -4,6 +4,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { TargetType, TARGET_SELECTOR } from '../config/tools';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface TargetSelectorProps {
   activeTarget: TargetType;
@@ -16,13 +17,13 @@ export const TargetSelector: React.FC<TargetSelectorProps> = ({
   onTargetChange,
   activeTool,
 }) => {
-  // Sadece background aracında gösterme - artık filter'da da göster
+  const { t } = useTranslation();
   if (activeTool === 'background') {
     return null;
   }
 
   const handleTargetChange = (target: TargetType) => {
-    console.log('🎯 Target changed from', activeTarget, 'to', target);
+    console.log(t('editor.targetChangedLog'), activeTarget, t('editor.to'), target);
     onTargetChange(target);
   };
 
@@ -44,7 +45,7 @@ export const TargetSelector: React.FC<TargetSelectorProps> = ({
                 activeTarget === target.key && styles.activeSegmentText,
               ]}
             >
-              {target.label}
+              {t(`editor.target.${target.key}`)}
             </Text>
           </TouchableOpacity>
         ))}

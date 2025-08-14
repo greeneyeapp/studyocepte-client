@@ -1,8 +1,8 @@
-// app/(tabs)/editor/config/features.ts
+// app/(tabs)/editor/config/features.ts (ÇEVİRİ ANAHTARLARI KULLANILDI)
 
 export interface FeatureConfig {
   key: string;
-  label: string;
+  label: string; // Bu artık doğrudan çeviri anahtarı olacak (örn. 'editor.feature.exposure')
   icon: string;
   min: number;
   max: number;
@@ -11,24 +11,23 @@ export interface FeatureConfig {
 }
 
 export const ADJUST_FEATURES: FeatureConfig[] = [
-  { key: 'exposure', label: 'Pozlama', icon: 'sun', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'brightness', label: 'Parlaklık', icon: 'circle', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'highlights', label: 'Vurgular', icon: 'trending-up', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'shadows', label: 'Gölgeler', icon: 'trending-down', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'contrast', label: 'Kontrast', icon: 'bar-chart-2', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'saturation', label: 'Doygunluk', icon: 'droplet', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'vibrance', label: 'Titreşim', icon: 'zap', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'warmth', label: 'Sıcaklık', icon: 'thermometer', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'clarity', label: 'Netlik', icon: 'aperture', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'exposure', label: 'editor.feature.exposure', icon: 'sun', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'brightness', label: 'editor.feature.brightness', icon: 'circle', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'highlights', label: 'editor.feature.highlights', icon: 'trending-up', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'shadows', label: 'editor.feature.shadows', icon: 'trending-down', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'contrast', label: 'editor.feature.contrast', icon: 'bar-chart-2', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'saturation', label: 'editor.feature.saturation', icon: 'droplet', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'vibrance', label: 'editor.feature.vibrance', icon: 'zap', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'warmth', label: 'editor.feature.warmth', icon: 'thermometer', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'clarity', label: 'editor.feature.clarity', icon: 'aperture', min: -100, max: 100, step: 1, defaultValue: 0 },
 ];
 
-// Arka plan özel ayarları
 export const BACKGROUND_FEATURES: FeatureConfig[] = [
-  { key: 'exposure', label: 'Pozlama', icon: 'sun', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'brightness', label: 'Parlaklık', icon: 'circle', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'contrast', label: 'Kontrast', icon: 'bar-chart-2', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'saturation', label: 'Doygunluk', icon: 'droplet', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'warmth', label: 'Sıcaklık', icon: 'thermometer', min: -100, max: 100, step: 1, defaultValue: 0 },
-  { key: 'vignette', label: 'Vinyet', icon: 'target', min: 0, max: 100, step: 1, defaultValue: 0 },
-  { key: 'blur', label: 'Bulanıklık', icon: 'circle', min: 0, max: 100, step: 1, defaultValue: 0 },
+  { key: 'exposure', label: 'editor.feature.exposure', icon: 'sun', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'brightness', label: 'editor.feature.brightness', icon: 'circle', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'contrast', label: 'editor.feature.contrast', icon: 'bar-chart-2', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'saturation', label: 'editor.feature.saturation', icon: 'droplet', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'warmth', label: 'editor.feature.warmth', icon: 'thermometer', min: -100, max: 100, step: 1, defaultValue: 0 },
+  { key: 'vignette', label: 'editor.feature.vignette', icon: 'target', min: 0, max: 100, step: 1, defaultValue: 0 },
+  { key: 'blur', label: 'editor.feature.blur', icon: 'circle', min: 0, max: 100, step: 1, defaultValue: 0 },
 ];

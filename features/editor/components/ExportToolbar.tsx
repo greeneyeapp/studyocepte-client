@@ -1,4 +1,4 @@
-// features/editor/components/ExportToolbar.tsx
+// features/editor/components/ExportToolbar.tsx - DÜZELTİLDİ
 
 import React, { useState } from 'react';
 import { View, ScrollView, Text, StyleSheet, TouchableOpacity, LayoutAnimation, ActivityIndicator } from 'react-native';
@@ -7,6 +7,7 @@ import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { EXPORT_PRESETS, SHARE_OPTIONS, EXPORT_CATEGORIES, ExportPreset, ShareOption } from '../config/exportTools';
 import { ToastService } from '@/components/Toast/ToastService';
 import { BottomSheetService, BottomSheetAction } from '@/components/BottomSheet/BottomSheetService';
+import { useTranslation } from 'react-i18next';
 
 interface ExportToolbarProps {
   selectedPreset: ExportPreset | null;
@@ -15,12 +16,12 @@ interface ExportToolbarProps {
   shareWithOption: (option: ShareOption, preset?: ExportPreset) => Promise<void>;
 }
 
-// Kompakt preset kartı
 const CompactPresetCard: React.FC<{
   preset: ExportPreset;
   isSelected: boolean;
   onPress: () => void;
 }> = ({ preset, isSelected, onPress }) => {
+  const { t } = useTranslation();
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'social': return '#FF6B6B';
@@ -46,7 +47,7 @@ const CompactPresetCard: React.FC<{
           <Feather name={preset.icon as any} size={16} color={Colors.card} />
         </View>
         <View style={styles.compactInfo}>
-          <Text style={styles.compactTitle} numberOfLines={1}>{preset.name}</Text>
+          <Text style={styles.compactTitle} numberOfLines={1}>{t(preset.name)}</Text> {/* preset.name artık çeviri anahtarı */}
           <Text style={styles.compactDimensions}>
             {preset.dimensions.width} × {preset.dimensions.height}
           </Text>
@@ -65,30 +66,25 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
   setSelectedPreset,
   shareWithOption,
 }) => {
+  const { t } = useTranslation();
   const [selectedCategory, setSelectedCategory] = useState<string>('social');
 
-  // `handlePresetSelect` artık doğrudan `BottomSheet`'i tetikler
   const handlePresetSelect = (preset: ExportPreset) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
-    // Preset'i seçili olarak ayarla (UI'da checkmark'ın görünmesi için)
     setSelectedPreset(preset);
 
-    // BottomSheet için aksiyonları hazırla
     const actions: BottomSheetAction[] = SHARE_OPTIONS.map(option => ({
       id: option.id,
-      text: option.name,
+      text: t(option.name), // option.name artık çeviri anahtarı
       icon: option.icon as any,
-      // Doğrudan shareWithOption'ı çağır, selectedPreset'i burada gönderiyoruz
       onPress: () => {
-        // BottomSheet kapanırken animation sorununu engellemek için küçük bir gecikme
         setTimeout(() => shareWithOption(option, preset), 300);
       },
     }));
 
-    // BottomSheet'i göster
     BottomSheetService.show({
-      title: `${preset.name} (${preset.dimensions.width}×${preset.dimensions.height})`, // Başlıkta seçili preset bilgisi
+      title: t('export.exportingFormatTitle', { presetName: t(preset.name), dimensions: `${preset.dimensions.width}×${preset.dimensions.height}` }),
       actions: actions,
     });
   };
@@ -97,10 +93,6 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* KESİN ÇÖZÜM: actionsSection tamamen kaldırıldı. Export sayfasında üst kısımda boş alan kalmayacak. */}
-      {/* selectedPreset null ise hiçbir şey render edilmiyor, selectedPreset varsa da o alan render edilmiyor */}
-
-      {/* Kategori Seçici */}
       <View style={styles.categorySection}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
           {EXPORT_CATEGORIES.map((category) => (
@@ -121,21 +113,19 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
                 styles.categoryChipText,
                 selectedCategory === category.key && styles.categoryChipTextActive
               ]}>
-                {category.name}
+                {t(category.name)} {/* category.name artık çeviri anahtarı */}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
 
-      {/* Preset Listesi */}
       <ScrollView style={styles.presetsSection} contentContainerStyle={styles.presetsContainer}>
         {filteredPresets.map((preset) => (
           <CompactPresetCard
             key={preset.id}
             preset={preset}
             isSelected={selectedPreset?.id === preset.id}
-            // KESİN ÇÖZÜM: onPress artık doğrudan handlePresetSelect'i çağırıyor
             onPress={() => handlePresetSelect(preset)}
           />
         ))}
@@ -150,9 +140,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background
   },
-
-  // `actionsSection` ve ilgili stilleri kaldırıldı.
-  // sectionTitleSmall ve selectedPresetInfoSmall artık kullanılmadığı için kaldırılabilir.
 
   exportMainButton: {
     flexDirection: 'row',

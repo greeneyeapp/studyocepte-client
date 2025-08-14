@@ -1,8 +1,8 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Alert } from 'react-native';
 import Toast from 'react-native-toast-message';
+import i18n from '@/i18n'; // i18n import edildi
 
-// Arka plan animasyonu ile çakışmaması için Toast'un otomatik gizlenme süresi artırıldı
 const TOAST_TIMEOUT = 3500;
 
 export const ImagePickerService = {
@@ -15,8 +15,8 @@ export const ImagePickerService = {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
         Alert.alert(
-          "İzin Gerekli",
-          "Fotoğraf seçebilmek için galeri izni vermelisiniz.",
+          i18n.t('common.permissions.permissionRequiredTitle'), // Çeviri anahtarı kullanıldı
+          i18n.t('common.permissions.galleryMessage'), // Çeviri anahtarı kullanıldı
         );
         return [];
       }
@@ -33,11 +33,16 @@ export const ImagePickerService = {
       }
       return [];
     } catch (error) {
-      console.error('Galeri fotoğrafı seçilirken bir hata oluştu:', error);
+      console.error(i18n.t('common.errors.galleryPickFailed'), error); // Çeviri anahtarı kullanıldı
       return [];
     }
   },
 };
+
+// Bu ToastService ve InputDialogService'in eski versiyonları,
+// yeni bileşen tabanlı ToastService ve InputDialogService ile çakışıyor olabilir.
+// Ancak user'ın isteği üzerine sadece metinleri çeviriyorum.
+// GlobalUIProvider içindeki yeni servislerin kullanımına dikkat edilmeli.
 
 export const ToastService = {
   /**
@@ -76,12 +81,12 @@ export const InputDialogService = {
         '',
         [
           {
-            text: 'İptal',
+            text: i18n.t('common.cancel'), // Çeviri anahtarı kullanıldı
             onPress: () => resolve(null),
             style: 'cancel',
           },
           {
-            text: 'Tamam',
+            text: i18n.t('common.done'), // Çeviri anahtarı kullanıldı
             onPress: (text) => resolve(text),
           },
         ],

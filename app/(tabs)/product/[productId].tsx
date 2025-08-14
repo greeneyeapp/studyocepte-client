@@ -1,21 +1,23 @@
-// app/(tabs)/product/[productId].tsx - YÜKSEK KALİTE UI OPTİMİZASYON
+// app/(tabs)/product/[productId].tsx - YÜKSEK KALİTE UI OPTİMİZASYON VE HATA DÜZELTMELERİ
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   SafeAreaView, Image, RefreshControl,
-  LayoutAnimation, Platform, Dimensions, Modal
+  LayoutAnimation, Platform, Dimensions, Modal, ActivityIndicator
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import { useProductStore, ProductPhoto } from '@/stores/useProductStore';
-import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
+import { Colors, Typography, Spacing, BorderRadius, PHOTO_GRID_GAP } from '@/constants'; // PHOTO_GRID_GAP import edildi
 import { Card } from '@/components/Card';
 import { DialogService } from '@/components/Dialog/DialogService';
 import { InputDialogService } from '@/components/Dialog/InputDialogService';
 import { ImagePickerService } from '@/services/ui';
 import { BackgroundRemovalAnimation } from '@/components/BackgroundRemovalAnimation';
 import AppLoading, { AppLoadingRef } from '@/components/Loading/AppLoading';
+import { ToastService } from '@/components/Toast/ToastService'; // ToastService import edildi
 
 /**
  * ⭐ YÜKSEK KALİTE: PhotoItem component with advanced image optimization
@@ -27,54 +29,71 @@ const PhotoItem: React.FC<{
   onPress: (photo: ProductPhoto) => void;
   onLongPress: (photo: ProductPhoto) => void;
 }> = React.memo(({ photo, isSelected, isSelectionMode, onPress, onLongPress }) => {
+  const { t } = useTranslation();
   if (!photo) return null;
 
-  // ⭐ GÜÇLÜ CACHE-BUSTING: URI'yi her render'da unique yap
+  // Dinamik değerleri bileşen içinde hesaplayın
+  const { width: windowWidth } = Dimensions.get('window');
+  // Sütun sayısını doğrudan burada belirleyelim veya Layout.ts'den alabiliriz
+  // Şimdilik burada manuel belirttim, Layout.ts'den almak daha tutarlı olurdu
+  const photoColumns = windowWidth > 768 ? 6 : 4;
+
+  // itemWidth'i useMemo ile hesaplayın
+  const itemWidth = useMemo(() => {
+    // Toplam boşlukları çıkarın (sütun sayısı + 1 boşluk kenarlar için)
+    return (windowWidth - PHOTO_GRID_GAP * (photoColumns + 1)) / photoColumns;
+  }, [windowWidth, photoColumns]);
+
+
   const cacheBustedUri = useMemo(() => {
     if (!photo.thumbnailUri) return '';
-
-    // Zaten cache-busted parametreler varsa onları koru, yoksa ekle
     const hasParams = photo.thumbnailUri.includes('?');
     const timestamp = Date.now();
     const randomParam = Math.random().toString(36).substr(2, 6);
-
     if (hasParams) {
-      // Mevcut parametrelere ek cache-buster ekle
       return `${photo.thumbnailUri}&t=${timestamp}&r=${randomParam}`;
     } else {
-      // Yeni cache-buster parametreleri ekle
       return `${photo.thumbnailUri}?cb=${timestamp}&r=${randomParam}`;
     }
-  }, [photo.thumbnailUri, photo.modifiedAt]); // modifiedAt değiştiğinde de yenile
+  }, [photo.thumbnailUri, photo.modifiedAt]);
 
-  console.log('🖼️ PhotoItem rendering with cache-busted URI:', {
+  const isDisabled = photo.status === 'processing';
+
+  console.log(t('products.photoItemRenderingLog'), {
     photoId: photo.id,
     originalUri: photo.thumbnailUri,
     cacheBustedUri: cacheBustedUri.substring(0, 80) + '...',
-    modifiedAt: photo.modifiedAt
+    modifiedAt: photo.modifiedAt,
+    status: photo.status,
+    isDisabled: isDisabled
   });
 
   return (
     <TouchableOpacity
-      style={[styles.photoItem, isSelected && styles.photoSelected]}
+      // style'a dinamik genişliği doğrudan atayın
+      style={[
+        styles.photoItemBase, // Temel stil
+        { width: itemWidth, height: itemWidth }, // Dinamik genişlik/yükseklik
+        isSelected && styles.photoSelected,
+        isDisabled && styles.photoItemDisabled // Yeni stil: İşlemdeyken hafifçe karart
+      ]}
       onPress={() => onPress(photo)}
       onLongPress={() => onLongPress(photo)}
-      activeOpacity={0.8}
+      activeOpacity={isDisabled ? 1 : 0.8} // İşlemdeyse opacity değişmesin
+      disabled={isDisabled} // ⭐ BURASI ÖNEMLİ: Dokunulmaz hale getir
     >
       <Image
         source={{ uri: cacheBustedUri }}
         style={styles.photoImage}
-        // ⭐ YÜKSEK KALİTE: Image rendering optimizasyonları
         resizeMode="cover"
-        resizeMethod="resize" // Android için optimize edilmiş resize
-        fadeDuration={200} // Smooth loading
-        // ⭐ CACHE CONTROL: Aggressive cache busting
-        cache="reload" // Her zaman fresh version yükle
+        resizeMethod="resize"
+        fadeDuration={200}
+        cache="reload"
         onError={(error) => {
-          console.warn('⚠️ PhotoItem image load error:', photo.id, error);
+          console.warn(t('products.photoItemLoadErrorLog'), photo.id, error);
         }}
         onLoad={() => {
-          console.log('✅ PhotoItem image loaded successfully:', photo.id);
+          console.log(t('products.photoItemLoadedLog'), photo.id);
         }}
       />
 
@@ -85,28 +104,29 @@ const PhotoItem: React.FC<{
         photo.status === 'processing' && styles.statusProcessing
       ]}>
         <Text style={styles.statusText}>
-          {photo.status === 'raw' ? 'Ham' : photo.status === 'processing' ? 'İşleniyor' : 'İşlendi'}
+          {photo.status === 'raw' ? t('products.status.raw') : photo.status === 'processing' ? t('products.status.processing') : t('products.status.processed')}
         </Text>
       </View>
 
       {/* Selection Indicator */}
-      {isSelectionMode && (
+      {!isDisabled && isSelectionMode && ( // İşlemde değilse ve seçim modundaysa göster
         <View style={styles.selectionIndicator}>
           {isSelected && <Feather name="check-circle" size={20} color={Colors.primary} />}
+        </View>
+      )}
+
+      {/* ⭐ YENİ: İşleniyor animasyonu */}
+      {isDisabled && (
+        <View style={styles.processingOverlay}>
+          <ActivityIndicator size="large" color={Colors.card} />
+          <Text style={styles.processingText}>{t('products.status.processing')}</Text>
         </View>
       )}
     </TouchableOpacity>
   );
 });
 
-const getScreenWidth = () => {
-  try { return Dimensions.get('window').width; }
-  catch (error) { console.warn('Dimensions error, using fallback:', error); return 375; }
-};
-const screenWidth = getScreenWidth();
-
-const photoColumns = screenWidth > 768 ? 6 : 4;
-const PHOTO_GRID_SPACING = 8;
+// Artık global screenWidth ve photoColumns tanımlarına ihtiyacımız yok
 
 if (Platform.OS === 'android') {
   LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -153,7 +173,7 @@ export default function ProductDetailScreen() {
 
     try {
       // ⭐ CACHE INVALIDATION: Force product store refresh
-      console.log('🔄 Starting HIGH QUALITY refresh with cache invalidation');
+      console.log(t('loading.refreshingThumbnails')); // Değiştirildi
 
       // 1. Image cache temizle
       const { imageProcessor } = await import('@/services/imageProcessor');
@@ -166,15 +186,15 @@ export default function ProductDetailScreen() {
       setTimeout(() => {
         const currentProducts = useProductStore.getState().products;
         useProductStore.setState({ products: [...currentProducts] });
-        console.log('✅ HIGH QUALITY refresh completed with cache invalidation');
+        console.log(t('products.refreshCompleteLog'));
       }, 500);
 
     } catch (error) {
-      console.warn('⚠️ Refresh cache invalidation failed:', error);
+      console.warn(t('products.refreshFailedLog'), error);
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   const handleAddPhotos = useCallback(async () => {
     if (!product?.id) return;
@@ -188,7 +208,7 @@ export default function ProductDetailScreen() {
 
         // ⭐ CACHE INVALIDATION: Photo ekleme sonrası
         if (success) {
-          console.log('📸 New photos added, triggering cache invalidation');
+          console.log(t('products.photosAddedCacheInvalidationLog'));
           setTimeout(async () => {
             try {
               const { imageProcessor } = await import('@/services/imageProcessor');
@@ -198,7 +218,7 @@ export default function ProductDetailScreen() {
               const currentProducts = useProductStore.getState().products;
               useProductStore.setState({ products: [...currentProducts] });
             } catch (error) {
-              console.warn('⚠️ Post-add cache invalidation failed:', error);
+              console.warn(t('products.postAddCacheFailedLog'), error);
             }
           }, 1000);
         }
@@ -206,17 +226,17 @@ export default function ProductDetailScreen() {
     } finally {
       loadingRef.current?.hide();
     }
-  }, [product?.id, addMultiplePhotos]);
+  }, [product?.id, addMultiplePhotos, t]);
 
   const handleDeleteSinglePhoto = useCallback((photoId: string) => {
     if (!product?.id) return;
     DialogService.show({
-      title: 'Fotoğrafı Sil',
-      message: 'Bu fotoğrafı silmek istediğinizden emin misiniz?',
+      title: t('products.deletePhotoTitle'),
+      message: t('products.deletePhotoMessage'),
       buttons: [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sil', style: 'destructive',
+          text: t('common.delete'), style: 'destructive',
           onPress: async () => {
             loadingRef.current?.show();
             try {
@@ -228,13 +248,13 @@ export default function ProductDetailScreen() {
               });
 
               // ⭐ CACHE INVALIDATION: Photo silme sonrası
-              console.log('🗑️ Photo deleted, triggering cache invalidation');
+              console.log(t('products.photoDeletedCacheInvalidationLog'));
               setTimeout(async () => {
                 try {
                   const { imageProcessor } = await import('@/services/imageProcessor');
                   await imageProcessor.clearImageCache();
                 } catch (error) {
-                  console.warn('⚠️ Post-delete cache invalidation failed:', error);
+                  console.warn(t('products.postDeleteCacheFailedLog'), error);
                 }
               }, 500);
 
@@ -245,7 +265,7 @@ export default function ProductDetailScreen() {
         },
       ],
     });
-  }, [product?.id, deletePhoto]);
+  }, [product?.id, deletePhoto, t]);
 
   const handleDeleteSelectedPhotos = useCallback(async () => {
     if (!product?.id) return;
@@ -253,12 +273,12 @@ export default function ProductDetailScreen() {
       return;
     }
     DialogService.show({
-      title: 'Seçili Fotoğrafları Sil',
-      message: `Seçili ${selectedPhotos.size} fotoğrafı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`,
+      title: t('products.deleteSelectedPhotosTitle'),
+      message: t('products.deleteSelectedPhotosMessage', { count: selectedPhotos.size }),
       buttons: [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sil', style: 'destructive',
+          text: t('common.delete'), style: 'destructive',
           onPress: async () => {
             loadingRef.current?.show();
             try {
@@ -269,13 +289,13 @@ export default function ProductDetailScreen() {
               setIsSelectionMode(false);
 
               // ⭐ CACHE INVALIDATION: Çoklu silme sonrası
-              console.log('🗑️ Multiple photos deleted, triggering cache invalidation');
+              console.log(t('products.multiPhotoDeletedCacheInvalidationLog'));
               setTimeout(async () => {
                 try {
                   const { imageProcessor } = await import('@/services/imageProcessor');
                   await imageProcessor.clearImageCache();
                 } catch (error) {
-                  console.warn('⚠️ Post-bulk-delete cache invalidation failed:', error);
+                  console.warn(t('products.postBulkDeleteCacheFailedLog'), error);
                 }
               }, 500);
 
@@ -286,13 +306,13 @@ export default function ProductDetailScreen() {
         },
       ],
     });
-  }, [product?.id, selectedPhotos, deletePhoto]);
+  }, [product?.id, selectedPhotos, deletePhoto, t]);
 
   const handleEditProductName = useCallback(() => {
     if (!product?.id) return;
     InputDialogService.show({
-      title: 'Ürün Adını Düzenle',
-      placeholder: 'Yeni ürün adı',
+      title: t('products.editProductNameTitle'),
+      placeholder: t('products.newProductNamePlaceholder'),
     }).then(async (newName) => {
       if (newName?.trim()) {
         loadingRef.current?.show();
@@ -303,17 +323,17 @@ export default function ProductDetailScreen() {
         }
       }
     });
-  }, [product?.id, updateProductName]);
+  }, [product?.id, updateProductName, t]);
 
   const handleDeleteProduct = useCallback(() => {
     if (!product?.id) return;
     DialogService.show({
-      title: 'Ürünü Sil',
-      message: 'Bu ürünü ve tüm fotoğraflarını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+      title: t('products.deleteProductTitle'),
+      message: t('products.deleteProductMessage'),
       buttons: [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sil', style: 'destructive',
+          text: t('common.delete'), style: 'destructive',
           onPress: async () => {
             loadingRef.current?.show();
             try {
@@ -325,7 +345,7 @@ export default function ProductDetailScreen() {
         }
       ]
     });
-  }, [product?.id, deleteProduct, router]);
+  }, [product?.id, deleteProduct, router, t]);
 
   const handleRemoveBackgrounds = useCallback(async () => {
     if (!product?.id) return;
@@ -333,33 +353,39 @@ export default function ProductDetailScreen() {
       return;
     }
     const photosArray = Array.from(selectedPhotos);
-    loadingRef.current?.show({ text: 'Arka planlar temizleniyor...' });
+    loadingRef.current?.show({ text: t('loading.processingBackgrounds') });
     try {
       const success = await removeMultipleBackgrounds(product.id, photosArray);
-      setSelectedPhotos(new Set());
-      setIsSelectionMode(false);
 
-      // ⭐ CACHE INVALIDATION: Background removal sonrası
       if (success) {
-        console.log('🖼️ Background removal completed, triggering cache invalidation');
-        setTimeout(async () => {
-          try {
-            const { imageProcessor } = await import('@/services/imageProcessor');
-            await imageProcessor.clearImageCache();
+        setSelectedPhotos(new Set());
+        setIsSelectionMode(false);
+        console.log(t('products.backgroundRemovalCompleteLog'));
 
-            // Force re-render
-            const currentProducts = useProductStore.getState().products;
-            useProductStore.setState({ products: [...currentProducts] });
-          } catch (error) {
-            console.warn('⚠️ Post-background-removal cache invalidation failed:', error);
-          }
-        }, 1000);
+        // Tüm asenkron zincir bitene kadar yükleyiciyi tutmak için Promise'i bekliyoruz
+        await new Promise<void>(resolve => {
+          setTimeout(async () => {
+            try {
+              const { imageProcessor } = await import('@/services/imageProcessor');
+              await imageProcessor.clearImageCache();
+              const currentProducts = useProductStore.getState().products;
+              useProductStore.setState({ products: [...currentProducts] });
+              console.log(t('products.productStoreRefreshedUI'));
+            } catch (error) {
+              console.warn(t('products.postBackgroundRemovalFailedLog'), error);
+            } finally {
+              resolve();
+            }
+          }, 1000);
+        });
+      } else {
+        // İşlem başarısız olursa, seçimi koru veya kullanıcıya geri bildirim ver
+        ToastService.error(t('products.backgroundRemovalFailed')); // Yeni çeviri anahtarı
       }
-
     } finally {
       loadingRef.current?.hide();
     }
-  }, [product?.id, selectedPhotos, removeMultipleBackgrounds]);
+  }, [product?.id, selectedPhotos, removeMultipleBackgrounds, t]);
 
   const handleRemoveSingleBackground = useCallback(async (photoId: string) => {
     if (!product) return;
@@ -375,26 +401,22 @@ export default function ProductDetailScreen() {
       if (processedPhoto?.processedUri) {
         setAnimationState(prev => ({ ...prev, processedUri: processedPhoto.processedUri }));
       }
-
-      // ⭐ CACHE INVALIDATION: Single background removal sonrası
-      console.log('🖼️ Single background removal completed, triggering cache invalidation');
+      console.log(t('products.singleBackgroundRemovalCompleteLog'));
       setTimeout(async () => {
         try {
           const { imageProcessor } = await import('@/services/imageProcessor');
           await imageProcessor.clearImageCache();
-
-          // Force re-render
           const currentProducts = useProductStore.getState().products;
           useProductStore.setState({ products: [...currentProducts] });
         } catch (error) {
-          console.warn('⚠️ Post-single-background-removal cache invalidation failed:', error);
+          console.warn(t('products.postSingleBackgroundRemovalFailedLog'), error);
         }
       }, 1000);
-
     } else {
       setAnimationState({ isAnimating: false, originalUri: null, processedUri: null });
+      ToastService.error(t('products.backgroundRemovalFailed')); // Yeni çeviri anahtarı
     }
-  }, [product, removeSingleBackground]);
+  }, [product, removeSingleBackground, t]);
 
   const handleEditPhoto = useCallback((photo: ProductPhoto) => {
     if (!product?.id) return;
@@ -402,6 +424,12 @@ export default function ProductDetailScreen() {
   }, [product?.id, router]);
 
   const handlePhotoPress = useCallback((photo: ProductPhoto) => {
+    // ⭐ YENİ: Fotoğraf işlemde ise tıklama engellenir
+    if (photo.status === 'processing') {
+      ToastService.info(t('products.photoIsProcessing')); // Yeni çeviri anahtarı
+      return;
+    }
+
     if (isSelectionMode) {
       setSelectedPhotos(prev => {
         const newSet = new Set(prev);
@@ -412,12 +440,12 @@ export default function ProductDetailScreen() {
     } else {
       if (photo.status === 'raw') {
         DialogService.show({
-          title: 'Arka Planı Temizle',
-          message: 'Bu fotoğrafın arka planını temizlemek ister misiniz?',
+          title: t('products.removeBackgroundsButton'),
+          message: t('products.removeSingleBackgroundMessage'),
           buttons: [
-            { text: 'İptal', style: 'cancel' },
+            { text: t('common.cancel'), style: 'cancel' },
             {
-              text: 'Temizle',
+              text: t('common.clean'),
               onPress: () => handleRemoveSingleBackground(photo.id),
               style: 'default',
             },
@@ -427,7 +455,7 @@ export default function ProductDetailScreen() {
         handleEditPhoto(photo);
       }
     }
-  }, [isSelectionMode, handleEditPhoto, handleRemoveSingleBackground]);
+  }, [isSelectionMode, handleEditPhoto, handleRemoveSingleBackground, t]);
 
   useEffect(() => {
     if (isSelectionMode && selectedPhotos.size === 0) {
@@ -436,26 +464,46 @@ export default function ProductDetailScreen() {
   }, [selectedPhotos.size, isSelectionMode]);
 
   const handlePhotoLongPress = useCallback((photo: ProductPhoto) => {
+    // ⭐ YENİ: Fotoğraf işlemde ise uzun basma engellenir
+    if (photo.status === 'processing') {
+      ToastService.info(t('products.photoIsProcessing'));
+      return;
+    }
     if (!isSelectionMode) {
       setIsSelectionMode(true);
       setSelectedPhotos(new Set([photo.id]));
     }
-  }, [isSelectionMode]);
+  }, [isSelectionMode, t]); // t'yi dependency'ye ekle
+
+  // ⭐ YENİ: Çoklu arka plan temizleme butonu için disabled kontrolü
+  const isMultiRemoveButtonDisabled = useMemo(() => {
+    if (selectedPhotos.size === 0) return true;
+    if (!product) return true;
+    
+    // Seçilen tüm fotoğrafların RAW durumunda olduğunu kontrol et
+    // Herhangi biri processing veya processed ise düğme devre dışı bırakılacak
+    const allSelectedAreRaw = Array.from(selectedPhotos).every(photoId => {
+      const p = product.photos.find(ph => ph.id === photoId);
+      return p && p.status === 'raw';
+    });
+    
+    return !allSelectedAreRaw; // Hepsi raw değilse disabled olsun
+  }, [selectedPhotos, product]);
 
   if (!product) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <Feather name="alert-circle" size={48} color={Colors.error} />
-        <Text style={styles.errorTitle}>Ürün Bulunamadı</Text>
-        <Text style={styles.errorSubtitle}>Bu ürün silinmiş veya bulunamıyor.</Text>
+        <Text style={styles.errorTitle}>{t('products.notFoundTitle')}</Text>
+        <Text style={styles.errorSubtitle}>{t('products.notFoundMessage')}</Text>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => {
-            console.log('🔙 Error back button: navigating to home');
+            console.log(t('common.goToHomeLog'));
             router.push('/(tabs)/home');
           }}
         >
-          <Text style={styles.backButtonText}>Ana Sayfaya Dön</Text>
+          <Text style={styles.backButtonText}>{t('common.goToHome')}</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -468,7 +516,7 @@ export default function ProductDetailScreen() {
         <View style={styles.headerLeft}>
           <TouchableOpacity
             onPress={() => {
-              console.log('🔙 Back button: always navigating to home');
+              console.log(t('common.goToHomeLog'));
               router.push('/(tabs)/home');
             }}
             style={styles.headerBackButton}
@@ -477,7 +525,7 @@ export default function ProductDetailScreen() {
           </TouchableOpacity>
           <View style={styles.headerInfo}>
             <Text style={styles.headerTitle} numberOfLines={1}>{product.name}</Text>
-            <Text style={styles.headerSubtitle}>{product.photos.length} fotoğraf</Text>
+            <Text style={styles.headerSubtitle}>{t('products.photoCountSuffix', { count: product.photos.length })}</Text>
           </View>
         </View>
         <View style={styles.headerRight}>
@@ -492,13 +540,20 @@ export default function ProductDetailScreen() {
 
       {isSelectionMode && (
         <View style={styles.selectionHeader}>
-          <Text style={styles.selectionText}>{selectedPhotos.size} fotoğraf seçili</Text>
+          <Text style={styles.selectionText}>{t('products.selectedPhotosCount', { count: selectedPhotos.size })}</Text>
           <View style={styles.selectionActions}>
-            <TouchableOpacity style={styles.selectionButton} onPress={handleRemoveBackgrounds} disabled={selectedPhotos.size === 0}>
-              <Text style={styles.selectionButtonText}>Arka Plan Temizle</Text>
+            <TouchableOpacity
+              style={[
+                styles.selectionButton,
+                isMultiRemoveButtonDisabled && styles.selectionButtonDisabled // ⭐ BURADA disabled stilini uyguladık
+              ]}
+              onPress={handleRemoveBackgrounds}
+              disabled={isMultiRemoveButtonDisabled} // isMultiRemoveButtonDisabled'ı disabled prop'una atadık
+            >
+              <Text style={styles.selectionButtonText}>{t('products.removeBackgroundsButton')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.selectionButton, styles.deleteSelectionButton]} onPress={handleDeleteSelectedPhotos} disabled={selectedPhotos.size === 0}>
-              <Text style={styles.selectionButtonText}>Sil</Text>
+              <Text style={styles.selectionButtonText}>{t('common.delete')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -513,7 +568,7 @@ export default function ProductDetailScreen() {
             onRefresh={handleRefresh}
             colors={[Colors.primary]}
             tintColor={Colors.primary}
-            title="Yüksek kalite thumbnail yenileniyor..." // ⭐ Custom refresh message
+            title={t('loading.refreshingThumbnails')}
           />
         }
       >
@@ -521,7 +576,7 @@ export default function ProductDetailScreen() {
           <View style={styles.photosGrid}>
             {product.photos.filter(Boolean).map((photo) => (
               <PhotoItem
-                key={`${photo.id}-${photo.modifiedAt}`} // ⭐ CACHE-BUSTING: Key'e modifiedAt ekle
+                key={`${photo.id}-${photo.modifiedAt}`}
                 photo={photo}
                 isSelected={selectedPhotos.has(photo.id)}
                 isSelectionMode={isSelectionMode}
@@ -535,8 +590,8 @@ export default function ProductDetailScreen() {
             <View style={styles.emptyPhotosIcon}>
               <Feather name="camera" size={64} color={Colors.gray300} />
             </View>
-            <Text style={styles.emptyPhotosTitle}>Henüz Fotoğraf Yok</Text>
-            <Text style={styles.emptyPhotosSubtitle}>İlk fotoğrafını eklemek için + butonuna dokun.</Text>
+            <Text style={styles.emptyPhotosTitle}>{t('products.emptyPhotosTitle')}</Text>
+            <Text style={styles.emptyPhotosSubtitle}>{t('products.addPhotoSubtitle')}</Text>
           </View>
         )}
       </ScrollView>
@@ -563,6 +618,7 @@ export default function ProductDetailScreen() {
   );
 }
 
+// styles nesnesini, dinamik hesaplamalardan bağımsız olarak tanımlayın
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background, gap: Spacing.lg },
@@ -610,8 +666,16 @@ const styles = StyleSheet.create({
   deleteSelectionButton: {
     backgroundColor: Colors.error,
   },
+
+  // ⭐ YENİ EKLEME: Disabled buton stili
+  selectionButtonDisabled: {
+    backgroundColor: Colors.gray400, // Daha soluk bir gri tonu
+    opacity: 0.7, // Genel opaklığı düşür
+  },
+
   scrollView: { flex: 1 },
-  scrollContent: { padding: PHOTO_GRID_SPACING, paddingBottom: 100 },
+  // scrollContent artık PHOTO_GRID_GAP kullanıyor
+  scrollContent: { padding: PHOTO_GRID_GAP, paddingBottom: 100 },
   emptyScrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -621,22 +685,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
-    gap: PHOTO_GRID_SPACING,
+    gap: PHOTO_GRID_GAP, // Burası da PHOTO_GRID_GAP kullanıyor
   },
-  photoItem: {
-    width: (screenWidth - PHOTO_GRID_SPACING * (photoColumns + 1)) / photoColumns,
+  // photoItem'ın genişliği artık PhotoItem bileşeninin içinde ayarlanacak
+  photoItemBase: { // Yeni bir temel stil tanımlayın
     aspectRatio: 1,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
     position: 'relative',
     backgroundColor: Colors.gray100
   },
+  photoItemDisabled: { // Yeni stil: İşlemdeyken hafifçe karart
+    opacity: 0.7,
+  },
   photoSelected: { borderWidth: 3, borderColor: Colors.primary },
-  // ⭐ YÜKSEK KALİTE: PhotoImage optimizasyonları
   photoImage: {
     width: '100%',
     height: '100%',
-    // ⭐ Advanced rendering props for high quality
     resizeMode: 'cover',
   },
   statusBadge: { position: 'absolute', top: Spacing.sm, left: Spacing.sm, backgroundColor: Colors.warning, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: BorderRadius.sm },
@@ -644,6 +709,23 @@ const styles = StyleSheet.create({
   statusProcessing: { backgroundColor: Colors.primary },
   statusText: { ...Typography.caption, color: Colors.card, fontSize: 10, fontWeight: '600' },
   selectionIndicator: { position: 'absolute', top: Spacing.sm, right: Spacing.sm, backgroundColor: Colors.card, borderRadius: 12, width: 24, height: 24, justifyContent: 'center', alignItems: 'center' },
+  
+  // ⭐ YENİ STİL: İşleniyor animasyonu overlay'i
+  processingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1, // Diğer her şeyin üstünde olması için
+    gap: Spacing.xs,
+  },
+  processingText: {
+    ...Typography.caption,
+    color: Colors.card,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+
   emptyPhotosContainer: {
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,

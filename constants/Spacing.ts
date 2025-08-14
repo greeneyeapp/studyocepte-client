@@ -15,3 +15,5 @@ export const BorderRadius = {
   xl: 16,
   full: 9999,
 };
+
+export const PHOTO_GRID_GAP = 8;

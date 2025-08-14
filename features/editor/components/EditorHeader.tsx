@@ -38,7 +38,6 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
   onResetAll,
   isUpdatingThumbnail = false,
   hasDraftChanges = false,
-  // Draft props
   totalDraftsCount = 0,
   onShowDraftManager,
 }) => {
@@ -46,15 +45,15 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
 
   const handleResetAllPress = () => {
     DialogService.show({
-      title: 'Tüm Ayarları Sıfırla',
-      message: 'Bu işlem tüm düzenleme ayarlarını varsayılan değerlere döndürecek. Bu işlem geri alınamaz. Emin misiniz?',
+      title: t('editor.resetAllSettingsTitle'),
+      message: t('editor.resetAllSettingsMessage'),
       buttons: [
         {
-          text: 'İptal',
+          text: t('common.cancel'),
           style: 'cancel'
         },
         {
-          text: 'Sıfırla',
+          text: t('common.reset'),
           style: 'destructive',
           onPress: onResetAll
         }
@@ -63,13 +62,13 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
   };
 
   const handleSavePress = () => {
-    console.log('💾 EditorHeader: Save button pressed with thumbnail update');
+    console.log(t('editor.saveButtonPressedLog'));
     onSave(true);
   };
 
   const getSaveButtonTitle = () => {
     if (isSaving) return t('common.saving');
-    if (isUpdatingThumbnail) return 'Thumbnail...';
+    if (isUpdatingThumbnail) return t('editor.thumbnailUpdating');
     return t('common.done');
   };
 
@@ -91,44 +90,41 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
 
       {/* Orta kısım - History, Reset ve Draft controls */}
       <View style={styles.centerSection}>
-        {/* ✅ ENHANCEMENt: History butonları HER ZAMAN GÖRÜNÜR ama duruma göre disabled */}
         <View style={styles.historyButtons}>
           <TouchableOpacity
             onPress={onUndo}
-            disabled={!canUndo} // ✅ Disable when can't undo, but always visible
+            disabled={!canUndo}
             style={[
               styles.historyButton,
-              !canUndo && styles.disabledButton // ✅ Visual feedback for disabled state
+              !canUndo && styles.disabledButton
             ]}
-            activeOpacity={canUndo ? 0.7 : 1} // ✅ No touch feedback when disabled
+            activeOpacity={canUndo ? 0.7 : 1}
           >
             <Feather
               name="rotate-ccw"
               size={18}
-              color={canUndo ? Colors.textPrimary : Colors.border} // ✅ Clear visual distinction
+              color={canUndo ? Colors.textPrimary : Colors.border}
             />
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={onRedo}
-            disabled={!canRedo} // ✅ Disable when can't redo, but always visible
+            disabled={!canRedo}
             style={[
               styles.historyButton,
-              !canRedo && styles.disabledButton // ✅ Visual feedback for disabled state
+              !canRedo && styles.disabledButton
             ]}
-            activeOpacity={canRedo ? 0.7 : 1} // ✅ No touch feedback when disabled
+            activeOpacity={canRedo ? 0.7 : 1}
           >
             <Feather
               name="rotate-cw"
               size={18}
-              color={canRedo ? Colors.textPrimary : Colors.border} // ✅ Clear visual distinction
+              color={canRedo ? Colors.textPrimary : Colors.border}
             />
           </TouchableOpacity>
         </View>
 
-        {/* Control row with Reset and Draft info */}
         <View style={styles.controlRow}>
-          {/* Reset All butonu */}
           <TouchableOpacity
             onPress={handleResetAllPress}
             style={styles.resetButton}
@@ -145,7 +141,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
                 (isSaving || isUpdatingThumbnail) && styles.disabledText
               ]}
             >
-              Sıfırla
+              {t('common.reset')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -186,15 +182,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
     minHeight: 64,
-    // ✅ Z-index ve pointer events ekleyelim
     zIndex: 1000,
-    elevation: 5, // Android için
+    elevation: 5,
   },
 
   leftSection: {
     flex: 1,
     alignItems: 'flex-start',
-    // ✅ Touch alanını garanti edelim
     zIndex: 1001,
   },
 
@@ -202,15 +196,13 @@ const styles = StyleSheet.create({
     flex: 2,
     alignItems: 'center',
     gap: Spacing.sm,
-    // ✅ Orta kısım için özel z-index ve pointer events
     zIndex: 1002,
-    pointerEvents: 'box-none', // Alt elementlerin touch'ını engelleme
+    pointerEvents: 'box-none',
   },
 
   rightSection: {
     flex: 1,
     alignItems: 'flex-end',
-    // ✅ Touch alanını garanti edelim
     zIndex: 1001,
   },
 
@@ -246,22 +238,19 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 
-  // ✅ ENHANCED: History butonları için iyileştirilmiş stiller
   historyButtons: {
     flexDirection: 'row',
     gap: Spacing.xs,
-    backgroundColor: Colors.card, // ✅ Colors.gray100 → Colors.card (beyaz arka plan)
+    backgroundColor: Colors.card,
     borderRadius: BorderRadius.md,
     padding: 4,
-    // ✅ Daha belirgin görünüm için border ekle
     borderWidth: 1,
     borderColor: Colors.border,
-    // ✅ Shadow ekle ki öne çıksın
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 3, // Android için
+    elevation: 3,
     zIndex: 1003,
     minWidth: 100,
     justifyContent: 'center',
@@ -274,22 +263,18 @@ const styles = StyleSheet.create({
     minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    // ✅ Aktif buton için beyaz arka plan
     backgroundColor: Colors.card,
-    // ✅ Hafif border ekle
     borderWidth: 1,
     borderColor: 'transparent',
     zIndex: 1004,
   },
 
-  // ✅ ENHANCED: Disabled state için daha belirgin stil
   disabledButton: {
-    opacity: 0.6, // ✅ 0.4'ten 0.6'ya çıkarıldı - daha görünür
-    backgroundColor: Colors.gray100, // ✅ Disabled için gri arka plan
-    borderColor: Colors.border, // ✅ Sınır çizgisi ekle
+    opacity: 0.6,
+    backgroundColor: Colors.gray100,
+    borderColor: Colors.border,
   },
 
-  // Control row styles
   controlRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -317,7 +302,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
 
-  // Draft status styles
   draftStatusContainer: {
     flexDirection: 'row',
     alignItems: 'center',

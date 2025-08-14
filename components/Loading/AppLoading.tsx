@@ -1,5 +1,5 @@
 import React, { useState, useImperativeHandle, forwardRef } from 'react';
-import { StyleSheet, View, Image, Text } from 'react-native'; // Text bileşeni eklendi
+import { StyleSheet, View, Image, Text } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,26 +10,30 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Colors } from '@/constants';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 export interface AppLoadingRef {
-  show: () => void;
+  show: (options?: { text?: string }) => void; // Options eklendi
   hide: () => void;
 }
 
-// Props'lara isteğe bağlı 'text' özelliği eklendi
 interface AppLoadingProps {
-  text?: string;
+  // text prop kaldırıldı, çünkü show metodundan gelecek
 }
 
 const AppLoading = forwardRef<AppLoadingRef, AppLoadingProps>((props, ref) => {
-  const { text } = props; // text prop'u ayrıştırıldı
+  const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
+  const [displayText, setDisplayText] = useState<string | undefined>(undefined); // Yeni state
 
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.9);
 
   useImperativeHandle(ref, () => ({
-    show: () => runOnJS(setVisible)(true),
+    show: (options) => {
+      runOnJS(setDisplayText)(options?.text || t('common.loading')); // Varsayılan metin
+      runOnJS(setVisible)(true);
+    },
     hide: () => {
       opacity.value = withTiming(0, { duration: 250 }, (isFinished) => {
         if (isFinished) runOnJS(setVisible)(false);
@@ -68,7 +72,7 @@ const AppLoading = forwardRef<AppLoadingRef, AppLoadingProps>((props, ref) => {
           style={styles.logo}
         />
       </Animated.View>
-      {text && <Text style={styles.text}>{text}</Text>}
+      {displayText && <Text style={styles.text}>{displayText}</Text>}
     </View>
   );
 });
@@ -85,12 +89,11 @@ const styles = StyleSheet.create({
     width: 130,
     height: 130,
   },
-  // Metin için yeni stil eklendi
   text: {
     marginTop: 20,
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.primary, // Veya istediğiniz başka bir renk
+    color: Colors.primary,
   },
 });
 

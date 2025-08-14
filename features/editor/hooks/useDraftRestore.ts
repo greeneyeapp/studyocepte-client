@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useEnhancedEditorStore, PhotoDraft } from '@/stores/useEnhancedEditorStore';
 import { ToastService } from '@/components/Toast/ToastService';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 // ✅ AUTO-SAVE HEP AÇIK: Dialog seçenekleri kaldırıldı, sadece maxDraftAge kalıyor
 interface DraftRestoreOptions {
@@ -9,6 +10,7 @@ interface DraftRestoreOptions {
 }
 
 export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
+  const { t } = useTranslation();
   const {
     maxDraftAge = 7 * 24 * 60 * 60 * 1000 // 7 gün
   } = options;
@@ -58,24 +60,21 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
       // Draft yaşını kontrol et
       const draftAge = Date.now() - draft.timestamp;
       if (draftAge > maxDraftAge) {
-        console.log('🗑️ Old draft found, cleaning up:', activePhoto.id);
+        console.log(t('editor.draft.oldDraftCleanupLog'), activePhoto.id);
         clearDraftForPhoto(activePhoto.id);
         return;
       }
 
       // ✅ AUTO-SAVE HEP AÇIK: Draft var ise otomatik olarak restore et
-      console.log('📂 Auto-restoring draft for photo:', activePhoto.id, 'Age:', Math.round(draftAge / 60000), 'minutes');
+      console.log(t('editor.draft.autoRestoringDraftLog'), activePhoto.id, t('editor.draft.ageLog'), Math.round(draftAge / 60000), 'minutes');
       
-      // setActivePhoto tarafından zaten otomatik yükleniyor, 
-      // bu yüzden burada ekstra işlem yapmaya gerek yok
-      // Sadece bilgi verme amaçlı log
       const ageMinutes = Math.round(draftAge / 60000);
-      console.log(`✅ Draft auto-loaded: ${ageMinutes} minutes old`);
+      console.log(t('editor.draft.autoLoadedLog', { ageMinutes }));
 
     } catch (error) {
-      console.warn('⚠️ Draft check failed:', error);
+      console.warn(t('editor.draft.checkFailedLog'), error);
     }
-  }, [activePhoto, loadDraftForPhoto, maxDraftAge, clearDraftForPhoto]);
+  }, [activePhoto, loadDraftForPhoto, maxDraftAge, clearDraftForPhoto, t]);
 
   // Tüm draft'ları güncelle
   const refreshDrafts = useCallback(() => {
@@ -96,13 +95,11 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
   // ✅ AUTO-SAVE HEP AÇIK: ActivePhoto değiştiğinde sadece draft temizliği yap
   useEffect(() => {
     if (activePhoto) {
-      // checkForDraft artık sadece log için kullanılıyor
-      // asıl restore işlemi setActivePhoto tarafından yapılıyor
       setTimeout(() => {
         if (mountedRef.current) {
           checkForDraft();
         }
-      }, 100); // Kısa bir gecikme
+      }, 100);
     }
   }, [activePhoto, checkForDraft]);
 
@@ -116,21 +113,16 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
     try {
       restoreFromDraft(draft);            
     } catch (error) {
-      console.error('❌ Draft restore failed:', error);
-      ToastService.show('Taslak geri yüklenemedi');
+      console.error(t('editor.draft.restoreFailedLog'), error);
+      ToastService.show(t('editor.draft.restoreFailed'));
     }
-  }, [restoreFromDraft]);
+  }, [restoreFromDraft, t]);
 
   return {
-    // State
     availableDrafts,
-    
-    // Actions
     refreshDrafts,
     checkForDraft,
     handleManualRestore,
-    
-    // Utils
     hasActiveDraft: activePhoto ? hasDraftForPhoto(activePhoto.id) : false,
     totalDraftsCount: availableDrafts.length
   };
@@ -139,15 +131,16 @@ export const useDraftRestore = (options: DraftRestoreOptions = {}) => {
 // Utility fonksiyonları aynı kalıyor
 export const draftUtils = {
   formatDraftAge: (timestamp: number): string => {
+    const { t } = useTranslation(); // Burada t fonksiyonunu tekrar çağırın
     const age = Date.now() - timestamp;
     const minutes = Math.round(age / 60000);
     const hours = Math.round(minutes / 60);
     const days = Math.round(hours / 24);
 
-    if (minutes < 1) return 'Şimdi';
-    if (minutes < 60) return `${minutes} dakika önce`;
-    if (hours < 24) return `${hours} saat önce`;
-    return `${days} gün önce`;
+    if (minutes < 1) return t('editor.draft.age.now');
+    if (minutes < 60) return t('editor.draft.age.minutesAgo', { minutes });
+    if (hours < 24) return t('editor.draft.age.hoursAgo', { hours });
+    return t('editor.draft.age.daysAgo', { days });
   },
 
   estimateDraftSize: (draft: PhotoDraft): string => {

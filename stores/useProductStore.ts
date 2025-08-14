@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, apiUtils } from '@/services/api';
 import { fileSystemManager } from '@/services/fileSystemManager';
 import { imageProcessor } from '@/services/imageProcessor';
-import i18n from '@/i18n';
+import i18n from '@/i18n'; // i18n import edildi
 
 export interface ProductPhoto {
   id: string;
@@ -61,16 +61,14 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       let products: Product[] = stored ? JSON.parse(stored) : [];
 
-      // Dosya varlık kontrolü ve düzeltme
       let hasChanges = false;
 
       for (const product of products) {
         for (const photo of product.photos) {
-          // Orijinal dosyayı kontrol et
           if (photo.originalUri) {
             const validatedUri = await imageProcessor.validateAndRecoverFile(photo.originalUri);
             if (!validatedUri) {
-              console.warn('⚠️ Missing original file for photo:', photo.id);
+              console.warn(i18n.t('products.missingOriginalFileLog'), photo.id); // Çeviri anahtarı kullanıldı
               if (photo.processedUri) {
                 photo.originalUri = photo.processedUri;
                 hasChanges = true;
@@ -78,31 +76,28 @@ export const useProductStore = create<ProductStore>((set, get) => ({
             }
           }
 
-          // Thumbnail dosyasını kontrol et ve yüksek kalite ile yeniden oluştur
           if (photo.thumbnailUri) {
             const validatedThumbnail = await imageProcessor.validateAndRecoverFile(photo.thumbnailUri);
             if (!validatedThumbnail) {
-              console.warn('⚠️ Missing thumbnail for photo, recreating HIGH QUALITY:', photo.id);
+              console.warn(i18n.t('products.missingThumbnailLog'), photo.id); // Çeviri anahtarı kullanıldı
               try {
                 const sourceUri = photo.processedUri || photo.originalUri;
                 if (sourceUri) {
-                  // ⭐ YÜKSEK KALİTE: PNG thumbnail oluştur
                   const newThumbnail = await imageProcessor.createThumbnail(sourceUri, 'png');
                   photo.thumbnailUri = newThumbnail;
                   hasChanges = true;
-                  console.log('✅ HIGH QUALITY thumbnail recreated for photo:', photo.id);
+                  console.log(i18n.t('products.thumbnailRecreatedLog'), photo.id); // Çeviri anahtarı kullanıldı
                 }
               } catch (error) {
-                console.error('❌ Failed to recreate HIGH QUALITY thumbnail for:', photo.id, error);
+                console.error(i18n.t('products.failedToRecreateThumbnailLog'), photo.id, error); // Çeviri anahtarı kullanıldı
               }
             }
           }
 
-          // Processed dosyasını kontrol et
           if (photo.processedUri) {
             const validatedProcessed = await imageProcessor.validateAndRecoverFile(photo.processedUri);
             if (!validatedProcessed) {
-              console.warn('⚠️ Missing processed file for photo:', photo.id);
+              console.warn(i18n.t('products.missingProcessedFileLog'), photo.id); // Çeviri anahtarı kullanıldı
               photo.status = 'raw';
               photo.processedUri = undefined;
               hasChanges = true;
@@ -111,10 +106,9 @@ export const useProductStore = create<ProductStore>((set, get) => ({
         }
       }
 
-      // Değişiklikler varsa storage'ı güncelle
       if (hasChanges) {
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(products));
-        console.log('📁 Product storage updated after HIGH QUALITY file validation');
+        console.log(i18n.t('products.productStorageUpdatedLog')); // Çeviri anahtarı kullanıldı
       }
 
       set({ products });
@@ -174,13 +168,10 @@ export const useProductStore = create<ProductStore>((set, get) => ({
     }
   },
 
-  /**
-   * ⭐ YÜKSEK KALİTE: Multiple photo ekleme - PNG thumbnail ile
-   */
   addMultiplePhotos: async (productId, imageUris) => {
     try {
       const product = get().products.find(p => p.id === productId);
-      if (!product) throw new Error('Ürün bulunamadı');
+      if (!product) throw new Error(i18n.t('api.error.productNotFound')); // Çeviri anahtarı kullanıldı
 
       const newPhotos: ProductPhoto[] = [];
       for (const uri of imageUris) {
@@ -188,10 +179,9 @@ export const useProductStore = create<ProductStore>((set, get) => ({
         const originalFilename = `original_${photoId}.jpg`;
         const originalUri = await fileSystemManager.saveImage(productId, uri, originalFilename);
         
-        // ⭐ YÜKSEK KALİTE: PNG thumbnail oluştur (jpeg → png)
         const thumbnailUri = await imageProcessor.createThumbnail(originalUri, 'png');
         
-        console.log('✅ HIGH QUALITY PNG thumbnail created for new photo:', photoId);
+        console.log(i18n.t('products.pngThumbnailCreatedLog'), photoId); // Çeviri anahtarı kullanıldı
 
         newPhotos.push({
           id: photoId,
@@ -250,14 +240,11 @@ export const useProductStore = create<ProductStore>((set, get) => ({
     }
   },
 
-  /**
-   * ⭐ YÜKSEK KALİTE: Background removal - PNG thumbnail ile
-   */
   removeMultipleBackgrounds: async (productId, photoIds) => {
     const isOnline = await apiUtils.checkNetworkConnection();
     if (!isOnline) {
       set({
-        error: 'İnternet bağlantısı gerekli. Lütfen bağlantınızı kontrol edin.',
+        error: i18n.t('api.error.internetRequired'), // Çeviri anahtarı kullanıldı
         isOnline: false
       });
       return false;
@@ -270,7 +257,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
     try {
       const tempProducts = JSON.parse(JSON.stringify(get().products));
       const product = tempProducts.find(p => p.id === productId);
-      if (!product) throw new Error('Ürün bulunamadı');
+      if (!product) throw new Error(i18n.t('api.error.productNotFound')); // Çeviri anahtarı kullanıldı
 
       const photosToProcess = product.photos.filter(p =>
         photoIds.includes(p.id) && p.status === 'raw'
@@ -280,11 +267,10 @@ export const useProductStore = create<ProductStore>((set, get) => ({
         return true;
       }
 
-      // UI'da processing durumunu göster
       photosToProcess.forEach(p => { p.status = 'processing'; });
+      // UI'da "işleniyor" durumunu hemen göstermek için state'i güncelliyoruz
       set({ products: tempProducts });
 
-      // API çağrısı - dil parametresi ile
       const currentLang = get().currentLanguage;
       const apiPayload = photosToProcess.map(p => ({
         filename: `${p.id}.jpg`,
@@ -293,43 +279,72 @@ export const useProductStore = create<ProductStore>((set, get) => ({
 
       const result = await api.removeMultipleBackgrounds(apiPayload, currentLang);
 
-      // Sonuçları işle
+      // API'den dönen veriye göre gerçek ürünler state'ini güncelliyoruz
       const finalProducts = JSON.parse(JSON.stringify(get().products));
       const targetProduct = finalProducts.find(p => p.id === productId);
-      if (!targetProduct) throw new Error("İşlem sonrası ürün bulunamadı");
+      if (!targetProduct) throw new Error(i18n.t('api.error.productNotFoundPostProcess')); // Çeviri anahtarı kullanıldı
 
       let successCount = 0;
 
-      // Başarılı sonuçları işle - YÜKSEK KALİTE PNG thumbnail
-      for (const [id, base64Data] of Object.entries(result.success)) {
+      for (const [id, value] of Object.entries(result.success)) {
         const photoId = id.replace('.jpg', '');
         const photo = targetProduct.photos.find(p => p.id === photoId);
         if (photo) {
+          let base64String: string;
+
+          // API'den gelen base64 verisinin tipini kontrol et ve doğru şekilde çıkar.
+          // Eğer API processed_image'ı bir objenin içinde döndürüyorsa bu şekilde erişilir.
+          if (typeof value === 'object' && value !== null) {
+            if (typeof (value as any).processed_image === 'string') {
+              base64String = (value as any).processed_image;
+            } else if (typeof (value as any).data === 'string') {
+              base64String = (value as any).data;
+            } else {
+              console.error(i18n.t('products.unexpectedBase64FormatLog'), photoId, value);
+              photo.status = 'raw'; // Hata durumunda fotoğrafı ham duruma geri döndür
+              continue; // Bu fotoğrafı atla
+            }
+          } else if (typeof value === 'string') {
+            base64String = value;
+          } else {
+            console.error(i18n.t('products.invalidBase64DataTypeLog'), photoId, typeof value, value);
+            photo.status = 'raw';
+            continue;
+          }
+          
+          // Çok kısa veya boş base64 verilerini temel kontrol
+          // Minimum 100 karakterlik bir Base64 string'i bile boş bir resimdir, ama kontrol için mantıklı bir değer.
+          if (!base64String || base64String.length < 100) { 
+              console.error(i18n.t('products.base64TooShortLog'), photoId, base64String.substring(0, Math.min(base64String.length, 50)) + '...');
+              photo.status = 'raw';
+              continue;
+          }
+
           const oldOriginalUri = photo.originalUri;
           const oldThumbnailUri = photo.thumbnailUri;
           const processedFilename = `processed_${photoId}.png`;
 
           photo.processedUri = await fileSystemManager.saveBase64Image(
             productId,
-            base64Data,
+            base64String, // Düzeltilmiş base64 string'ini kullan
             processedFilename
           );
           photo.originalUri = photo.processedUri;
           
-          // ⭐ YÜKSEK KALİTE: PNG thumbnail oluştur
           photo.thumbnailUri = await imageProcessor.createThumbnail(photo.processedUri, 'png');
-          console.log('✅ HIGH QUALITY PNG thumbnail created for processed photo:', photoId);
+          console.log(i18n.t('products.pngThumbnailCreatedProcessedLog'), photoId);
           
           photo.status = 'processed';
           photo.modifiedAt = new Date().toISOString();
 
+          // Eski dosyaları siliyoruz
           await fileSystemManager.deleteImage(oldOriginalUri);
           await fileSystemManager.deleteImage(oldThumbnailUri);
           successCount++;
         }
       }
 
-      // Hatalı sonuçları işle
+      // Hata alan fotoğrafları "raw" durumuna geri çekiyoruz
       for (const [id] of Object.entries(result.errors)) {
         const photoId = id.replace('.jpg', '');
         const photo = targetProduct.photos.find(p => p.id === photoId);
@@ -343,32 +358,39 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       return successCount > 0;
 
     } catch (error: any) {
-      console.error("removeMultipleBackgrounds CATCH_BLOCK:", error);
+      console.error(i18n.t('products.removeMultipleBackgroundsErrorLog'), error);
       const errorMessage = apiUtils.extractErrorMessage(error);
 
-      const isNetworkError = errorMessage.includes('ağ') ||
-        errorMessage.includes('network') ||
-        errorMessage.includes('timeout');
+      const isNetworkError = errorMessage.includes(i18n.t('api.error.networkKeyword1')) ||
+        errorMessage.includes(i18n.t('api.error.networkKeyword2')) ||
+        errorMessage.includes(i18n.t('api.error.timeoutKeyword'));
+
+      // Hata durumunda "işleniyor" olarak işaretlenen tüm fotoğrafları geri alıyoruz
+      const revertedProducts = originalProductsState.map((p: Product) =>
+        p.id === productId ? {
+          ...p,
+          photos: p.photos.map(ph =>
+            photoIds.includes(ph.id) && ph.status === 'processing' ? { ...ph, status: 'raw' as const } : ph
+          )
+        } : p
+      );
 
       set({
         error: errorMessage,
-        products: originalProductsState,
+        products: revertedProducts,
         isOnline: !isNetworkError
       });
 
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(originalProductsState));
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(revertedProducts));
       return false;
     }
   },
 
-  /**
-   * ⭐ YÜKSEK KALİTE: Tek photo background removal - PNG thumbnail ile
-   */
   removeSingleBackground: async (productId: string, photoId: string) => {
     const isOnline = await apiUtils.checkNetworkConnection();
     if (!isOnline) {
       set({
-        error: 'İnternet bağlantısı gerekli. Lütfen bağlantınızı kontrol edin.',
+        error: i18n.t('api.error.internetRequired'), // Çeviri anahtarı kullanıldı
         isOnline: false
       });
       return false;
@@ -381,14 +403,13 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       const photo = product?.photos.find(p => p.id === photoId);
 
       if (!product || !photo) {
-        throw new Error('Ürün veya fotoğraf bulunamadı');
+        throw new Error(i18n.t('api.error.productPhotoNotFound')); // Çeviri anahtarı kullanıldı
       }
 
       if (photo.status !== 'raw') {
-        return true; // Zaten işlenmiş
+        return true;
       }
 
-      // UI'da processing durumunu göster
       const tempProducts = get().products.map(p =>
         p.id === productId ? {
           ...p,
@@ -399,14 +420,12 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       );
       set({ products: tempProducts });
 
-      // API çağrısı
       const currentLang = get().currentLanguage;
       const base64Data = await api.removeSingleBackground({
         filename: `${photoId}.jpg`,
         uri: photo.originalUri
       }, currentLang);
 
-      // Sonucu işle
       const finalProducts = get().products.map(p =>
         p.id === productId ? {
           ...p,
@@ -424,7 +443,6 @@ export const useProductStore = create<ProductStore>((set, get) => ({
         } : p
       );
 
-      // Processed dosyayı kaydet - YÜKSEK KALİTE PNG thumbnail
       const updatedProduct = finalProducts.find(p => p.id === productId);
       const updatedPhoto = updatedProduct?.photos.find(p => p.id === photoId);
 
@@ -440,12 +458,11 @@ export const useProductStore = create<ProductStore>((set, get) => ({
         );
         updatedPhoto.originalUri = updatedPhoto.processedUri;
         
-        // ⭐ YÜKSEK KALİTE: PNG thumbnail oluştur
         updatedPhoto.thumbnailUri = await imageProcessor.createThumbnail(
           updatedPhoto.processedUri,
           'png'
         );
-        console.log('✅ HIGH QUALITY PNG thumbnail created for single processed photo:', photoId);
+        console.log(i18n.t('products.pngThumbnailCreatedSingleProcessedLog'), photoId); // Çeviri anahtarı kullanıldı
 
         await fileSystemManager.deleteImage(oldOriginalUri);
         await fileSystemManager.deleteImage(oldThumbnailUri);
@@ -457,14 +474,13 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       return true;
 
     } catch (error: any) {
-      console.error("removeSingleBackground CATCH_BLOCK:", error);
+      console.error(i18n.t('products.removeSingleBackgroundErrorLog'), error); // Çeviri anahtarı kullanıldı
       const errorMessage = apiUtils.extractErrorMessage(error);
 
-      const isNetworkError = errorMessage.includes('ağ') ||
-        errorMessage.includes('network') ||
-        errorMessage.includes('timeout');
+      const isNetworkError = errorMessage.includes(i18n.t('api.error.networkKeyword1')) ||
+        errorMessage.includes(i18n.t('api.error.networkKeyword2')) ||
+        errorMessage.includes(i18n.t('api.error.timeoutKeyword')); // Çeviri anahtarı kullanıldı
 
-      // Photo'nun durumunu raw'a geri döndür
       const revertedProducts = get().products.map(p =>
         p.id === productId ? {
           ...p,
@@ -505,19 +521,14 @@ export const useProductStore = create<ProductStore>((set, get) => ({
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
   },
 
-  /**
-   * ⭐ GÜÇLÜ CACHE-BUSTING: Photo thumbnail güncelleme - ASYNC DÜZELTMESİ
-   */
   updatePhotoThumbnail: async (productId: string, photoId: string, newThumbnailUri: string) => {
-    console.log('🖼️ Starting HIGH QUALITY thumbnail update:', { productId, photoId, newThumbnailUri });
+    console.log(i18n.t('products.startingThumbnailUpdateLog'), { productId, photoId, newThumbnailUri }); // Çeviri anahtarı kullanıldı
 
-    // Önceki thumbnail URI'sini al (cache invalidation için)
     const currentProducts = get().products;
     const currentProduct = currentProducts.find(p => p.id === productId);
     const currentPhoto = currentProduct?.photos.find(p => p.id === photoId);
     const oldThumbnailUri = currentPhoto?.thumbnailUri;
 
-    // ⭐ GÜÇLÜ CACHE-BUSTING: Strong cache-busted URI oluştur
     const cacheBustedUri = imageProcessor.createStrongCacheBustedUri(newThumbnailUri);
 
     const updatedProducts = currentProducts.map(p => {
@@ -527,7 +538,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
           photos: p.photos.map(photo =>
             photo.id === photoId ? {
               ...photo,
-              thumbnailUri: cacheBustedUri, // Cache-busted URI kullan
+              thumbnailUri: cacheBustedUri,
               modifiedAt: new Date().toISOString()
             } : photo
           ),
@@ -537,53 +548,43 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       return p;
     });
 
-    // Önce state'i güncelle (UI hemen yansısın)
     set({ products: updatedProducts });
 
     try {
-      // AsyncStorage'ı await et
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
-      console.log('✅ HIGH QUALITY AsyncStorage updated successfully');
+      console.log(i18n.t('products.asyncStorageUpdatedLog')); // Çeviri anahtarı kullanıldı
 
-      // Eski thumbnail dosyasını sil (disk temizliği)
       if (oldThumbnailUri && oldThumbnailUri !== newThumbnailUri) {
         try {
-          // Cache-busted parametreleri temizleyerek gerçek dosya yolunu al
           const cleanOldUri = oldThumbnailUri.split('?')[0];
           await fileSystemManager.deleteImage(cleanOldUri);
-          console.log('🗑️ Old thumbnail deleted:', cleanOldUri);
+          console.log(i18n.t('products.oldThumbnailDeletedLog'), cleanOldUri); // Çeviri anahtarı kullanıldı
         } catch (deleteError) {
-          console.warn('⚠️ Old thumbnail deletion failed (non-critical):', deleteError);
+          console.warn(i18n.t('products.oldThumbnailDeletionFailedLog'), deleteError); // Çeviri anahtarı kullanıldı
         }
       }
 
-      // ⭐ GÜÇLÜ CACHE INVALIDATION: Multiple cache clearing
       setTimeout(async () => {
         try {
-          // 1. Image cache temizle
           await imageProcessor.clearImageCache();
-          
-          // 2. Force re-render trigger
           const currentState = get();
           set({
-            products: [...currentState.products] // Shallow copy ile re-render trigger
+            products: [...currentState.products]
           });
           
-          console.log('🔄 STRONG cache invalidation completed for thumbnail update');
+          console.log(i18n.t('products.strongCacheInvalidationCompletedLog')); // Çeviri anahtarı kullanıldı
         } catch (cacheError) {
-          console.warn('⚠️ Cache invalidation warning:', cacheError);
+          console.warn(i18n.t('common.cacheInvalidationWarning'), cacheError); // Çeviri anahtarı kullanıldı
         }
       }, 100);
 
-    } catch (storageError) {
-      console.error('❌ HIGH QUALITY AsyncStorage update failed:', storageError);
-
-      // Storage hatası durumunda state'i geri al
+    } catch (storageError: any) {
+      console.error(i18n.t('products.asyncStorageUpdateFailedLog'), storageError); // Çeviri anahtarı kullanıldı
       set({ products: currentProducts });
-      throw new Error('Yüksek kalite thumbnail güncelleme storage hatası: ' + storageError.message);
+      throw new Error(`${i18n.t('products.updateThumbnailStorageFailed')}${storageError.message}`); // Çeviri anahtarı kullanıldı
     }
 
-    console.log('✅ HIGH QUALITY photo thumbnail update completed:', {
+    console.log(i18n.t('products.photoThumbnailUpdateCompletedLog'), { // Çeviri anahtarı kullanıldı
       productId,
       photoId,
       oldUri: oldThumbnailUri,
@@ -599,8 +600,8 @@ export const useProductStore = create<ProductStore>((set, get) => ({
       set({ isOnline });
 
       if (!isOnline && get().error === null) {
-        set({ error: 'İnternet bağlantısı kesildi' });
-      } else if (isOnline && get().error?.includes('İnternet')) {
+        set({ error: i18n.t('api.error.noInternet') }); // Çeviri anahtarı kullanıldı
+      } else if (isOnline && get().error?.includes(i18n.t('api.error.internetKeyword'))) { // Çeviri anahtarı kullanıldı
         set({ error: null });
       }
     } catch (error) {

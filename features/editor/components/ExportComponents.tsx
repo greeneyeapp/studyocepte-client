@@ -1,10 +1,11 @@
-// features/editor/components/ExportComponents.tsx
+// features/editor/components/ExportComponents.tsx - DÜZELTİLDİ
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { ExportPreset, ShareOption } from '../config/exportTools';
+import { useTranslation } from 'react-i18next';
 
 interface ExportPresetCardProps {
   preset: ExportPreset;
@@ -17,6 +18,7 @@ export const ExportPresetCard: React.FC<ExportPresetCardProps> = ({
   onPress,
   isSelected = false
 }) => {
+  const { t } = useTranslation();
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'social': return '#FF6B6B';
@@ -45,7 +47,7 @@ export const ExportPresetCard: React.FC<ExportPresetCardProps> = ({
           <Feather name={preset.icon as any} size={20} color={categoryColor} />
         </View>
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>{preset.name}</Text>
+          <Text style={styles.title}>{t(preset.name)}</Text> {/* preset.name artık çeviri anahtarı */}
           <Text style={styles.dimensions}>
             {preset.dimensions.width} × {preset.dimensions.height}
           </Text>
@@ -54,10 +56,10 @@ export const ExportPresetCard: React.FC<ExportPresetCardProps> = ({
           <Feather name="check-circle" size={20} color={Colors.primary} />
         )}
       </View>
-      <Text style={styles.description}>{preset.description}</Text>
+      <Text style={styles.description}>{t(preset.description)}</Text> {/* preset.description artık çeviri anahtarı */}
       <View style={styles.details}>
         <Text style={styles.format}>{preset.format.toUpperCase()}</Text>
-        <Text style={styles.quality}>Kalite: {Math.round(preset.quality * 100)}%</Text>
+        <Text style={styles.quality}>{t('export.quality', { quality: Math.round(preset.quality * 100) })}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -74,20 +76,19 @@ export const ShareOptionButton: React.FC<ShareOptionButtonProps> = ({
   onPress,
   disabled = false
 }) => {
+  const { t } = useTranslation();
   const getOptionColor = (type: string) => {
     switch (type) {
       case 'gallery': return '#34C759';
       case 'generic': return Colors.primary;
-      // case 'quick_custom' kaldırıldı
       default: return Colors.primary;
     }
   };
 
   const getOptionDescription = (type: string) => {
     switch (type) {
-      case 'gallery': return 'Seçili format ile kaydet';
-      case 'generic': return 'Seçili format ile paylaş';
-      // case 'quick_custom' kaldırıldı
+      case 'gallery': return t('export.shareOption.galleryDesc');
+      case 'generic': return t('export.shareOption.genericDesc');
       default: return '';
     }
   };
@@ -103,12 +104,10 @@ export const ShareOptionButton: React.FC<ShareOptionButtonProps> = ({
     >
       <View style={[styles.shareIconContainer, { backgroundColor: optionColor }]}>
         <Feather name={option.icon as any} size={20} color={Colors.card} />
-
-        {/* Hızlı export için özel işaret kaldırıldı */}
       </View>
 
       <Text style={[styles.shareText, disabled && styles.shareTextDisabled]}>
-        {option.name}
+        {t(option.name)} {/* option.name artık çeviri anahtarı */}
       </Text>
 
       <Text style={[styles.shareDescription, disabled && styles.shareTextDisabled]}>
@@ -168,7 +167,6 @@ export const ExportPreview: React.FC<ExportPreviewProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // ExportPresetCard styles
   container: {
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.lg,
@@ -184,7 +182,7 @@ const styles = StyleSheet.create({
   selected: {
     borderColor: Colors.primary,
     borderWidth: 2,
-    borderLeftWidth: 4, // Sol kenardaki renkli çizgiyi koru
+    borderLeftWidth: 4,
   },
   header: {
     flexDirection: 'row',
@@ -237,7 +235,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
 
-  // ShareOptionButton styles
   shareButton: {
     alignItems: 'center',
     minWidth: 90,
@@ -260,7 +257,6 @@ const styles = StyleSheet.create({
     elevation: 4,
     position: 'relative',
   },
-  // quickBadge kaldırıldı
   shareText: {
     ...Typography.captionMedium,
     color: Colors.textPrimary,
@@ -279,7 +275,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
 
-  // ExportPreview styles
   previewContainer: {
     alignItems: 'center',
     marginVertical: Spacing.md,

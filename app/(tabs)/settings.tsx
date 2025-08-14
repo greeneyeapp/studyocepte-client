@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
-  TouchableOpacity, SafeAreaView, Linking, // Linking eklendi
+  TouchableOpacity, SafeAreaView, Linking,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
@@ -11,6 +11,10 @@ import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { Card } from '@/components/Card';
 import { ToastService } from '@/components/Toast/ToastService';
 import { DialogService } from '@/components/Dialog/DialogService';
+
+// Import düzeltmesi - BottomSheetService ve BottomSheetAction'ı doğru dosyalardan import et
+import { BottomSheetService } from '@/components/BottomSheet/BottomSheetService';
+import type { BottomSheetAction } from '@/components/BottomSheet/AppBottomSheet';
 
 // Akıllı Renk Seçen Profil Avatarı Bileşeni
 const ProfileAvatar: React.FC<{ name: string }> = ({ name }) => {
@@ -68,35 +72,78 @@ const SectionHeader: React.FC<{ title: string; icon?: string }> = ({ title, icon
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const { user, logout, isLoading } = useAuthStore();
+  const { user, logout, changeLanguage } = useAuthStore(); // changeLanguage aksiyonu eklendi
 
   const handleBackPress = () => router.back();
 
   const handleLogout = () => {
     DialogService.show({
-      title: "Çıkış Yap",
-      message: "Oturumu sonlandırmak istediğinizden emin misiniz?",
+      title: t('settings.logoutTitle'),
+      message: t('settings.logoutMessage'),
       buttons: [
-        { text: "İptal", style: 'cancel' },
-        { text: "Çıkış Yap", style: 'destructive', onPress: async () => await logout() },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('auth.logoutButton'), style: 'destructive', onPress: async () => await logout() },
       ],
     });
   };
 
-  const getCurrentLanguageLabel = () => i18n.language === 'en' ? 'English' : 'Türkçe';
+  // Yeni yardımcı fonksiyon: dil koduna göre tam dil adını döndürür
+  const getLanguageName = useCallback((langKey: string) => {
+    switch (langKey) {
+      case 'en': return 'English';
+      case 'tr': return 'Türkçe';
+      case 'es': return 'Español';
+      default: return langKey;
+    }
+  }, []); // useCallback ile wrap et
 
-  // Yeni URL açma fonksiyonları
+  const getCurrentLanguageLabel = useCallback(() => {
+    return getLanguageName(i18n.language);
+  }, [i18n.language, getLanguageName]); // getLanguageName'i dependency'ye ekle
+
+  // Dil değiştirme işlemini yöneten fonksiyon
+  const handleLanguageChange = useCallback(() => {
+    // BottomSheetService kontrolü
+    if (!BottomSheetService || typeof BottomSheetService.show !== 'function') {
+      console.warn('BottomSheetService is not available');
+      ToastService.show('Dil seçimi şu anda kullanılamıyor');
+      return;
+    }
+
+    const availableLanguages = Object.keys(i18n.options.resources || {});
+    const actions: BottomSheetAction[] = availableLanguages.map(langKey => ({
+      id: langKey,
+      text: getLanguageName(langKey),
+      icon: i18n.language === langKey ? 'check-circle' : 'circle', // Seçili dili işaretle
+      onPress: () => {
+        if (i18n.language !== langKey) {
+          changeLanguage(langKey);
+        }
+      }
+    }));
+
+    try {
+      BottomSheetService.show({
+        title: t('settings.language'),
+        actions: actions,
+      });
+    } catch (error) {
+      console.error('BottomSheetService error:', error);
+      ToastService.error('Dil seçimi açılırken hata oluştu');
+    }
+  }, [t, i18n, changeLanguage]);
+
   const openPrivacyPolicy = () => {
     Linking.openURL('https://greeneyeapp.com/legal/studyocepte-privacy').catch(err => {
-      console.error("Gizlilik Politikası açılamadı", err);
-      ToastService.error("Gizlilik politikası açılamadı.");
+      console.error(t('settings.privacyPolicyError'), err);
+      ToastService.error(t('settings.privacyPolicyError'));
     });
   };
 
   const openTermsOfUse = () => {
     Linking.openURL('https://greeneyeapp.com/legal/studyocepte-terms').catch(err => {
-      console.error("Kullanım Koşulları açılamadı", err);
-      ToastService.error("Kullanım koşulları açılamadı.");
+      console.error(t('settings.termsOfUseError'), err);
+      ToastService.error(t('settings.termsOfUseError'));
     });
   };
 
@@ -110,72 +157,74 @@ export default function SettingsScreen() {
         <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
           <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Hesap</Text>
+        <Text style={styles.headerTitle}>{t('settings.accountTitle')}</Text>
         <View style={styles.headerRight} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {/* Profil Kartı (Sadeleştirildi) */}
         <Card style={styles.profileCard}>
           <View style={styles.profileCardContent}>
-            <ProfileAvatar name={user.name || 'Misafir'} />
+            <ProfileAvatar name={user.name || t('auth.guest')} />
             <Text style={styles.userName}>{user.name}</Text>
             {!isGuest && (
               <Text style={styles.userEmail} numberOfLines={1} ellipsizeMode="tail">
                 {user.email}
               </Text>
             )}
-            {/* "Profili Düzenle" butonu kaldırıldı */}
           </View>
         </Card>
 
-        {/* Uygulama Ayarları */}
         <View style={styles.sectionContainer}>
-          <SectionHeader title="Uygulama Ayarları" icon="settings" />
+          <SectionHeader title={t('settings.appSettingsSection')} icon="settings" />
           <Card padding="none" style={styles.settingsCard}>
-            <ModernSettingCard icon="globe" title="Dil" subtitle="Uygulama dilini değiştirin" value={getCurrentLanguageLabel()} onPress={() => { }} iconColor={Colors.primary} />
+            <ModernSettingCard 
+              icon="globe" 
+              title={t('settings.language')} 
+              subtitle={t('settings.languageSubtitle')} 
+              value={getCurrentLanguageLabel()} 
+              onPress={handleLanguageChange} // Dil değiştirme fonksiyonu buraya bağlandı
+              iconColor={Colors.primary} 
+            />
             <ModernSettingCard
-              icon="credit-card" title="Abonelik"
-              subtitle={isGuest ? "Abone olmak için hesap oluşturun" : "Premium özelliklere erişin"}
-              onPress={() => ToastService.show(isGuest ? 'Lütfen önce kayıt olun.' : 'Yakında gelecek!')}
-              iconColor={Colors.accent} isLast
+              icon="credit-card" 
+              title={t('settings.subscription')}
+              subtitle={isGuest ? t('settings.subscriptionGuestPrompt') : t('settings.subscriptionSubtitle')}
+              onPress={() => ToastService.show(isGuest ? t('settings.registerFirstPrompt') : t('common.comingSoon'))}
+              iconColor={Colors.accent} 
+              isLast
             />
           </Card>
         </View>
 
-        {/* Destek ve Hakkında */}
         <View style={styles.sectionContainer}>
-          <SectionHeader title="Destek ve Bilgi" icon="help-circle" />
+          <SectionHeader title={t('settings.supportAndInfoSection')} icon="help-circle" />
           <Card padding="none" style={styles.settingsCard}>
-            <ModernSettingCard icon="message-circle" title="Destek" subtitle="Yardım alın ve geri bildirimde bulunun" onPress={() => { }} iconColor="#10B981" />
-            {/* YENİ: Gizlilik Politikası */}
+            <ModernSettingCard icon="message-circle" title={t('settings.support')} subtitle={t('settings.supportSubtitle')} onPress={() => { }} iconColor="#10B981" />
             <ModernSettingCard 
               icon="shield" 
-              title="Gizlilik Politikası" 
-              subtitle="Verileriniz nasıl işleniyor?" 
+              title={t('settings.privacyPolicy')} 
+              subtitle={t('settings.privacyPolicySubtitle')} 
               onPress={openPrivacyPolicy} 
-              iconColor="#28a745" // Yeşil
+              iconColor="#28a745"
             />
-            {/* YENİ: Kullanım Koşulları */}
             <ModernSettingCard 
               icon="file-text" 
-              title="Kullanım Koşulları" 
-              subtitle="Hizmet kullanım şartları" 
+              title={t('settings.termsOfUse')} 
+              subtitle={t('settings.termsOfUseSubtitle')} 
               onPress={openTermsOfUse} 
-              iconColor="#007bff" // Mavi
+              iconColor="#007bff"
             />
-            <ModernSettingCard icon="info" title="Hakkında" subtitle="Uygulama bilgileri ve sürüm" value="v1.0.0" onPress={() => { }} iconColor="#8B5CF6" />
-            <ModernSettingCard icon="star" title="Uygulamayı Değerlendirin" subtitle="App Store'da bizi değerlendirin" onPress={() => { }} iconColor="#F59E0B" showChevron={false} isLast />
+            <ModernSettingCard icon="info" title={t('settings.about')} subtitle={t('settings.aboutMessage')} value="v1.0.0" onPress={() => { }} iconColor="#8B5CF6" />
+            <ModernSettingCard icon="star" title={t('settings.rateApp')} subtitle={t('settings.rateAppSubtitle')} onPress={() => { }} iconColor="#F59E0B" showChevron={false} isLast />
           </Card>
         </View>
 
-        {/* GÜNCELLEME: Yeni Çıkış Yap Butonu */}
         <View style={styles.sectionContainer}>
-          <SectionHeader title="Hesap" icon="user" />
+          <SectionHeader title={t('settings.accountTitle')} icon="user" />
           <Card padding="none" style={styles.settingsCard}>
             <ModernSettingCard
               icon="log-out"
-              title="Çıkış Yap"
+              title={t('auth.logoutButton')}
               onPress={handleLogout}
               iconColor={Colors.error}
               titleColor={Colors.error}

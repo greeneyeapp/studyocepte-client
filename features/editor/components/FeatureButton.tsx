@@ -1,13 +1,14 @@
-// features/editor/components/FeatureButton.tsx - GENİŞLİK SORUNU DÜZELTİLDİ
+// features/editor/components/FeatureButton.tsx - DÜZELTİLDİ
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
+import { useTranslation } from 'react-i18next';
 
 interface FeatureButtonProps {
   icon: string;
-  label: string;
+  label: string; // label artık çeviri anahtarı olarak gelecek
   value: number;
   isActive: boolean;
   onPress: () => void;
@@ -26,24 +27,22 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
   productValue = 0,
   backgroundValue = 0,
 }) => {
+  const { t } = useTranslation();
   const handlePress = () => {
-    console.log('🔘 Feature button pressed:', label, 'Current value:', value, 'Active:', isActive);
+    console.log(t('editor.featureButtonPressedLog'), t(label), t('editor.currentValueLog'), value, t('editor.activeLog'), isActive);
     onPress();
   };
 
-  // Değer hesaplamaları
   const hasAnyValue = hasMixedValues 
     ? (productValue !== 0 || backgroundValue !== 0)
     : (value !== 0);
   
   const hasDifferentValues = hasMixedValues && (productValue !== backgroundValue);
   
-  // Container stili
   const getContainerStyle = () => {
     return isActive ? styles.containerActive : styles.container;
   };
 
-  // Icon container stili
   const getIconContainerStyle = () => {
     if (isActive) {
       return styles.iconContainerActive;
@@ -64,20 +63,17 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
     return styles.iconContainer;
   };
 
-  // Icon rengi
   const getIconColor = () => {
     if (isActive || hasAnyValue) return Colors.card;
     return Colors.textPrimary;
   };
 
-  // Label stili
   const getLabelStyle = () => {
     if (isActive) return [styles.label, styles.labelActive];
     if (hasAnyValue) return [styles.label, styles.labelWithValue];
     return styles.label;
   };
 
-  // Görüntülenecek değer
   const getDisplayValue = () => {
     if (hasMixedValues && hasDifferentValues) {
       return '±';
@@ -98,7 +94,7 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
       activeOpacity={0.7}
       onLongPress={() => {
         if (__DEV__) {
-          console.log(`📊 ${label} - Ürün: ${productValue}, Arka Plan: ${backgroundValue}`);
+          console.log(t('editor.featureDebugLog', { label: t(label), productValue, backgroundValue }));
         }
       }}
     >
@@ -119,14 +115,12 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
           />
         )}
         
-        {/* Karışık durum göstergesi */}
         {hasMixedValues && hasDifferentValues && !isActive && (
           <View style={styles.mixedIndicator}>
             <View style={styles.mixedDot} />
           </View>
         )}
         
-        {/* Aktif durum göstergesi */}
         {isActive && (
           <View style={styles.activeIndicator}>
             <Feather name="circle" size={6} color={Colors.card} />
@@ -136,15 +130,14 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
       
       <Text 
         style={getLabelStyle()}
-        numberOfLines={2} // İki satıra izin ver
+        numberOfLines={2}
         adjustsFontSizeToFit={true}
-        minimumFontScale={0.75} // %75'e kadar küçülme
+        minimumFontScale={0.75}
         textAlign="center"
       >
-        {label}
+        {t(label)} {/* label artık çeviri anahtarı */}
       </Text>
       
-      {/* Debug bilgisi */}
       {__DEV__ && hasMixedValues && (
         <Text style={styles.debugText}>
           {productValue}/{backgroundValue}
@@ -157,15 +150,15 @@ export const FeatureButton: React.FC<FeatureButtonProps> = ({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    minWidth: 80, // GENİŞLİK ARTTIRILDI (60'tan 80'e)
-    maxWidth: 100, // Maksimum genişlik de arttırıldı
-    paddingHorizontal: Spacing.sm, // Daha fazla padding
+    minWidth: 80,
+    maxWidth: 100,
+    paddingHorizontal: Spacing.sm,
     position: 'relative',
-    flex: 1, // Esnek genişlik
+    flex: 1,
   },
   containerActive: {
     alignItems: 'center',
-    minWidth: 80, // GENİŞLİK ARTTIRILDI
+    minWidth: 80,
     maxWidth: 100,
     paddingHorizontal: Spacing.sm,
     position: 'relative',
@@ -236,9 +229,9 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     fontWeight: '500',
-    width: '100%', // TAM GENİŞLİK
-    minHeight: 24, // İki satır için minimum yükseklik
-    lineHeight: 12, // Satır yüksekliği
+    width: '100%',
+    minHeight: 24,
+    lineHeight: 12,
   },
   labelActive: {
     color: Colors.primary,
@@ -249,7 +242,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   
-  // Göstergeler
   mixedIndicator: {
     position: 'absolute',
     top: -3,
@@ -283,7 +275,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.card,
   },
   
-  // Debug
   debugText: {
     ...Typography.caption,
     fontSize: 8,

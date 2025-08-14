@@ -1,9 +1,11 @@
 // hooks/useBatchOperations.ts - Düzeltilmiş
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { api, BatchOperation } from '@/services/api';
-import { ToastService } from '@/components/Toast/ToastService'; // HATA DÜZELTİLDİ: Eksik import eklendi
+import { ToastService } from '@/components/Toast/ToastService';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 export const useBatchOperations = () => {
+  const { t } = useTranslation();
   const [operations, setOperations] = useState<Map<string, BatchOperation>>(new Map());
   const [isStarting, setIsStarting] = useState(false);
   const pollIntervals = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -17,24 +19,21 @@ export const useBatchOperations = () => {
     try {
       const result = await api.startBatchOperation(params);
       
-      // Start polling for status updates
       const intervalId = setInterval(async () => {
         try {
           const status = await api.getBatchStatus(result.batch_id);
           setOperations(prev => new Map(prev).set(result.batch_id, status));
           
-          // Stop polling if operation is completed/failed/cancelled
           if (['completed', 'failed', 'cancelled'].includes(status.status)) {
             clearInterval(intervalId);
             pollIntervals.current.delete(result.batch_id);
           }
         } catch (error) {
-          console.warn('Failed to fetch batch status:', error);
-          // Hata durumunda da polling'i durdurabiliriz
+          console.warn(t('batch.failedToFetchStatus'), error);
           clearInterval(intervalId);
           pollIntervals.current.delete(result.batch_id);
         }
-      }, 2000); // Poll every 2 seconds
+      }, 2000);
       
       pollIntervals.current.set(result.batch_id, intervalId);
       
@@ -45,20 +44,18 @@ export const useBatchOperations = () => {
     } finally {
       setIsStarting(false);
     }
-  }, []);
+  }, [t]);
 
   const cancelOperation = useCallback(async (batchId: string) => {
     try {
       await api.cancelBatchOperation(batchId);
       
-      // Clear polling
       const intervalId = pollIntervals.current.get(batchId);
       if (intervalId) {
         clearInterval(intervalId);
         pollIntervals.current.delete(batchId);
       }
       
-      // Update local state
       setOperations(prev => {
         const newMap = new Map(prev);
         const operation = newMap.get(batchId);
@@ -68,11 +65,11 @@ export const useBatchOperations = () => {
         return newMap;
       });
       
-      ToastService.show('Batch operation was cancelled successfully');
+      ToastService.show(t('batch.operationCancelled'));
     } catch (error: any) {
       ToastService.show(error.message);
     }
-  }, []);
+  }, [t]);
 
   const getOperation = useCallback((batchId: string) => {
     return operations.get(batchId);
@@ -95,7 +92,6 @@ export const useBatchOperations = () => {
     });
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       for (const intervalId of pollIntervals.current.values()) {

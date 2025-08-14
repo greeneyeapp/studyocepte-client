@@ -4,11 +4,12 @@ import { api, User, TokenResponse, apiUtils } from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18n from '@/i18n';
 
+const LANGUAGE_STORAGE_KEY = 'user_language';
+
 interface AuthState {
   user: (User & { access_token?: string }) | null;
   isAuthenticated: boolean;
   error: string | null;
-  // Dil ve network durumu
   currentLanguage: string;
   isOnline: boolean;
 }
@@ -19,7 +20,6 @@ interface AuthActions {
   logout: () => Promise<void>;
   checkAuthStatus: () => Promise<void>;
   guestLogin: () => Promise<boolean>;
-  // Profil ve dil işlemleri
   updateProfile: (updates: { name?: string }) => Promise<boolean>;
   refreshProfile: () => Promise<void>;
   changeLanguage: (lang: string) => Promise<void>;
@@ -35,23 +35,28 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
   checkAuthStatus: async () => {
     try {
+      // Önce kaydedilen dili yükle
+      const savedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+      if (savedLanguage && savedLanguage !== i18n.language) {
+        await i18n.changeLanguage(savedLanguage);
+        set({ currentLanguage: savedLanguage });
+      }
+
       const userJson = await AsyncStorage.getItem('user');
       if (userJson) {
         const userData = JSON.parse(userJson);
         set({ user: userData, isAuthenticated: true });
         
-        // Background'da profil bilgilerini refresh et
         try {
           await get().refreshProfile();
         } catch (error) {
-          // Profil refresh hatası kritik değil, sadece logla
-          console.warn('Profile refresh failed:', error);
+          console.warn(i18n.t('auth.profileRefreshFailedLog'), error); // Çeviri anahtarı kullanıldı
         }
       } else {
         set({ user: null, isAuthenticated: false });
       }
     } catch (error) {
-      console.error('Auth status check failed:', error);
+      console.error(i18n.t('auth.authStatusCheckFailedLog'), error); // Çeviri anahtarı kullanıldı
       set({ user: null, isAuthenticated: false });
     }
   },
@@ -77,8 +82,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       const errorMessage = apiUtils.extractErrorMessage(e);
       set({ error: errorMessage });
       
-      // Network hatasını kontrol et
-      if (errorMessage.includes('ağ') || errorMessage.includes('network')) {
+      if (errorMessage.includes(i18n.t('api.error.networkKeyword1')) || errorMessage.includes(i18n.t('api.error.networkKeyword2'))) { // Çeviri anahtarı kullanıldı
         set({ isOnline: false });
       }
       
@@ -107,7 +111,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       const errorMessage = apiUtils.extractErrorMessage(e);
       set({ error: errorMessage });
       
-      if (errorMessage.includes('ağ') || errorMessage.includes('network')) {
+      if (errorMessage.includes(i18n.t('api.error.networkKeyword1')) || errorMessage.includes(i18n.t('api.error.networkKeyword2'))) { // Çeviri anahtarı kullanıldı
         set({ isOnline: false });
       }
       
@@ -147,7 +151,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       const errorMessage = apiUtils.extractErrorMessage(e);
       set({ error: errorMessage });
       
-      if (errorMessage.includes('ağ') || errorMessage.includes('network')) {
+      if (errorMessage.includes(i18n.t('api.error.networkKeyword1')) || errorMessage.includes(i18n.t('api.error.networkKeyword2'))) { // Çeviri anahtarı kullanıldı
         set({ isOnline: false });
       }
       
@@ -164,7 +168,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     });
   },
 
-  // Profil güncelleme
   updateProfile: async (updates: { name?: string }) => {
     const currentUser = get().user;
     if (!currentUser) return false;
@@ -191,7 +194,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       const errorMessage = apiUtils.extractErrorMessage(e);
       set({ error: errorMessage });
       
-      if (errorMessage.includes('ağ') || errorMessage.includes('network')) {
+      if (errorMessage.includes(i18n.t('api.error.networkKeyword1')) || errorMessage.includes(i18n.t('api.error.networkKeyword2'))) { // Çeviri anahtarı kullanıldı
         set({ isOnline: false });
       }
       
@@ -199,7 +202,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     }
   },
 
-  // Profil bilgilerini yenile
   refreshProfile: async () => {
     const currentUser = get().user;
     if (!currentUser || !get().isAuthenticated) return;
@@ -219,41 +221,43 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         isOnline: true 
       });
     } catch (e: any) {
-      // Profil refresh hatası kritik değil
-      console.warn('Profile refresh failed:', apiUtils.extractErrorMessage(e));
+      console.warn(i18n.t('auth.profileRefreshFailedLog'), apiUtils.extractErrorMessage(e)); // Çeviri anahtarı kullanıldı
       
-      if (apiUtils.extractErrorMessage(e).includes('ağ')) {
+      if (apiUtils.extractErrorMessage(e).includes(i18n.t('api.error.networkKeyword1'))) { // Çeviri anahtarı kullanıldı
         set({ isOnline: false });
       }
     }
   },
 
-  // Dil değiştirme
   changeLanguage: async (lang: string) => {
     try {
-      await apiUtils.changeLanguage(lang);
+      // i18n dil değişikliği
+      await i18n.changeLanguage(lang);
+      
+      // AsyncStorage'a kaydet
+      await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+      
+      // Store'u güncelle
       set({ currentLanguage: lang });
       
-      // Dil değişikliğinden sonra kullanıcı varsa profili refresh et
       if (get().isAuthenticated) {
         await get().refreshProfile();
       }
     } catch (error) {
-      console.error('Language change failed:', error);
-      // Dil değişikliği hatası kritik değil, local olarak set et
+      console.error(i18n.t('auth.languageChangeFailedLog'), error); // Çeviri anahtarı kullanıldı
       set({ currentLanguage: lang });
     }
   },
 
-  // Network durumu kontrolü
   checkNetworkStatus: async () => {
     try {
       const isOnline = await apiUtils.checkNetworkConnection();
       set({ isOnline });
       
-      // Online olduktan sonra profili refresh et
-      if (isOnline && get().isAuthenticated) {
-        await get().refreshProfile();
+      if (!isOnline && get().error === null) {
+        set({ error: i18n.t('api.error.noInternet') }); // Çeviri anahtarı kullanıldı
+      } else if (isOnline && get().error?.includes(i18n.t('api.error.internetKeyword'))) { // Çeviri anahtarı kullanıldı
+        set({ error: null });
       }
     } catch (error) {
       set({ isOnline: false });

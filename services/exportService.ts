@@ -1,9 +1,11 @@
-// services/exportService.ts
+// services/exportService.ts - DÜZELTİLDİ
 
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { ExportPreset, ShareOption } from '@/features/editor/config/exportTools';
+import { ToastService } from '@/components/Toast/ToastService'; // ToastService import edildi
+import i18n from '@/i18n'; // i18n import edildi
 
 interface SharePayload {
   shareOption: ShareOption;
@@ -25,10 +27,9 @@ export class ExportService {
       encoding: FileSystem.EncodingType.Base64,
     });
 
-    // Dosyanın gerçekten oluştuğunu kontrol et
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
     if (!fileInfo.exists) {
-      throw new Error('Dosya oluşturulamadı');
+      throw new Error(i18n.t('filesystem.fileSaveCheckFailed')); // Çeviri anahtarı kullanıldı
     }
 
     console.log('✅ File created successfully:', fileInfo.size, 'bytes');
@@ -44,7 +45,7 @@ export class ExportService {
 
     console.log('🚀 Starting export:', {
       shareType: shareOption.type,
-      preset: preset.name,
+      preset: i18n.t(preset.name), // preset.name artık çeviri anahtarı
       dimensions: preset.dimensions,
       format: preset.format
     });
@@ -52,28 +53,24 @@ export class ExportService {
     try {
       fileUri = await this.writeBase64ToFile(base64Data, filename);
 
-      // `quick_custom` tipi kaldırıldığı için sadece 'gallery' tipi kontrol edildi.
       if (shareOption.type === 'gallery') {
-        // Galeri izni iste
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status !== 'granted') {
-          throw new Error('Galeri izni gerekli. Lütfen ayarlardan izin verin.');
+          throw new Error(i18n.t('common.permissions.galleryMessage')); // Çeviri anahtarı kullanıldı
         }
 
-        // Galeriye kaydet
         const asset = await MediaLibrary.createAssetAsync(fileUri);
         console.log('📱 Saved to gallery:', asset.id);
 
-      } else { // Artık sadece 'generic' paylaşım kalıyor
-        // Generic paylaşım
+      } else {
         const isAvailable = await Sharing.isAvailableAsync();
         if (!isAvailable) {
-          throw new Error('Paylaşım özelliği bu cihazda kullanılamıyor.');
+          throw new Error(i18n.t('export.sharingNotAvailableError')); // Çeviri anahtarı kullanıldı
         }
 
         await Sharing.shareAsync(fileUri, {
           mimeType: preset.format === 'png' ? 'image/png' : 'image/jpeg',
-          dialogTitle: `${preset.name} Paylaş`,
+          dialogTitle: i18n.t('export.shareDialogTitle', { presetName: i18n.t(preset.name) }), // preset.name artık çeviri anahtarı
         });
         console.log('📤 Shared successfully');
       }
@@ -81,7 +78,6 @@ export class ExportService {
       console.error('❌ Export error:', error);
       throw error;
     } finally {
-      // Geçici dosyayı her zaman sil
       if (fileUri) {
         try {
           await FileSystem.deleteAsync(fileUri, { idempotent: true });
@@ -92,8 +88,4 @@ export class ExportService {
       }
     }
   }
-
-  /**
-   * `quickExport` fonksiyonu tamamen kaldırıldı.
-   */
 }

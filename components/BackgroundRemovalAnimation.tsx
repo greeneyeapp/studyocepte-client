@@ -4,6 +4,7 @@ import { Colors, BorderRadius, Typography, Spacing } from '@/constants';
 import { Feather } from '@expo/vector-icons';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface BackgroundRemovalAnimationProps {
   originalUri: string;
@@ -116,6 +117,7 @@ const FloatingIcon: React.FC<{ icon: string; delay: number; index: number; isAct
 export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProps> = ({
     originalUri, processedUri, isAnimating, onAnimationComplete
 }) => {
+    const { t } = useTranslation();
     const slideAnim = useRef(new Animated.Value(0)).current;
     const [animationPhase, setAnimationPhase] = useState<'waiting' | 'sliding' | 'completed'>('waiting');
 
@@ -145,9 +147,9 @@ export const BackgroundRemovalAnimation: React.FC<BackgroundRemovalAnimationProp
     }, [isAnimating]);
 
     const getInfoText = () => {
-        if (animationPhase === 'sliding') return "Arka Plan Temizleniyor...";
-        if (animationPhase === 'completed') return "İşlem Tamamlandı!";
-        return "Lütfen bekleyiniz...";
+        if (animationPhase === 'sliding') return t('animation.backgroundRemovalProcessing');
+        if (animationPhase === 'completed') return t('animation.processCompleted');
+        return t('animation.pleaseWait');
     };
 
     const imageWidth = modalWidth * 0.9;
@@ -228,7 +230,7 @@ const styles = StyleSheet.create({
     imageContainer: {
         borderRadius: BorderRadius.xl,
         overflow: 'hidden',
-        backgroundColor: Colors.background, // Arka plan rengi krem tonu olarak güncellendi
+        backgroundColor: Colors.background,
         borderWidth: 1,
         borderColor: Colors.border,
         shadowColor: Colors.shadow,
@@ -260,11 +262,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center', alignItems: 'center', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3, shadowRadius: 8, elevation: 10, borderWidth: 1.5, borderColor: Colors.primary + '40',
     },
-    animationOverlay: { // Modal için yeni stil eklendi
+    animationOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: Colors.background, // Krem tonu arka plan
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        zIndex: 2000 
+        backgroundColor: Colors.background,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 2000
     },
 });

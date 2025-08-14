@@ -1,10 +1,11 @@
-// features/editor/components/MainToolbar.tsx - GELİŞTİRİLMİŞ VE STANDARTLAŞTIRILMIŞ (İKON SEÇİLİ DURUMU KESİN DÜZELTİLDİ)
+// features/editor/components/MainToolbar.tsx - DÜZELTİLDİ
 
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { ToolType, MAIN_TOOLS } from '../config/tools';
+import { useTranslation } from 'react-i18next';
 
 interface MainToolbarProps {
   activeTool: ToolType;
@@ -15,6 +16,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
   activeTool,
   onToolChange,
 }) => {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       {MAIN_TOOLS.map((tool, index) => {
@@ -23,36 +25,33 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
         return (
           <TouchableOpacity
             key={tool.key}
-            style={styles.toolButton} // Her zaman şeffaf arka plan
+            style={styles.toolButton}
             onPress={() => onToolChange(tool.key)}
             activeOpacity={0.7}
           >
-            {/* Icon Container - aktifse birincil renk arka planı alacak */}
             <View style={[
               styles.iconContainer,
-              isActive && styles.iconContainerActive // Aktif olduğunda bu stil uygulanacak
+              isActive && styles.iconContainerActive
             ]}>
               <Feather
                 name={tool.icon as any}
                 size={20}
-                color={isActive ? Colors.card : Colors.textSecondary} // Aktifse beyaz ikon, değilse ikincil metin rengi
+                color={isActive ? Colors.card : Colors.textSecondary}
               />
             </View>
             
-            {/* Label */}
             <Text
               style={[
                 styles.toolButtonText,
-                isActive && styles.toolButtonTextActive, // Aktifse metin rengi değişecek
+                isActive && styles.toolButtonTextActive,
               ]}
               numberOfLines={1}
               adjustsFontSizeToFit={true}
               minimumFontScale={0.8}
             >
-              {tool.label}
+              {t(tool.label)} {/* tool.label artık çeviri anahtarı */}
             </Text>
             
-            {/* Alt çizgi indicator */}
             {isActive && <View style={styles.activeIndicator} />}
           </TouchableOpacity>
         );
@@ -71,7 +70,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card,
     borderTopWidth: 0.5,
     borderTopColor: Colors.border,
-    minHeight: 80, // Sabit minimum yükseklik
+    minHeight: 80,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
@@ -85,17 +84,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.xs,
     borderRadius: BorderRadius.lg,
-    minWidth: 60, // Sabit minimum genişlik
-    flex: 1, // Eşit dağılım
-    maxWidth: 80, // Maksimum genişlik sınırı
+    minWidth: 60,
+    flex: 1,
+    maxWidth: 80,
     position: 'relative',
-    marginHorizontal: 2, // Butonlar arası minimum boşluk
-    backgroundColor: 'transparent', // KESİN ÇÖZÜM: Butonun kendi arka planı her zaman şeffaf olmalı
+    marginHorizontal: 2,
+    backgroundColor: 'transparent',
   },
   
-  // styles.toolButtonActive stili tamamen kaldırıldı
-
-  // Icon container
   iconContainer: {
     width: 36,
     height: 36,
@@ -103,12 +99,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.xs,
-    backgroundColor: Colors.gray100, // Varsayılan gri arka plan
+    backgroundColor: Colors.gray100,
   },
   
   iconContainerActive: {
-    backgroundColor: Colors.primary, // KESİN ÇÖZÜM: Aktifse birincil renk arka planı
-    // transform: [{ scale: 1.1 }] kaldırıldı (boyutlandırma yok)
+    backgroundColor: Colors.primary,
   },
   
   toolButtonText: {
@@ -121,12 +116,11 @@ const styles = StyleSheet.create({
   },
   
   toolButtonTextActive: {
-    color: Colors.primary, // KESİN ÇÖZÜM: Aktifse birincil metin rengi
+    color: Colors.primary,
     fontWeight: '700',
     fontSize: 12,
   },
   
-  // Alt çizgi aktif indicator
   activeIndicator: {
     position: 'absolute',
     bottom: 0,

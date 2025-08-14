@@ -4,6 +4,7 @@ import React from 'react';
 import { TouchableOpacity, Image, View, StyleSheet, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, BorderRadius, Spacing } from '@/constants';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface Background {
   id: string;
@@ -29,6 +30,8 @@ export const BackgroundItem: React.FC<BackgroundItemProps> = ({
   isSelected,
   onPress,
 }) => {
+  const { t } = useTranslation();
+
   // YENİ: Thumbnail URL'in bir renk kodu olup olmadığını kontrol et
   const isColorThumbnail = isHexColor(background.thumbnailUrl);
 
@@ -49,17 +52,17 @@ export const BackgroundItem: React.FC<BackgroundItemProps> = ({
             source={{ uri: background.thumbnailUrl }}
             style={styles.backgroundImage}
             onError={(e) => {
-              console.warn(`❌ BackgroundItem Image Error for ${background.id}:`, e.nativeEvent.error);
+              console.warn(t('editor.backgroundItemImageErrorLog', { id: background.id }), e.nativeEvent.error);
             }}
             onLoad={() => {
-              if (__DEV__) console.log(`✅ BackgroundItem Image Loaded for ${background.id}`);
+              if (__DEV__) console.log(t('editor.backgroundItemImageLoadedLog', { id: background.id }));
             }}
             resizeMode="cover"
           />
         ) : ( // Hiçbiri değilse placeholder göster
           <View style={styles.placeholderContainer}>
             <Feather name="image" size={24} color={Colors.gray400} />
-            <Text style={styles.placeholderText}>Yükleniyor...</Text>
+            <Text style={styles.placeholderText}>{t('common.loading')}</Text>
           </View>
         )}
       </View>
@@ -107,11 +110,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // YENİ: Renkli önizlemeler için stil
   colorThumbnail: {
     width: '100%',
     height: '100%',
-    // backgroundColor prop ile renk doğrudan atanacak
   },
 
   backgroundImage: {

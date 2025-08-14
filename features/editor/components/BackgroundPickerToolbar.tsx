@@ -1,12 +1,13 @@
-// client/features/editor/components/BackgroundPickerToolbar.tsx - DEBUG STİLLERİ TEMİZLENMİŞ
+// client/features/editor/components/BackgroundPickerToolbar.tsx - DÜZELTİLDİ
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { BACKGROUND_CATEGORIES, Background } from '../config/backgrounds';
 import { BackgroundItem } from './BackgroundItem';
+import { useTranslation } from 'react-i18next';
 
-// Servisleri import et
 import { backgroundThumbnailManager } from '@/services/backgroundThumbnailManager';
 import { useEnhancedEditorStore } from '@/stores/useEnhancedEditorStore';
 
@@ -15,37 +16,29 @@ interface BackgroundPickerToolbarProps {
   onBackgroundSelect: (background: Background) => void;
 }
 
-/**
- * ✅ TEMİZLENMİŞ: Arka Plan Seçici Araç Çubuğu.
- *    Debug renkler ve kenarlıklar kaldırıldı.
- *    Düzgün flex layout ile çalışacak şekilde düzenlendi.
- */
 export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = ({
   selectedBackgroundId,
   onBackgroundSelect
 }) => {
+  const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState(BACKGROUND_CATEGORIES[0]?.id || 'home');
-  const [categorySelected, setCategorySelected] = useState<boolean>(false); // ✅ YENİ: Kategori seçildi mi?
+  const [categorySelected, setCategorySelected] = useState<boolean>(false);
   const [resolvedThumbnails, setResolvedThumbnails] = useState<Map<string, string>>(new Map());
   const [loadingThumbnails, setLoadingThumbnails] = useState<boolean>(true);
   const [thumbnailLoadError, setThumbnailLoadError] = useState<string | null>(null);
 
-  // Aktif kategori verilerini memoize et
   const activeCategoryData = useMemo(() => {
     const category = BACKGROUND_CATEGORIES.find(cat => cat.id === activeCategory);
     return category;
   }, [activeCategory]);
 
-  // ✅ DÜZELTME: Component mount olduğunda categorySelected'i false olarak başlat
   useEffect(() => {
     setCategorySelected(false);
   }, []);
 
-  // Arka plan thumbnail'larını yükleme ve çözümleme etkisi
   useEffect(() => {
     let isMounted = true;
     
-    // ✅ DÜZELTME: Sadece kategori seçildiyse thumbnail'ları yükle
     if (!categorySelected) {
       setLoadingThumbnails(false);
       return;
@@ -53,7 +46,7 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
     
     setLoadingThumbnails(true);
     setThumbnailLoadError(null);
-    setResolvedThumbnails(new Map()); // Her kategori değişiminde map'i sıfırla
+    setResolvedThumbnails(new Map());
 
     const loadThumbnails = async () => {
       if (!activeCategoryData || !activeCategoryData.backgrounds) {
@@ -68,22 +61,21 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
           if (isMounted) {
             if (uri) {
               newResolvedMap.set(bg.id, uri);
-              if (__DEV__) console.log(`🖼️ Thumbnail çözümlendi ve yüklendi: ${bg.id}`);
+              if (__DEV__) console.log(t('editor.backgroundThumbnailResolvedLog', { id: bg.id }));
             } else {
-              console.warn(`⚠️ Thumbnail çözümlenemedi (null/undefined): ${bg.id}`);
+              console.warn(t('editor.backgroundThumbnailNullLog', { id: bg.id }));
             }
           }
         } catch (error: any) {
           if (isMounted) {
-            console.error(`❌ Thumbnail yükleme hatası for ${bg.id}:`, error.message);
-            // Hata durumunda bile, diğerlerini etkilemeden boş bırak
-            newResolvedMap.set(bg.id, ''); // Hata durumunda boş string veya özel bir placeholder URI
-            setThumbnailLoadError(`Görsel yüklenemedi: ${bg.id}`);
+            console.error(t('editor.backgroundThumbnailLoadErrorLog', { id: bg.id, message: error.message }));
+            newResolvedMap.set(bg.id, '');
+            setThumbnailLoadError(t('editor.backgroundLoadError', { id: bg.id }));
           }
         }
       });
 
-      await Promise.allSettled(promises); // Tüm promise'lerin bitmesini bekle
+      await Promise.allSettled(promises);
 
       if (isMounted) {
         setResolvedThumbnails(newResolvedMap);
@@ -94,24 +86,22 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
     loadThumbnails();
 
     return () => {
-      isMounted = false; // Temizleme
+      isMounted = false;
     };
-  }, [activeCategoryData, categorySelected]); // ✅ categorySelected dependency eklendi
+  }, [activeCategoryData, categorySelected, t]);
 
-  // Hata durumu kontrolü (eğer kategori verisi yoksa)
   if (!activeCategoryData) {
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Feather name="alert-triangle" size={24} color={Colors.error} />
-          <Text style={styles.errorText}>Arka plan kategorileri yüklenemedi.</Text>
-          <Text style={styles.errorSubtext}>Lütfen uygulamayı yeniden başlatın.</Text>
+          <Text style={styles.errorText}>{t('editor.backgroundCategoriesLoadError')}</Text>
+          <Text style={styles.errorSubtext}>{t('editor.restartAppSuggestion')}</Text>
         </View>
       </View>
     );
   }
 
-  // Debug logu
   if (__DEV__) {
     console.log('🎨 BackgroundPickerToolbar rendering:', {
       activeCategory,
@@ -126,7 +116,6 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
 
   return (
     <View style={styles.container}>
-      {/* ✅ YENİ: Back butonu (kategori seçildiyse) */}
       {categorySelected && activeCategoryData && (
         <View style={styles.backButtonContainer}>
           <TouchableOpacity
@@ -135,15 +124,14 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
             activeOpacity={0.7}
           >
             <Feather name="arrow-left" size={20} color={Colors.primary} />
-            <Text style={styles.backButtonText}>Kategoriler</Text>
+            <Text style={styles.backButtonText}>{t('editor.backgroundPicker.categories')}</Text>
           </TouchableOpacity>
           <Text style={styles.selectedCategoryTitle}>
-            {activeCategoryData.name}
+            {t(activeCategoryData.name)} {/* category.name artık çeviri anahtarı */}
           </Text>
         </View>
       )}
 
-      {/* Kategori Seçici - sadece kategori seçilmemişse göster */}
       {!categorySelected && (
         <View style={styles.categorySection}>
           <ScrollView
@@ -158,22 +146,22 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
                 style={styles.categoryButton}
                 onPress={() => {
                   setActiveCategory(category.id);
-                  setCategorySelected(true); // ✅ YENİ: Kategori seçildi olarak işaretle
+                  setCategorySelected(true);
                 }}
                 activeOpacity={0.7}
               >
                 <View style={styles.categoryIconContainer}>
                   <Feather
                     name={category.icon as any}
-                    size={20} // ✅ İcon boyutu azaltıldı
+                    size={20}
                     color={Colors.primary}
                   />
                 </View>
                 <Text style={styles.categoryText}>
-                  {category.name}
+                  {t(category.name)} {/* category.name artık çeviri anahtarı */}
                 </Text>
                 <Text style={styles.categoryCount}>
-                  {category.backgrounds.length} görsel
+                  {t('editor.backgroundPicker.imagesSuffix', { count: category.backgrounds.length })}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -181,18 +169,17 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
         </View>
       )}
 
-      {/* Arka Planlar - sadece kategori seçildiyse göster */}
       {categorySelected && activeCategoryData && (
         <View style={styles.backgroundSection}>
           {loadingThumbnails ? (
             <View style={styles.loadingThumbnailsContainer}>
               <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.loadingThumbnailsText}>Arka planlar yükleniyor...</Text>
+              <Text style={styles.loadingThumbnailsText}>{t('editor.backgroundsLoading')}</Text>
             </View>
           ) : thumbnailLoadError ? (
             <View style={styles.errorContainer}>
               <Feather name="image-off" size={24} color={Colors.error} />
-              <Text style={styles.errorText}>Görsel yükleme hatası!</Text>
+              <Text style={styles.errorText}>{t('editor.imageLoadError')}</Text>
               <Text style={styles.errorSubtext}>{thumbnailLoadError}</Text>
             </View>
           ) : (
@@ -207,7 +194,7 @@ export const BackgroundPickerToolbar: React.FC<BackgroundPickerToolbarProps> = (
                 return (
                   <BackgroundItem
                     key={background.id}
-                    background={{ ...background, thumbnailUrl: itemThumbnailUri || '' }}
+                    background={{ ...background, thumbnailUrl: itemThumbnailUri || background.thumbnailUrl }}
                     isSelected={selectedBackgroundId === background.id}
                     onPress={() => onBackgroundSelect(background)}
                   />
@@ -226,20 +213,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
-    flex: 1, // Flex 1'i koru, parent container yönetecek
+    flex: 1,
   },
   
-  // ✅ YENİ: Back button styles - daha kompakt
   backButtonContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm, // ✅ Padding azaltıldı
+    paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
     backgroundColor: Colors.gray50,
-    minHeight: 50, // ✅ Minimum yükseklik
+    minHeight: 50,
   },
   backButton: {
     flexDirection: 'row',
@@ -258,22 +244,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // ✅ GÜNCELLEME: Kategori seçici stilleri - daha kompakt
   categorySection: {
-    paddingVertical: Spacing.md, // ✅ Padding azaltıldı
+    paddingVertical: Spacing.md,
     flex: 1,
     justifyContent: 'center',
   },
   categoryScrollContent: {
     paddingHorizontal: Spacing.lg,
-    gap: Spacing.lg, // ✅ Gap azaltıldı
+    gap: Spacing.lg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   categoryButton: {
     alignItems: 'center',
-    minWidth: 90, // ✅ Width azaltıldı
-    paddingVertical: Spacing.md, // ✅ Padding azaltıldı
+    minWidth: 90,
+    paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.sm,
     borderRadius: BorderRadius.lg,
     backgroundColor: Colors.gray50,
@@ -281,7 +266,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   categoryIconContainer: {
-    width: 40, // ✅ Boyut azaltıldı
+    width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: Colors.primary + '15',
@@ -290,13 +275,12 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   categoryText: {
-    ...Typography.body, // ✅ Font boyutu artırıldı
+    ...Typography.body,
     color: Colors.textPrimary,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: Spacing.xs,
   },
-  // ✅ YENİ: Kategori sayaç
   categoryCount: {
     ...Typography.caption,
     color: Colors.textSecondary,
@@ -305,16 +289,16 @@ const styles = StyleSheet.create({
   },
 
   backgroundSection: {
-    paddingVertical: Spacing.sm, // ✅ Padding azaltıldı
+    paddingVertical: Spacing.sm,
     flex: 1,
-    justifyContent: 'flex-start', // ✅ Yukarı yasla
-    alignItems: 'stretch', // ✅ Full width kullan
+    justifyContent: 'flex-start',
+    alignItems: 'stretch',
   },
   backgroundScrollContent: {
     paddingHorizontal: Spacing.lg,
     alignItems: 'center',
-    gap: Spacing.sm, // ✅ Gap azaltıldı
-    paddingVertical: Spacing.sm, // ✅ Vertical padding eklendi
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
   },
   loadingThumbnailsContainer: {
     flex: 1,

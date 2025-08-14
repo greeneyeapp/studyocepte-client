@@ -3,6 +3,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { Colors, Typography } from '@/constants';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface CropOverlayProps {
   previewSize: { width: number; height: number };
@@ -13,7 +14,7 @@ interface CropOverlayProps {
 }
 
 const MASK_COLOR = 'rgba(0, 0, 0, 0.7)';
-const FRAME_COLOR = '#FFD700'; // Altın sarısı - daha belirgin
+const FRAME_COLOR = '#FFD700';
 const GRID_COLOR = 'rgba(255, 255, 255, 0.8)';
 
 export const CropOverlay: React.FC<CropOverlayProps> = ({ 
@@ -23,15 +24,15 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
   photoX = 0.5,
   photoY = 0.5 
 }) => {
+  const { t } = useTranslation();
   const cropFrame = useMemo(() => {
-    console.log('🎭 CropOverlay calculating frame:', { previewSize, aspectRatioString });
+    console.log(t('editor.crop.calculatingFrameLog'), { previewSize, aspectRatioString });
     
     if (!previewSize || previewSize.width === 0 || previewSize.height === 0) {
-      console.log('❌ Invalid preview size');
+      console.log(t('common.invalidSize'));
       return null;
     }
 
-    // Hedef aspect ratio'yu hesapla
     let targetRatio: number;
     if (aspectRatioString === 'original' || !aspectRatioString) {
       targetRatio = previewSize.width / previewSize.height;
@@ -40,22 +41,19 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
       targetRatio = w && h ? w / h : previewSize.width / previewSize.height;
     }
 
-    console.log('📐 Target ratio:', targetRatio, 'from', aspectRatioString);
+    console.log(t('editor.crop.targetRatioLog'), targetRatio, t('editor.crop.from'), aspectRatioString);
 
-    // Crop frame boyutlarını hesapla - daha küçük olsun ki belirgin görünsün
-    const maxWidth = previewSize.width * 0.8; // %80'i kullan
+    const maxWidth = previewSize.width * 0.8;
     const maxHeight = previewSize.height * 0.8;
 
     let frameWidth = maxWidth;
     let frameHeight = frameWidth / targetRatio;
 
-    // Eğer yükseklik sınırı aşılıyorsa, yüksekliği temel al
     if (frameHeight > maxHeight) {
       frameHeight = maxHeight;
       frameWidth = frameHeight * targetRatio;
     }
 
-    // Frame pozisyonunu hesapla (ortalanmış)
     const frameLeft = (previewSize.width - frameWidth) / 2;
     const frameTop = (previewSize.height - frameHeight) / 2;
 
@@ -67,23 +65,14 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
       ratio: targetRatio
     };
 
-    console.log('✅ Calculated crop frame:', result);
+    console.log(t('editor.crop.calculatedFrameLog'), result);
     return result;
-  }, [previewSize, aspectRatioString]);
+  }, [previewSize, aspectRatioString, t]);
 
   if (!cropFrame) return null;
 
   return (
     <>
-      {/* Debug bilgisi - geliştirme aşamasında - KALDIRILDI */}
-      {/* <View style={styles.debugContainer}>
-        <Text style={styles.debugText}>
-          CROP: {aspectRatioString} | {Math.round(cropFrame.width)}×{Math.round(cropFrame.height)}
-        </Text>
-      </View> */}
-
-      {/* Maskeleme alanları */}
-      {/* Üst */}
       <View style={[
         styles.mask, 
         { 
@@ -94,7 +83,6 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
         }
       ]} />
       
-      {/* Alt */}
       <View style={[
         styles.mask, 
         { 
@@ -105,7 +93,6 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
         }
       ]} />
       
-      {/* Sol */}
       <View style={[
         styles.mask, 
         { 
@@ -116,7 +103,6 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
         }
       ]} />
       
-      {/* Sağ */}
       <View style={[
         styles.mask, 
         { 
@@ -127,7 +113,6 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
         }
       ]} />
 
-      {/* Crop frame ve grid */}
       <View style={[
         styles.cropFrame, 
         {
@@ -137,18 +122,14 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
           height: cropFrame.height,
         }
       ]}>
-        {/* Grid çizgileri */}
         <View style={styles.gridContainer}>
-          {/* Dikey çizgiler */}
           <View style={[styles.gridLineVertical, { left: cropFrame.width * 0.33 }]} />
           <View style={[styles.gridLineVertical, { left: cropFrame.width * 0.66 }]} />
           
-          {/* Yatay çizgiler */}
           <View style={[styles.gridLineHorizontal, { top: cropFrame.height * 0.33 }]} />
           <View style={[styles.gridLineHorizontal, { top: cropFrame.height * 0.66 }]} />
         </View>
 
-        {/* Köşe göstergeleri */}
         <View style={[styles.corner, styles.topLeft]} />
         <View style={[styles.corner, styles.topRight]} />
         <View style={[styles.corner, styles.bottomLeft]} />
@@ -159,20 +140,6 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
 };
 
 const styles = StyleSheet.create({
-  debugContainer: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    padding: 8,
-    borderRadius: 4,
-    zIndex: 1000,
-  },
-  debugText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
   mask: {
     position: 'absolute',
     backgroundColor: MASK_COLOR,

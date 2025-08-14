@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Colors, Typography, Spacing } from '@/constants';
 import { LazyImageUtils } from './LazyImage';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 // DÜZELTME: global nesnesine 'gc' metodu ekle ve __DEV__ için tip tanımı yap
 declare global {
@@ -22,32 +23,25 @@ declare global {
 
 interface OptimizedFlatListProps<T> extends Omit<FlatListProps<T>, 'renderItem' | 'data'> {
   renderItem: ListRenderItem<T>;
-  data: T[] | null; // DÜZELTME: data'nın null olabileceğini belirt
-  // YENİ: Performance optimizations
+  data: T[] | null;
   enableVirtualization?: boolean;
   preloadDistance?: number;
   maxToRenderPerBatch?: number;
   windowSize?: number;
   removeClippedSubviews?: boolean;
-  // YENİ: Progressive loading
   enableProgressiveLoading?: boolean;
   onEndReachedThreshold?: number;
-  // YENİ: Memory management
   enableMemoryOptimization?: boolean;
   memoryCleanupThreshold?: number;
-  // YENİ: Image preloading
   imageExtractor?: (item: T) => string | string[];
-  // YENİ: Loading states
   isLoading?: boolean;
   isEmpty?: boolean;
   emptyComponent?: React.ReactNode;
   loadingComponent?: React.ReactNode;
-  // YENİ: Refresh control
   onRefresh?: () => void;
   refreshing?: boolean;
 }
 
-// DÜZELTME: Bileşen tipini doğru şekilde tanımlayarak ref hatasını gider
 const OptimizedFlatListComponent = <T,>(
   {
     data = [],
@@ -70,11 +64,11 @@ const OptimizedFlatListComponent = <T,>(
     refreshing = false,
     ...props
   }: OptimizedFlatListProps<T>,
-  ref: React.Ref<FlatList<T>> // DÜZELTME: Ref'i bileşene forward et
+  ref: React.Ref<FlatList<T>>
 ) => {
+  const { t } = useTranslation();
   const flatListRef = useRef<FlatList<T>>(null);
   
-  // DÜZELTME: ref forwarding ile kendi ref'imizi birleştir
   const resolvedRef = useCallback((node: FlatList<T> | null) => {
     flatListRef.current = node;
     if (typeof ref === 'function') {
@@ -92,7 +86,7 @@ const OptimizedFlatListComponent = <T,>(
   const renderCountRef = useRef(0);
 
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    if (!imageExtractor || !enableProgressiveLoading || !data) return; // DÜZELTME: data null kontrolü
+    if (!imageExtractor || !enableProgressiveLoading || !data) return;
 
     const allItemsToPreload: T[] = [];
     
@@ -136,7 +130,7 @@ const OptimizedFlatListComponent = <T,>(
       renderCountRef.current++;
       
       if (renderCountRef.current > memoryCleanupThreshold) {
-        console.log('🧹 Cleaning up FlatList memory...');
+        console.log(t('home.renderCountLog', { renderCount: renderCountRef.current }));
         LazyImageUtils.optimizeMemory();
         renderCountRef.current = 0;
         
@@ -148,7 +142,7 @@ const OptimizedFlatListComponent = <T,>(
 
     const timer = setInterval(cleanupMemory, 30000);
     return () => clearInterval(timer);
-  }, [enableMemoryOptimization, memoryCleanupThreshold]);
+  }, [enableMemoryOptimization, memoryCleanupThreshold, t]);
 
   const optimizedRenderItem: ListRenderItem<T> = useCallback((info) => {
     renderCountRef.current++;
@@ -165,7 +159,6 @@ const OptimizedFlatListComponent = <T,>(
   }, []);
 
   const keyExtractor = useCallback((item: T, index: number) => {
-    // DÜZELTME: item.id'ye güvenli erişim için tip kontrolü
     if (item && typeof item === 'object' && 'id' in item && item.id != null) {
       return String(item.id);
     }
@@ -182,7 +175,7 @@ const OptimizedFlatListComponent = <T,>(
     keyExtractor,
     onViewableItemsChanged: enableProgressiveLoading ? onViewableItemsChanged : undefined,
     viewabilityConfig: enableProgressiveLoading ? viewabilityConfigRef.current : undefined,
-    initialNumToRender: Math.min(data ? data.length : 0, 15), // DÜZELTME: data null kontrolü
+    initialNumToRender: Math.min(data ? data.length : 0, 15),
     updateCellsBatchingPeriod: 50,
     legacyImplementation: false,
   }), [
@@ -203,21 +196,21 @@ const OptimizedFlatListComponent = <T,>(
       <View style={styles.emptyContainer}>
         {emptyComponent || (
           <>
-            <Text style={styles.emptyTitle}>Henüz içerik yok</Text>
-            <Text style={styles.emptySubtitle}>İçerik eklendiğinde burada görünecek</Text>
+            <Text style={styles.emptyTitle}>{t('common.emptyContentTitle')}</Text>
+            <Text style={styles.emptySubtitle}>{t('common.emptyContentSubtitle')}</Text>
           </>
         )}
       </View>
     );
   }
 
-  if (isLoading && (!data || data.length === 0)) { // DÜZELTME: data null kontrolü
+  if (isLoading && (!data || data.length === 0)) {
     return (
       <View style={styles.loadingContainer}>
         {loadingComponent || (
           <>
             <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Yükleniyor...</Text>
+            <Text style={styles.loadingText}>{t('common.loading')}</Text>
           </>
         )}
       </View>
@@ -226,7 +219,7 @@ const OptimizedFlatListComponent = <T,>(
 
   return (
     <FlatList
-      ref={resolvedRef} // DÜZELTME: Düzeltilmiş ref'i kullan
+      ref={resolvedRef}
       data={data}
       renderItem={optimizedRenderItem}
       refreshControl={
@@ -245,14 +238,9 @@ const OptimizedFlatListComponent = <T,>(
   );
 };
 
-// DÜZELTME: Bileşeni memo ve forwardRef ile sarmala
 export const OptimizedFlatList = memo(React.forwardRef(OptimizedFlatListComponent));
 
-// ... (FlatListUtils ve styles kısmı aynı kalıyor)
 export const FlatListUtils = {
-  /**
-    * Scroll to item with animation
-    */
   scrollToItem: <T,>(
     ref: React.RefObject<FlatList<T>>, 
     item: T, 
@@ -261,9 +249,6 @@ export const FlatListUtils = {
     ref.current?.scrollToItem({ item, animated });
   },
 
-  /**
-    * Scroll to index with animation
-    */
   scrollToIndex: <T,>(
     ref: React.RefObject<FlatList<T>>, 
     index: number, 
@@ -272,9 +257,6 @@ export const FlatListUtils = {
     ref.current?.scrollToIndex({ index, animated });
   },
 
-  /**
-    * Scroll to top
-    */
   scrollToTop: <T,>(
     ref: React.RefObject<FlatList<T>>, 
     animated: boolean = true
@@ -282,9 +264,6 @@ export const FlatListUtils = {
     ref.current?.scrollToOffset({ offset: 0, animated });
   },
 
-  /**
-    * Force refresh
-    */
   refresh: <T,>(ref: React.RefObject<FlatList<T>>) => {
     ref.current?.scrollToOffset({ offset: 1, animated: false });
     setTimeout(() => {

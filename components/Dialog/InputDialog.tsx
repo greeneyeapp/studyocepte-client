@@ -23,7 +23,7 @@ export interface InputDialogRef {
     hide: () => void;
 }
 
-const InputDialog = forwardRef<InputDialogRef, {}>(({ }, ref) => {
+const InputDialog = forwardRef<InputDialogRef, {}>((({ }, ref) => {
     const { t } = useTranslation();
     const [options, setOptions] = useState<InputDialogOptions | null>(null);
     const [inputValue, setInputValue] = useState('');
@@ -54,7 +54,7 @@ const InputDialog = forwardRef<InputDialogRef, {}>(({ }, ref) => {
     };
 
     if (!options) {
-        return <View />; // ASLA NULL DÖNDÜRME
+        return <View />;
     }
 
     return (
@@ -64,7 +64,7 @@ const InputDialog = forwardRef<InputDialogRef, {}>(({ }, ref) => {
                     <Text style={styles.dialogTitle}>{options.title}</Text>
                     {options.message && <Text style={styles.dialogMessage}>{options.message}</Text>}
                     <TextInput
-                        style={styles.inputStyle} // YENİ STİL EKLENDİ
+                        style={styles.inputStyle}
                         placeholder={options.placeholder}
                         value={inputValue}
                         onChangeText={setInputValue}
@@ -87,7 +87,7 @@ const InputDialog = forwardRef<InputDialogRef, {}>(({ }, ref) => {
             </KeyboardAvoidingView>
         </Animated.View>
     );
-});
+}));
 
 const styles = StyleSheet.create({
     overlay: {
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 15,
     },
-    inputStyle: { // YENİ STİL TANIMI
+    inputStyle: {
         ...Typography.body,
         paddingVertical: Spacing.md,
         textAlign: 'center',

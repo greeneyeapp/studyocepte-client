@@ -1,10 +1,11 @@
-// features/editor/components/FilterPreview.tsx - DÜZELTILMIŞ VERSİYON
+// features/editor/components/FilterPreview.tsx - DÜZELTİLDİ
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { FilterPreset } from '../config/filters';
 import { generateAdvancedImageStyle } from '../utils/cssFilterGenerator';
+import { useTranslation } from 'react-i18next';
 
 interface FilterPreviewProps {
   filter: FilterPreset;
@@ -21,7 +22,7 @@ export const FilterPreview: React.FC<FilterPreviewProps> = ({
   isSelected,
   onPress,
 }) => {
-  // Filter ayarlarını CSS stiline çevir
+  const { t } = useTranslation();
   const filterStyle = generateAdvancedImageStyle(filter.settings, 'product', false);
 
   return (
@@ -34,7 +35,6 @@ export const FilterPreview: React.FC<FilterPreviewProps> = ({
       activeOpacity={0.7}
     >
       <View style={styles.previewContainer}>
-        {/* Arka plan görseli */}
         {backgroundUri && (
           <Image 
             source={{ uri: backgroundUri }} 
@@ -42,14 +42,12 @@ export const FilterPreview: React.FC<FilterPreviewProps> = ({
           />
         )}
         
-        {/* Ürün görseli - filtre uygulanmış */}
         <Image 
           source={{ uri: imageUri }} 
           style={[styles.productImage, filterStyle]}
         />
       </View>
       
-      {/* Filter adı */}
       <Text 
         style={[
           styles.filterName,
@@ -57,10 +55,9 @@ export const FilterPreview: React.FC<FilterPreviewProps> = ({
         ]}
         numberOfLines={1}
       >
-        {filter.name}
+        {t(filter.name)} {/* filter.name artık çeviri anahtarı */}
       </Text>
       
-      {/* Seçili durumu göstergesi */}
       {isSelected && <View style={styles.selectionIndicator} />}
     </TouchableOpacity>
   );

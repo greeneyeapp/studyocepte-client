@@ -8,21 +8,14 @@ import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/f
 import { TargetType } from '@/features/editor/config/tools';
 import { useProductStore, ProductPhoto } from './useProductStore';
 import { imageProcessor } from '@/services/imageProcessor';
+import i18n from '@/i18n'; // i18n import edildi
 
-/**
- * Editor'da kullanılabilecek tüm ayarları içeren kapsamlı arayüz
- */
 export interface EditorSettings {
-  // Genel Ayarlar
   backgroundId: string;
-
-  // Fotoğrafın Pozisyon, Boyut ve Dönme Ayarları
   photoX?: number;
   photoY?: number;
   photoScale?: number;
   photoRotation?: number;
-
-  // Ürün Ayarları
   product_exposure?: number;
   product_brightness?: number;
   product_highlights?: number;
@@ -32,8 +25,6 @@ export interface EditorSettings {
   product_vibrance?: number;
   product_warmth?: number;
   product_clarity?: number;
-
-  // Arka Plan Ayarları
   background_exposure?: number;
   background_brightness?: number;
   background_contrast?: number;
@@ -41,8 +32,6 @@ export interface EditorSettings {
   background_warmth?: number;
   background_vignette?: number;
   background_blur?: number;
-
-  // Kırpma Ayarları
   cropAspectRatio?: string;
   cropX?: number;
   cropY?: number;
@@ -58,9 +47,6 @@ export interface EditorSettings {
   };
 }
 
-/**
- * Her fotoğraf için ayrı draft sistemi
- */
 export interface PhotoDraft {
   photoId: string;
   productId: string;
@@ -81,7 +67,6 @@ interface EditorHistoryEntry {
 }
 
 interface EditorState {
-  // Temel state
   activePhoto: ProductPhoto | null;
   settings: EditorSettings;
   history: EditorHistoryEntry[];
@@ -90,8 +75,6 @@ interface EditorState {
   hasUnsavedChanges: boolean;
   isSaving: boolean;
   userPresets: UserPreset[];
-
-  // Draft system state - AUTO-SAVE HEP AÇIK
   photoDrafts: Map<string, PhotoDraft>;
   hasDraftChanges: boolean;
   isUpdatingThumbnail: boolean;
@@ -100,7 +83,6 @@ interface EditorState {
 }
 
 interface EditorActions {
-  // Temel actions
   setActivePhoto: (photo: ProductPhoto) => void;
   updateSettings: (newSettings: Partial<EditorSettings>) => void;
   setActiveFilterKey: (key: string) => void;
@@ -114,8 +96,6 @@ interface EditorActions {
   resetCropAndRotation: () => void;
   applyCrop: () => void;
   clearStore: () => void;
-
-  // Draft system actions
   saveDraft: () => void;
   saveDraftForPhoto: (photoId: string) => void;
   loadDraftForPhoto: (photoId: string) => PhotoDraft | null;
@@ -124,18 +104,13 @@ interface EditorActions {
   hasDraftForPhoto: (photoId: string) => boolean;
   getAllDrafts: () => PhotoDraft[];
   restoreFromDraft: (draft: PhotoDraft) => void;
-
   performAutoSave: () => void;
-
-  // ⭐ YÜKSEK KALİTE: Thumbnail actions
   updateThumbnailWithPreview: (previewRef: React.RefObject<any>) => Promise<void>;
-
-  // Settings reset
   resetAllSettings: () => void;
 }
 
 const defaultSettings: EditorSettings = {
-  backgroundId: 'home_1', // Bu, genel varsayılan değer olarak kalabilir.
+  backgroundId: 'home_1',
   photoX: 0.5, photoY: 0.5, photoScale: 1.0, photoRotation: 0,
   product_exposure: 0, product_brightness: 0, product_contrast: 0, product_saturation: 0,
   product_vibrance: 0, product_warmth: 0, product_clarity: 0, product_highlights: 0, product_shadows: 0,
@@ -144,13 +119,9 @@ const defaultSettings: EditorSettings = {
   cropAspectRatio: 'original', cropX: 0, cropY: 0, cropWidth: 1, cropHeight: 1, visualCrop: undefined,
 };
 
-/**
- * ⭐ YÜKSEK KALİTE: Enhanced Editor Store with 800x800 High Quality Thumbnails
- */
 export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
   persist(
     (set, get) => ({
-      // Temel state
       activePhoto: null,
       settings: { ...defaultSettings },
       history: [],
@@ -159,26 +130,21 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       hasUnsavedChanges: false,
       isSaving: false,
       userPresets: [],
-
-      // Draft system state - AUTO-SAVE HEP AÇIK
       photoDrafts: new Map<string, PhotoDraft>(),
       hasDraftChanges: false,
       isUpdatingThumbnail: false,
       thumbnailError: null,
       lastAutoSave: 0,
 
-      // ===== TEMEL EDITOR ACTIONS =====
-
       setActivePhoto: (photo: ProductPhoto) => {
         const currentActivePhoto = get().activePhoto;
         if (currentActivePhoto && currentActivePhoto.id === photo.id) {
-          console.log('📸 Active photo already set, skipping re-initialization.');
+          console.log(i18n.t('editor.activePhotoAlreadySetLog')); // Çeviri anahtarı kullanıldı
           return;
         }
 
-        console.log('📸 Setting active photo for HIGH QUALITY editing:', photo.id);
+        console.log(i18n.t('editor.settingActivePhotoLog'), photo.id); // Çeviri anahtarı kullanıldı
 
-        // Önce mevcut photo için draft kaydet
         const currentPhoto = get().activePhoto;
         if (currentPhoto && get().hasDraftChanges) {
           get().saveDraftForPhoto(currentPhoto.id);
@@ -188,17 +154,14 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         let loadedSettings: EditorSettings;
 
         if (existingDraft) {
-          console.log('📂 Auto-loading existing HIGH QUALITY draft for photo:', photo.id);
+          console.log(i18n.t('editor.autoLoadingDraftLog'), photo.id); // Çeviri anahtarı kullanıldı
           loadedSettings = existingDraft.settings;
         } else if (photo.editorSettings && Object.keys(photo.editorSettings).length > 0) {
-          // Fotoğrafın zaten kaydedilmiş editor ayarları var.
-          console.log('⚙️ Loading existing editor settings from photo:', photo.id);
+          console.log(i18n.t('editor.loadingExistingSettingsLog'), photo.id); // Çeviri anahtarı kullanıldı
           loadedSettings = { ...photo.editorSettings };
         } else {
-          // İlk defa bu fotoğrafı düzenliyoruz veya ayarlar sıfırlanmış.
-          // Varsayılan beyaz arka planı uygula.
-          console.log('✨ First time editing or reset, applying default white background for photo:', photo.id);
-          loadedSettings = { ...defaultSettings, backgroundId: 'white_solid' }; // Burada 'white_solid' ID'sini kullanıyoruz
+          console.log(i18n.t('editor.firstTimeEditingLog'), photo.id); // Çeviri anahtarı kullanıldı
+          loadedSettings = { ...defaultSettings, backgroundId: 'white_solid' };
         }
 
         const initialEntry = { settings: loadedSettings, timestamp: Date.now() };
@@ -226,10 +189,8 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           lastAutoSave: Date.now()
         }));
 
-        // AUTO-SAVE HEP AÇIK: Her değişiklikte otomatik save trigger
         const currentPhoto = get().activePhoto;
         if (currentPhoto) {
-          // 2 saniye sonra auto-save (debounced)
           setTimeout(() => {
             const state = get();
             if (state.activePhoto?.id === currentPhoto.id && state.hasDraftChanges) {
@@ -245,12 +206,10 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
         const currentSettings = { ...get().settings };
 
-        // Target'a göre reset edilecek feature'ları belirle
         const featuresToReset = target === 'all'
           ? [...ADJUST_FEATURES, ...BACKGROUND_FEATURES]
           : target === 'product' ? ADJUST_FEATURES : BACKGROUND_FEATURES;
 
-        // Önce ilgili ayarları sıfırla
         featuresToReset.forEach(feature => {
           if (target === 'all') {
             (currentSettings as any)[`product_${feature.key}`] = 0;
@@ -260,7 +219,6 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           }
         });
 
-        // Sonra filter ayarlarını uygula
         for (const [key, value] of Object.entries(filterPreset.settings)) {
           if (target === 'all' || key.startsWith(target)) {
             (currentSettings as any)[key] = value;
@@ -277,40 +235,35 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         get().addSnapshotToHistory();
       },
 
-      // ===== SAVE & HISTORY ACTIONS =====
-
       saveChanges: async (previewRef?: React.RefObject<any>) => {
         const { activePhoto, settings, isSaving } = get();
         if (!activePhoto || isSaving) return;
 
         set({ isSaving: true, thumbnailError: null });
-        console.log('💾 HIGH QUALITY saveChanges started:', {
+        console.log(i18n.t('editor.saveChangesStartedLog'), { // Çeviri anahtarı kullanıldı
           photoId: activePhoto.id,
           withThumbnailUpdate: !!previewRef,
           hasPreviewRef: !!previewRef?.current
         });
 
         try {
-          // 1. Ana ayarları kaydet
           useProductStore.getState().updatePhotoSettings(
             activePhoto.productId,
             activePhoto.id,
             settings
           );
-          console.log('✅ Photo settings updated in product store');
+          console.log(i18n.t('editor.photoSettingsUpdatedLog')); // Çeviri anahtarı kullanıldı
 
-          // 2. ⭐ YÜKSEK KALİTE: 800x800 Thumbnail güncelle (previewRef varsa)
           if (previewRef && previewRef.current) {
-            console.log('🖼️ Starting HIGH QUALITY 800x800 thumbnail update with preview ref');
+            console.log(i18n.t('editor.startingThumbnailUpdateLog')); // Çeviri anahtarı kullanıldı
             await get().updateThumbnailWithPreview(previewRef);
-            console.log('✅ HIGH QUALITY thumbnail update completed');
+            console.log(i18n.t('editor.thumbnailUpdateCompletedLog')); // Çeviri anahtarı kullanıldı
           } else {
-            console.log('⏭️ Skipping HIGH QUALITY thumbnail update (no preview ref)');
+            console.log(i18n.t('editor.skippingThumbnailUpdateLog')); // Çeviri anahtarı kullanıldı
           }
 
-          // 3. Draft'ı temizle
           get().clearDraftForPhoto(activePhoto.id);
-          console.log('🗑️ Draft cleared');
+          console.log(i18n.t('editor.draftClearedLog')); // Çeviri anahtarı kullanıldı
 
           set({
             isSaving: false,
@@ -318,18 +271,18 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
             hasDraftChanges: false
           });
 
-          ToastService.show(previewRef ? 'Yüksek kalite değişiklikler ve thumbnail kaydedildi' : 'Ayarlar kaydedildi');
+          ToastService.show(previewRef ? i18n.t('editor.changesAndThumbnailSaved') : i18n.t('editor.settingsSaved')); // Çeviri anahtarı kullanıldı
 
-          console.log('✅ HIGH QUALITY saveChanges completed successfully');
+          console.log(i18n.t('editor.saveChangesCompletedLog')); // Çeviri anahtarı kullanıldı
 
         } catch (error: any) {
-          console.error('❌ HIGH QUALITY save failed:', error);
+          console.error(i18n.t('editor.saveFailedLog'), error); // Çeviri anahtarı kullanıldı
           set({
             isSaving: false,
-            thumbnailError: error.message || 'Kayıt başarısız'
+            thumbnailError: error.message || i18n.t('editor.saveFailed') // Çeviri anahtarı kullanıldı
           });
 
-          ToastService.show(error.message || 'Yüksek kalite değişiklikler kaydedilemedi.');
+          ToastService.show(error.message || i18n.t('editor.changesSaveFailed')); // Çeviri anahtarı kullanıldı
 
           throw error;
         }
@@ -339,7 +292,6 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         const { settings, history, currentHistoryIndex } = get();
         const currentSnapshot = history[currentHistoryIndex]?.settings;
 
-        // Aynı ayarları tekrar ekleme
         if (currentSnapshot && JSON.stringify(currentSnapshot) === JSON.stringify(settings)) {
           return;
         }
@@ -347,7 +299,6 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         const newHistory = history.slice(0, currentHistoryIndex + 1);
         newHistory.push({ settings: { ...settings }, timestamp: Date.now() });
 
-        // History size'ı sınırla (memory için)
         const maxHistorySize = 50;
         if (newHistory.length > maxHistorySize) {
           newHistory.shift();
@@ -388,8 +339,6 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       canUndo: () => get().currentHistoryIndex > 0,
       canRedo: () => get().currentHistoryIndex < get().history.length - 1,
 
-      // ===== DRAFT SYSTEM ACTIONS =====
-
       saveDraft: () => {
         const activePhoto = get().activePhoto;
         if (activePhoto) {
@@ -418,7 +367,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           lastAutoSave: Date.now()
         });
 
-        console.log('💾 HIGH QUALITY draft saved for photo:', photoId);
+        console.log(i18n.t('editor.draftSavedLog'), photoId); // Çeviri anahtarı kullanıldı
       },
 
       loadDraftForPhoto: (photoId: string) => {
@@ -442,7 +391,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           hasDraftChanges: false
         });
 
-        console.log('🗑️ HIGH QUALITY draft cleared for photo:', photoId);
+        console.log(i18n.t('editor.draftClearedForPhotoLog'), photoId); // Çeviri anahtarı kullanıldı
       },
 
       hasDraftForPhoto: (photoId: string) => {
@@ -465,10 +414,8 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           activeFilterKey: 'custom'
         });
 
-        console.log('🔄 Restored from HIGH QUALITY draft:', draft.photoId);
+        console.log(i18n.t('editor.restoredFromDraftLog'), draft.photoId); // Çeviri anahtarı kullanıldı
       },
-
-      // ===== AUTO-SAVE ACTIONS (SİMPLİFİED) =====
 
       performAutoSave: () => {
         const { activePhoto, hasDraftChanges } = get();
@@ -477,10 +424,9 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           return;
         }
 
-        // Çok sık auto-save'i engelle (debounce)
         const now = Date.now();
         const timeSinceLastSave = now - get().lastAutoSave;
-        const minInterval = 5000; // En az 5 saniye
+        const minInterval = 5000;
 
         if (timeSinceLastSave < minInterval) {
           return;
@@ -488,49 +434,40 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
         try {
           get().saveDraftForPhoto(activePhoto.id);
-          console.log('⚡ HIGH QUALITY auto-save completed for photo:', activePhoto.id);
+          console.log(i18n.t('editor.autoSaveCompletedLog'), activePhoto.id); // Çeviri anahtarı kullanıldı
         } catch (error) {
-          console.warn('⚠️ HIGH QUALITY auto-save failed:', error);
+          console.warn(i18n.t('editor.autoSaveFailedLog'), error); // Çeviri anahtarı kullanıldı
         }
       },
 
-      // ===== ⭐ YÜKSEK KALİTE THUMBNAIL ACTIONS =====
-
-      /**
-       * ⭐ YÜKSEK KALİTE: 800x800 PNG thumbnail güncelleme
-       */
       updateThumbnailWithPreview: async (previewRef: React.RefObject<any>) => {
         const { activePhoto } = get();
         if (!activePhoto || !previewRef.current) return;
 
         set({ isUpdatingThumbnail: true, thumbnailError: null });
-        console.log('🖼️ Starting HIGH QUALITY 800x800 PNG thumbnail update for photo:', activePhoto.id);
+        console.log(i18n.t('editor.startingThumbnailUpdatePreviewLog'), activePhoto.id); // Çeviri anahtarı kullanıldı
 
         try {
-          // 1. ⭐ YÜKSEK KALİTE: 800x800 Preview'dan thumbnail capture et
           const capturedUri = await imageProcessor.captureFilteredThumbnail(previewRef, {
-            width: 800,  // 300 → 800 (yüksek kalite)
-            height: 800  // 300 → 800 (yüksek kalite)
+            width: 800,
+            height: 800
           });
-          console.log('📸 HIGH QUALITY 800x800 preview captured:', capturedUri);
+          console.log(i18n.t('editor.previewCapturedLog'), capturedUri); // Çeviri anahtarı kullanıldı
 
-          // 2. Cache-busted kalıcı thumbnail olarak kaydet
           const newThumbnailUri = await imageProcessor.saveFilteredThumbnail(
             activePhoto.productId,
             activePhoto.id,
             capturedUri
           );
-          console.log('💾 HIGH QUALITY cache-busted thumbnail saved:', newThumbnailUri);
+          console.log(i18n.t('editor.thumbnailSavedLog'), newThumbnailUri); // Çeviri anahtarı kullanıldı
 
-          // 3. ÖNEMLİ: Product store'da thumbnail'i AWAIT ile güncelle
           await useProductStore.getState().updatePhotoThumbnail(
             activePhoto.productId,
             activePhoto.id,
             newThumbnailUri
           );
-          console.log('🔄 Product store updated with HIGH QUALITY thumbnail');
+          console.log(i18n.t('editor.productStoreUpdatedThumbnailLog')); // Çeviri anahtarı kullanıldı
 
-          // 4. Local state'te de activePhoto'yu güncelle (immediate UI feedback)
           const updatedPhoto = {
             ...activePhoto,
             thumbnailUri: newThumbnailUri,
@@ -542,46 +479,37 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
             isUpdatingThumbnail: false
           });
 
-          // 5. ⭐ GÜÇLÜ CACHE INVALIDATION: Force UI refresh
           setTimeout(async () => {
             try {
-              // Image cache temizle
               await imageProcessor.clearImageCache();
-
-              // Force product store reload
               const productStore = useProductStore.getState();
               await productStore.loadProducts();
-
-              console.log('🔄 HIGH QUALITY forced product store refresh for UI update');
+              console.log(i18n.t('editor.forcedProductStoreRefreshLog')); // Çeviri anahtarı kullanıldı
             } catch (refreshError) {
-              console.warn('⚠️ Cache refresh warning:', refreshError);
+              console.warn(i18n.t('common.cacheRefreshWarning'), refreshError); // Çeviri anahtarı kullanıldı
             }
           }, 300);
 
-          console.log('✅ HIGH QUALITY thumbnail update completed successfully (800x800 PNG)');
+          console.log(i18n.t('editor.thumbnailUpdateCompletedSuccessLog')); // Çeviri anahtarı kullanıldı
 
         } catch (error: any) {
-          console.error('❌ HIGH QUALITY thumbnail update failed:', error);
+          console.error(i18n.t('editor.thumbnailUpdateFailedLog'), error); // Çeviri anahtarı kullanıldı
           set({
             isUpdatingThumbnail: false,
-            thumbnailError: error.message || 'Yüksek kalite thumbnail güncellenemedi'
+            thumbnailError: error.message || i18n.t('editor.thumbnailUpdateFailed') // Çeviri anahtarı kullanıldı
           });
 
-          // Hata durumunda da cache'i temizle
           try {
             await imageProcessor.clearImageCache();
           } catch (cacheError) {
-            console.warn('⚠️ Cache clear after error failed:', cacheError);
+            console.warn(i18n.t('editor.cacheClearAfterErrorFailedLog'), cacheError); // Çeviri anahtarı kullanıldı
           }
 
           throw error;
         }
       },
 
-      // ===== RESET ACTIONS =====
-
       resetAllSettings: () => {
-        // YENİ: Varsayılan ayarlara ek olarak arka plan ID'sini 'white_solid' olarak ayarla
         const resetSettings = { ...defaultSettings, backgroundId: 'white_solid' };
         const initialEntry = { settings: resetSettings, timestamp: Date.now() };
 
@@ -594,13 +522,12 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           activeFilterKey: 'original'
         });
 
-        // Aktif photo'nun draft'ını da temizle
         const activePhoto = get().activePhoto;
         if (activePhoto) {
           get().clearDraftForPhoto(activePhoto.id);
         }
 
-        console.log('🔄 All HIGH QUALITY settings reset to default, background set to white.');
+        console.log(i18n.t('editor.allSettingsResetLog')); // Çeviri anahtarı kullanıldı
       },
 
       resetCropAndRotation: () => {
@@ -630,11 +557,10 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         get().updateSettings({ visualCrop });
         get().addSnapshotToHistory();
 
-        ToastService.show('Yüksek kalite kırpma ayarları başarıyla uygulandı');
+        ToastService.show(i18n.t('editor.crop.applySuccess')); // Çeviri anahtarı kullanıldı
       },
 
       clearStore: () => {
-        // AUTO-SAVE HEP AÇIK: Store'u temizlerken draft'ları da kaydet
         const activePhoto = get().activePhoto;
         if (activePhoto && get().hasDraftChanges) {
           get().saveDraftForPhoto(activePhoto.id);
@@ -653,19 +579,17 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         });
       },
 
-      // Diğer mevcut fonksiyonlar
       setActiveFilterKey: (key) => set({ activeFilterKey: key }),
     }),
     {
-      name: 'enhanced-editor-storage-hq-v5', // Version artırıldı
+      name: 'enhanced-editor-storage-hq-v5',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         userPresets: state.userPresets,
-        photoDrafts: Array.from(state.photoDrafts.entries()), // Map'i serialize et
+        photoDrafts: Array.from(state.photoDrafts.entries()),
       }),
       onRehydrateStorage: () => (state) => {
         if (state && Array.isArray(state.photoDrafts)) {
-          // Deserialized data'yı Map'e çevir
           state.photoDrafts = new Map(state.photoDrafts);
         } else {
           state.photoDrafts = new Map();

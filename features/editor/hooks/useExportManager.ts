@@ -9,8 +9,10 @@ import { ExportPreset, ShareOption } from '../config/exportTools';
 import { ToastService } from '@/components/Toast/ToastService';
 import { LoadingService } from '@/components/Loading/LoadingService';
 import { useEnhancedEditorStore } from '@/stores/useEnhancedEditorStore';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 export const useExportManager = () => {
+  const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
   const viewRef = useRef<View>(null);
   const settings = useEnhancedEditorStore(state => state.settings);
@@ -19,47 +21,43 @@ export const useExportManager = () => {
    * ⭐ YÜKSEK KALİTE: Ref'in hazır olmasını bekler ve retry mekanizması ile çalışır
    */
   const waitForViewRef = async (maxRetries: number = 60, retryInterval: number = 100): Promise<boolean> => {
-    console.log('🔍 HIGH QUALITY ref waiting started...', { maxRetries, retryInterval });
+    console.log(t('export.refWaitingStartedLog'), { maxRetries, retryInterval });
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       const hasDirectRef = !!viewRef.current;
 
-      // Test capture ile gerçek hazırlığı kontrol et
       if (hasDirectRef) {
         try {
-          // ⭐ YÜKSEK KALİTE: Test capture boyutu artırıldı
           const testResult = await captureRef(viewRef, {
             format: 'png',
-            quality: 1.0, // 0.5 → 1.0 (yüksek kalite test)
-            width: 200, // 100 → 200 (daha büyük test boyutu)
-            height: 200, // 100 → 200
+            quality: 1.0,
+            width: 200,
+            height: 200,
             result: 'tmpfile',
           });
 
-          // Test dosyasını hemen sil
           try {
             await FileSystem.deleteAsync(testResult, { idempotent: true });
           } catch {}
 
-          console.log(`✅ HIGH QUALITY ref ready and working! Attempt: ${attempt}/${maxRetries}`);
+          console.log(t('export.refReadyLog', { attempt, maxRetries }));
           return true;
 
         } catch (captureError: any) {
-          console.log(`⚠️ Ref exists but capture failed (${attempt}/${maxRetries}):`, captureError.message);
+          console.log(t('export.refExistsCaptureFailedLog', { attempt, maxRetries, message: captureError.message }));
         }
       } else {
-        console.log(`🔍 Ref not available yet (${attempt}/${maxRetries})`);
+        console.log(t('export.refNotAvailableLog', { attempt, maxRetries }));
       }
 
-      // Her 10 denemede bir progress logu
       if (attempt % 10 === 0) {
-        console.log(`⏳ HIGH QUALITY ref waiting... ${attempt}/${maxRetries} (${(attempt * retryInterval)}ms) - hasRef: ${hasDirectRef}`);
+        console.log(t('export.refWaitingProgressLog', { attempt, maxRetries, ms: (attempt * retryInterval), hasRef: hasDirectRef }));
       }
 
       await new Promise(resolve => setTimeout(resolve, retryInterval));
     }
 
-    console.error(`❌ HIGH QUALITY ref not ready after ${maxRetries * retryInterval}ms`);
+    console.error(t('export.refNotReadyFinalLog', { ms: maxRetries * retryInterval }));
     return false;
   };
 
@@ -67,10 +65,8 @@ export const useExportManager = () => {
    * ⭐ YÜKSEK KALİTE: RETRY MEKANİZMASI ile export fonksiyonu
    */
   const shareWithOption = async (shareOption: ShareOption, preset?: ExportPreset) => {
-    // `quick_custom` kaldırıldığı için, bu kontrolü basitleştiriyoruz.
-    // Artık `preset` her zaman beklenen bir `ExportPreset` olmalı.
-    if (!preset) { // `shareOption.type !== 'quick_custom'` koşulu kaldırıldı
-      ToastService.show('Lütfen bir format seçin');
+    if (!preset) {
+      ToastService.show(t('export.selectFormatMessage'));
       return;
     }
 
@@ -78,62 +74,54 @@ export const useExportManager = () => {
     LoadingService.show();
 
     try {
-      // 1. Ref'in hazır olmasını bekle - daha uzun süre
-      console.log('🔄 HIGH QUALITY export starting, waiting for ref...');
-      const refReady = await waitForViewRef(60, 100); // 6 saniye toplam
+      console.log(t('export.exportStartingLog'));
+      const refReady = await waitForViewRef(60, 100);
 
       if (!refReady) {
-        throw new Error('Yüksek kalite önizleme görüntüsü hazır değil. Lütfen tekrar deneyin.');
+        throw new Error(t('export.previewNotReadyError'));
       }
 
-      console.log('✅ HIGH QUALITY ref validated, starting capture...');
+      console.log(t('export.refValidatedLog'));
 
-      // 2. Debug bilgisi
-      console.log('🔍 HIGH QUALITY final ref check:', {
+      console.log(t('export.finalRefCheckLog'), {
         refExists: !!viewRef.current,
         refType: viewRef.current?.constructor?.name || 'undefined',
         hasNativeProps: !!(viewRef.current as any)?.setNativeProps,
         canMeasure: !!(viewRef.current as any)?.measure,
       });
 
-      // `quick_default` veya benzeri bir varsayılan preset tanımı,
-      // `quick_custom` tipinin kaldırılmasıyla artık kullanılmayacak.
-      // Bu kod bloğunu tamamen kaldırabilirsiniz.
-      const exportPreset = preset; // Artık `preset` her zaman tanımlı olacak.
+      const exportPreset = preset;
 
-      console.log('🖼️ HIGH QUALITY capture starting...', {
+      console.log(t('export.captureStartingLog'), {
         format: exportPreset.format,
         quality: exportPreset.quality,
         dimensions: exportPreset.dimensions,
       });
 
-      // 3. ⭐ SÜPER YÜKSEK KALİTE: ÜÇ AŞAMALI CAPTURE SİSTEMİ
-      console.log('🖼️ Starting SUPER HIGH QUALITY three-stage capture system...');
+      console.log(t('export.superHighQualityCaptureLog'));
 
-      // Aşama 1: ULTRA yüksek çözünürlükte PNG capture (kayıpsız)
-      const ultraHighResWidth = Math.max(4096, exportPreset.dimensions.width * 2); // 2x büyük
+      const ultraHighResWidth = Math.max(4096, exportPreset.dimensions.width * 2);
       const ultraHighResHeight = Math.max(4096, exportPreset.dimensions.height * 2);
 
-      console.log('📸 Stage 1: ULTRA HIGH RES capture...', { ultraHighResWidth, ultraHighResHeight });
+      console.log(t('export.stage1CaptureLog'), { ultraHighResWidth, ultraHighResHeight });
 
       const ultraHighResUri = await captureRef(viewRef, {
-        format: 'png', // PNG = lossless
-        quality: 1.0,   // Maksimum kalite
+        format: 'png',
+        quality: 1.0,
         width: ultraHighResWidth,
         height: ultraHighResHeight,
         result: 'tmpfile',
         snapshotContentContainer: false,
       });
 
-      console.log('✅ ULTRA HIGH RES capture completed:', ultraHighResUri);
+      console.log(t('export.ultraHighResCaptureCompletedLog'), ultraHighResUri);
 
-      // Aşama 2: Yüksek kalite ara resize (1.5x hedef boyut)
       const { manipulateAsync, SaveFormat } = await import('expo-image-manipulator');
 
-      const intermediateWidth = exportPreset.dimensions.width * 1.5; // 1.5x hedef boyut
+      const intermediateWidth = exportPreset.dimensions.width * 1.5;
       const intermediateHeight = exportPreset.dimensions.height * 1.5;
 
-      console.log('📸 Stage 2: Intermediate resize...', { intermediateWidth, intermediateHeight });
+      console.log(t('export.stage2ResizeLog'), { intermediateWidth, intermediateHeight });
 
       const intermediateResult = await manipulateAsync(
         ultraHighResUri,
@@ -146,15 +134,14 @@ export const useExportManager = () => {
           }
         ],
         {
-          compress: 1.0, // Maksimum kalite
-          format: SaveFormat.PNG, // PNG for best quality
+          compress: 1.0,
+          format: SaveFormat.PNG,
         }
       );
 
-      console.log('✅ Intermediate resize completed:', intermediateResult.uri);
+      console.log(t('export.intermediateResizeCompletedLog'), intermediateResult.uri);
 
-      // Aşama 3: Final hedef boyuta optimize resize
-      console.log('📸 Stage 3: Final optimize resize...');
+      console.log(t('export.stage3OptimizeResizeLog'));
 
       const finalResult = await manipulateAsync(
         intermediateResult.uri,
@@ -167,39 +154,36 @@ export const useExportManager = () => {
           }
         ],
         {
-          compress: Math.max(0.98, exportPreset.quality), // Minimum %98 kalite
+          compress: Math.max(0.98, exportPreset.quality),
           format: exportPreset.format === 'png' ? SaveFormat.PNG : SaveFormat.JPEG,
         }
       );
 
-      console.log('✅ SUPER HIGH QUALITY final resize completed:', finalResult.uri);
+      console.log(t('export.superHighQualityFinalResizeCompletedLog'), finalResult.uri);
 
-      // Geçici dosyaları temizle
       const cleanupFiles = [ultraHighResUri, intermediateResult.uri];
       for (const fileUri of cleanupFiles) {
         try {
           await FileSystem.deleteAsync(fileUri, { idempotent: true });
         } catch (cleanupError) {
-          console.warn('⚠️ Cleanup warning for:', fileUri, cleanupError);
+          console.warn(t('common.cleanupWarning'), fileUri, cleanupError);
         }
       }
 
       const uri = finalResult.uri;
 
       if (!uri) {
-        throw new Error("Yüksek kalite görüntü oluşturulamadı.");
+        throw new Error(t('export.creationFailedError'));
       }
 
-      console.log('✅ SUPER HIGH QUALITY capture completed:', uri);
+      console.log(t('export.superHighQualityCaptureCompletedLog'), uri);
 
-      // 4. Base64'e çevir
       const base64Data = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      console.log('✅ HIGH QUALITY base64 conversion completed, size:', base64Data.length);
+      console.log(t('export.base64ConversionCompletedLog'), base64Data.length);
 
-      // 5. Export servis ile paylaş
       await ExportService.shareWithOption({
         shareOption,
         preset: exportPreset,
@@ -207,29 +191,27 @@ export const useExportManager = () => {
         filename: `studyo-cepte-hq-${exportPreset.id}-${Date.now()}.${exportPreset.format}`,
       });
 
-      // 6. Başarı mesajı
       let successMessage = '';
       if (shareOption.type === 'gallery') {
-        successMessage = `${exportPreset.name} yüksek kalite formatında galeriye kaydedildi`;
-      } else { // `shareOption.type === 'quick_custom'` kontrolü kaldırıldı
-        successMessage = `${exportPreset.name} yüksek kalite formatında paylaşım başarılı`;
+        successMessage = t('export.saveSuccessGallery', { presetName: t(exportPreset.name) });
+      } else {
+        successMessage = t('export.shareSuccessGeneric', { presetName: t(exportPreset.name) });
       }
 
       ToastService.show(successMessage);
-      console.log('🎉 SUPER HIGH QUALITY export process completed successfully');
+      console.log(t('export.processCompletedSuccessLog'));
 
     } catch (error: any) {
-      console.error('❌ HIGH QUALITY export failed:', error);
+      console.error(t('common.errors.exportFailed'), error);
 
-      // Kullanıcı dostu hata mesajları
       let userMessage = error.message;
 
-      if (error.message.includes('timeout') || error.message.includes('null')) {
-        userMessage = 'Yüksek kalite görüntü hazırlanırken zaman aşımı. Lütfen tekrar deneyin.';
+      if (error.message.includes('timeout')) {
+        userMessage = t('export.timeoutError');
       } else if (error.message.includes('capture')) {
-        userMessage = 'Yüksek kalite görüntü yakalanırken hata oluştu. Editöre geri dönüp tekrar deneyin.';
+        userMessage = t('export.captureError');
       } else if (error.message.includes('permission')) {
-        userMessage = 'Galeri izni gerekli. Ayarlardan izin verin.';
+        userMessage = t('common.permissions.galleryMessage');
       }
 
       ToastService.show(userMessage);
@@ -240,24 +222,19 @@ export const useExportManager = () => {
     }
   };
 
-  /**
-   * ⭐ DEBUG: Ref durumunu kontrol etmek için yardımcı fonksiyon
-   */
   const debugRefStatus = useCallback(() => {
-    console.log('🔍 HIGH QUALITY ref debug info:', {
+    console.log(t('export.refDebugInfoLog'), {
       refExists: !!viewRef.current,
       refType: viewRef.current?.constructor?.name,
       timestamp: Date.now()
     });
-  }, [viewRef]);
+  }, [viewRef, t]);
 
   return {
     isExporting,
-    skiaViewRef: viewRef, // EditorPreview'da kullanılacak
+    skiaViewRef: viewRef,
     shareWithOption,
-    debugRefStatus, // Development için
-
-    // Export durumu kontrolü
+    debugRefStatus,
     isRefReady: !!viewRef.current,
   };
 };

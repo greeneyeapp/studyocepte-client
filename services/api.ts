@@ -2,9 +2,8 @@
 import axios from 'axios';
 import { config } from '@/config/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import i18n from '@/i18n';
+import i18n from '@/i18n'; // i18n import edildi
 
-// DEĞİŞİKLİK: 'id' alanı 'uid' olarak güncellendi.
 export interface User {
   uid: string;
   name: string;
@@ -25,7 +24,6 @@ export interface BatchBackgroundRemovalResponse {
   errors: { [filename: string]: string };
 }
 
-// YENİ: API Error Response interface
 export interface APIErrorResponse {
   success: false;
   error: {
@@ -37,7 +35,6 @@ export interface APIErrorResponse {
   };
 }
 
-// YENİ: API Success Response interface  
 export interface APISuccessResponse<T = any> {
   success: true;
   message: string;
@@ -51,10 +48,8 @@ const apiClient = axios.create({
   timeout: 60000, 
 });
 
-// YENİ: Dil parametresi ekleme interceptor'u
 apiClient.interceptors.request.use(
   async (config) => {
-    // Auth token ekle
     const userJson = await AsyncStorage.getItem('user');
     if (userJson) {
       const storedData = JSON.parse(userJson);
@@ -63,7 +58,6 @@ apiClient.interceptors.request.use(
       }
     }
 
-    // Dil parametresi ekle
     const currentLang = i18n.language || 'tr';
     if (!config.params) {
       config.params = {};
@@ -75,7 +69,6 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// GÜNCELLEME: Gelişmiş error handling
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -84,22 +77,18 @@ apiClient.interceptors.response.use(
         await AsyncStorage.removeItem('user');
       }
       
-      // API'den dönen hata formatını kontrol et
       const errorData = error.response.data as APIErrorResponse;
       if (errorData && !errorData.success && errorData.error) {
-        // Structured API error
         throw new Error(errorData.error.message);
       } else {
-        // Fallback error message
-        const errorMessage = error.response.data?.detail || 'Bir sunucu hatası oluştu.';
+        const errorMessage = error.response.data?.detail || i18n.t('api.error.server'); // Çeviri anahtarı kullanıldı
         throw new Error(errorMessage);
       }
     }
-    throw new Error('Bir ağ hatası oluştu veya sunucuya ulaşılamıyor.');
+    throw new Error(i18n.t('api.error.network')); // Çeviri anahtarı kullanıldı
   }
 );
 
-// YENİ: Dil parametresi ile API çağrı helper'ı
 const makeAPICall = async <T>(
   apiCall: () => Promise<T>,
   options?: { lang?: string }
@@ -107,7 +96,6 @@ const makeAPICall = async <T>(
   try {
     return await apiCall();
   } catch (error: any) {
-    // Hata mesajını logla ve yeniden fırlat
     console.error('API Call Error:', {
       message: error.message,
       lang: options?.lang || i18n.language,
@@ -118,7 +106,6 @@ const makeAPICall = async <T>(
 };
 
 export const api = {
-  // GÜNCELLEME: Dil parametresi desteği eklendi
   login: async (email: string, password: string, lang?: string): Promise<TokenResponse> => {
     return makeAPICall(async () => {
       const response = await apiClient.post<TokenResponse>('/auth/login', 
@@ -160,10 +147,8 @@ export const api = {
   },
 
   logout: async (): Promise<void> => {
-    // Local logout - API'de logout endpoint'i yok
   },
 
-  // GÜNCELLEME: Dil desteği ve gelişmiş error handling
   removeMultipleBackgrounds: async (
     photos: { filename: string, uri: string }[],
     lang?: string
@@ -185,20 +170,18 @@ export const api = {
         {
           headers: { 'Content-Type': 'multipart/form-data' },
           params: { lang: lang || i18n.language },
-          timeout: 120000, // 2 dakika timeout (toplu işlem için)
+          timeout: 120000,
         }
       );
 
-      // API v2 response format'ına göre data'yı çıkar
       if (response.data.success && response.data.data) {
         return response.data.data;
       } else {
-        throw new Error('Unexpected API response format');
+        throw new Error(i18n.t('api.error.unexpectedResponse')); // Çeviri anahtarı kullanıldı
       }
     }, { lang });
   },
 
-  // YENİ: Tek dosya background removal
   removeSingleBackground: async (
     photo: { filename: string, uri: string },
     lang?: string
@@ -217,19 +200,18 @@ export const api = {
         {
           headers: { 'Content-Type': 'multipart/form-data' },
           params: { lang: lang || i18n.language },
-          timeout: 60000, // 1 dakika timeout
+          timeout: 60000,
         }
       );
 
       if (response.data.success && response.data.data?.processed_image) {
         return response.data.data.processed_image;
       } else {
-        throw new Error('Unexpected API response format');
+        throw new Error(i18n.t('api.error.unexpectedResponse')); // Çeviri anahtarı kullanıldı
       }
     }, { lang });
   },
 
-  // YENİ: Profil bilgilerini getir
   getProfile: async (lang?: string): Promise<User> => {
     return makeAPICall(async () => {
       const response = await apiClient.get<User>('/auth/profile', {
@@ -239,7 +221,6 @@ export const api = {
     }, { lang });
   },
 
-  // YENİ: Profil güncelle
   updateProfile: async (
     updates: { name?: string },
     lang?: string
@@ -252,7 +233,6 @@ export const api = {
     }, { lang });
   },
 
-  // YENİ: Health check
   healthCheck: async (lang?: string): Promise<any> => {
     return makeAPICall(async () => {
       const response = await apiClient.get('/health', {
@@ -262,7 +242,6 @@ export const api = {
     }, { lang });
   },
 
-  // YENİ: Image processing health check
   imageHealthCheck: async (lang?: string): Promise<any> => {
     return makeAPICall(async () => {
       const response = await apiClient.get('/image/health', {
@@ -273,25 +252,15 @@ export const api = {
   },
 };
 
-// YENİ: API utility functions
 export const apiUtils = {
-  /**
-   * Mevcut dili döndürür
-   */
   getCurrentLanguage: (): string => {
     return i18n.language || 'tr';
   },
 
-  /**
-   * Dil değiştirme utility'si
-   */
   changeLanguage: async (newLang: string): Promise<void> => {
     await i18n.changeLanguage(newLang);
   },
 
-  /**
-   * API error'dan kullanıcı dostu mesaj çıkarır
-   */
   extractErrorMessage: (error: any): string => {
     if (error?.response?.data?.error?.message) {
       return error.response.data.error.message;
@@ -299,12 +268,9 @@ export const apiUtils = {
     if (error?.message) {
       return error.message;
     }
-    return 'Bilinmeyen bir hata oluştu';
+    return i18n.t('api.error.unknown'); // Çeviri anahtarı kullanıldı
   },
 
-  /**
-   * Network durumu kontrolü
-   */
   checkNetworkConnection: async (): Promise<boolean> => {
     try {
       const response = await apiClient.get('/health', { timeout: 5000 });
@@ -315,7 +281,6 @@ export const apiUtils = {
   },
 };
 
-// YENİ: Type guards
 export const isAPIError = (response: any): response is APIErrorResponse => {
   return response && !response.success && response.error;
 };
