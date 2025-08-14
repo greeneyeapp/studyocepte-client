@@ -2,7 +2,7 @@
 
 export interface Background {
     id: string;
-    name: string;
+    nameKey: string; // Lokalizasyon için name yerine nameKey kullanıldı
     thumbnailUrl: any; // require() için any type
     fullUrl: any;
     categoryId: string;
@@ -10,7 +10,7 @@ export interface Background {
 
 export interface BackgroundCategory {
     id: string;
-    name: string;
+    nameKey: string; // Lokalizasyon için name yerine nameKey kullanıldı
     icon: string;
     backgrounds: Background[];
 }
@@ -18,26 +18,26 @@ export interface BackgroundCategory {
 export const BACKGROUND_CATEGORIES: BackgroundCategory[] = [
     {
         id: 'home',
-        name: 'Ev',
+        nameKey: 'backgrounds.category.home', // Lokalize edildi
         icon: 'home',
         backgrounds: [
             {
                 id: 'home_1',
-                name: 'Modern Oturma Odası',
+                nameKey: 'backgrounds.names.home_1', // Lokalize edildi
                 thumbnailUrl: require('@/assets/images/backgrounds/home/home_1_thumb.jpg'),
                 fullUrl: require('@/assets/images/backgrounds/home/home_1_full.jpg'),
                 categoryId: 'home'
             },
             {
                 id: 'home_2',
-                name: 'Minimalist Yatak Odası',
+                nameKey: 'backgrounds.names.home_2', // Lokalize edildi
                 thumbnailUrl: require('@/assets/images/backgrounds/home/home_2_thumb.jpg'),
                 fullUrl: require('@/assets/images/backgrounds/home/home_2_full.jpg'),
                 categoryId: 'home'
             },
             {
                 id: 'home_3',
-                name: 'He He',
+                nameKey: 'backgrounds.names.home_3', // Lokalize edildi
                 thumbnailUrl: require('@/assets/images/backgrounds/home/home_3_thumb.jpg'),
                 fullUrl: require('@/assets/images/backgrounds/home/home_3_full.jpg'),
                 categoryId: 'home'
@@ -46,26 +46,26 @@ export const BACKGROUND_CATEGORIES: BackgroundCategory[] = [
     },
     {
         id: 'office',
-        name: 'Ofis',
+        nameKey: 'backgrounds.category.office', // Lokalize edildi
         icon: 'briefcase',
         backgrounds: [
             {
                 id: 'office_1',
-                name: 'Modern Çalışma Masası',
+                nameKey: 'backgrounds.names.office_1', // Lokalize edildi
                 thumbnailUrl: require('@/assets/images/backgrounds/office/office_1_thumb.jpg'),
                 fullUrl: require('@/assets/images/backgrounds/office/office_1_full.jpg'),
                 categoryId: 'office'
             },
             {
                 id: 'office_2',
-                name: 'Toplantı Salonu',
+                nameKey: 'backgrounds.names.office_2', // Lokalize edildi
                 thumbnailUrl: require('@/assets/images/backgrounds/office/office_2_thumb.jpg'),
                 fullUrl: require('@/assets/images/backgrounds/office/office_2_full.jpg'),
                 categoryId: 'office'
             },
             {
                 id: 'office_3',
-                name: 'He he',
+                nameKey: 'backgrounds.names.office_3', // Lokalize edildi
                 thumbnailUrl: require('@/assets/images/backgrounds/office/office_3_thumb.jpg'),
                 fullUrl: require('@/assets/images/backgrounds/office/office_3_full.jpg'),
                 categoryId: 'office'

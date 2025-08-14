@@ -14,24 +14,24 @@ import { Button } from '@/components/Button';
 import { ToastService } from '@/components/Toast/ToastService';
 
 // --- Validasyon Yardımcı Fonksiyonları ---
-const validateName = (name: string): { isValid: boolean; message: string } => {
+const validateName = (name: string, t: any): { isValid: boolean; message: string } => {
   const trimmedName = name.trim();
   if (!trimmedName.includes(' ')) {
-    return { isValid: false, message: 'Lütfen adınızı ve soyadınızı aralarında boşluk bırakarak girin.' };
+    return { isValid: false, message: t('auth.nameValidationSpace') };
   }
   const parts = trimmedName.split(' ');
-  const firstName = parts[0];
+  const firstName = parts;
   const lastName = parts[parts.length - 1];
   if (firstName.length < 2 || lastName.length < 2) {
-    return { isValid: false, message: 'Adınız ve soyadınız en az 2 harften oluşmalıdır.' };
+    return { isValid: false, message: t('auth.nameValidationLength') };
   }
   return { isValid: true, message: '' };
 };
 
-const validatePassword = (password: string): { isValid: boolean; message: string } => {
+const validatePassword = (password: string, t: any): { isValid: boolean; message: string } => {
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(password)) {
-    return { isValid: false, message: 'Şifre; en az 8 karakter, 1 büyük, 1 küçük harf, 1 rakam ve 1 özel karakter içermelidir.' };
+    return { isValid: false, message: t('auth.passwordValidationRules') };
   }
   return { isValid: true, message: '' };
 };
@@ -46,7 +46,7 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const { register } = useAuthStore();
-  
+
   // YENİ: Butonun yüklenme durumunu yönetmek için LOKAL state.
   const [isRegistering, setRegistering] = useState(false);
 
@@ -55,22 +55,22 @@ export default function RegisterScreen() {
     if (isRegistering) return;
 
     // Validasyonlar
-    const nameValidation = validateName(name);
+    const nameValidation = validateName(name, t);
     if (!nameValidation.isValid) {
-      ToastService.show(nameValidation.message );
+      ToastService.show(nameValidation.message);
       return;
     }
     if (!email.trim()) {
-      ToastService.show('E-posta alanı boş bırakılamaz.');
+      ToastService.show(t('auth.emptyEmail'));
       return;
     }
-    const passwordValidation = validatePassword(password);
+    const passwordValidation = validatePassword(password, t);
     if (!passwordValidation.isValid) {
       ToastService.show(passwordValidation.message);
       return;
     }
     if (password !== confirmPassword) {
-      ToastService.show(t('auth.passwordMismatchMessage') );
+      ToastService.show(t('auth.passwordMismatchMessage'));
       return;
     }
 
@@ -78,11 +78,11 @@ export default function RegisterScreen() {
     setRegistering(true);
 
     const success = await register(name.trim(), email.trim(), password);
-    
+
     // Eğer işlem BAŞARISIZ olursa, toast göster ve butonu tekrar aktif hale getir.
     if (!success) {
       const error = useAuthStore.getState().error;
-      ToastService.show( error || t('auth.tryAgain') );
+      ToastService.show(error || t('auth.tryAgain'));
       setRegistering(false); // Butonu tekrar kullanılabilir yap
     }
     // Başarılı olursa hiçbir şey yapma. _layout.tsx geçişi yönetecek.
@@ -95,30 +95,30 @@ export default function RegisterScreen() {
           <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
             <View style={styles.formWrapper}>
               <View style={styles.headerContainer}>
-                <Text style={styles.title}>Hesap Oluştur</Text>
+                <Text style={styles.title}>{t('auth.createAccount')}</Text>
                 <Text style={styles.subtitle}>{t('auth.registerSubtitle')}</Text>
               </View>
 
               <View style={styles.formContainer}>
-                <TextInput placeholder="Ad Soyad" value={name} onChangeText={setName} autoCapitalize="words" />
+                <TextInput placeholder={t('auth.fullName')} value={name} onChangeText={setName} autoCapitalize="words" />
                 <TextInput placeholder={t('auth.emailPlaceholder')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
                 <TextInput placeholder={t('auth.passwordPlaceholder')} value={password} onChangeText={setPassword} secureTextEntry />
                 <TextInput placeholder={t('auth.confirmPasswordPlaceholder')} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
-                
+
                 {/* Buton artık kendi LOKAL durumunu kontrol ediyor */}
-                <Button 
-                  title={t('auth.registerButton')} 
-                  onPress={handleRegister} 
+                <Button
+                  title={t('auth.registerButton')}
+                  onPress={handleRegister}
                   loading={isRegistering}
-                  disabled={isRegistering} 
+                  disabled={isRegistering}
                   size="medium"
                 />
               </View>
 
               <TouchableOpacity style={styles.loginLinkContainer} onPress={() => router.push('/(auth)/login')}>
                 <Text style={styles.loginText}>
-                  Zaten bir hesabın var mı?{' '}
-                  <Text style={styles.loginLink}>Giriş Yap</Text>
+                  {t('auth.alreadyHaveAccount')}{' '}
+                  <Text style={styles.loginLink}>{t('auth.loginNow')}</Text>
                 </Text>
               </TouchableOpacity>
             </View>

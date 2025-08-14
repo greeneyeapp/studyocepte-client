@@ -91,11 +91,11 @@ apiClient.interceptors.response.use(
         throw new Error(errorData.error.message);
       } else {
         // Fallback error message
-        const errorMessage = error.response.data?.detail || 'Bir sunucu hatası oluştu.';
+        const errorMessage = error.response.data?.detail || i18n.t('common.serverError'); // Lokalize edildi
         throw new Error(errorMessage);
       }
     }
-    throw new Error('Bir ağ hatası oluştu veya sunucuya ulaşılamıyor.');
+    throw new Error(i18n.t('common.networkError')); // Lokalize edildi
   }
 );
 
@@ -193,7 +193,7 @@ export const api = {
       if (response.data.success && response.data.data) {
         return response.data.data;
       } else {
-        throw new Error('Unexpected API response format');
+        throw new Error(i18n.t('common.unknownError')); // Lokalize edildi
       }
     }, { lang });
   },
@@ -224,7 +224,7 @@ export const api = {
       if (response.data.success && response.data.data?.processed_image) {
         return response.data.data.processed_image;
       } else {
-        throw new Error('Unexpected API response format');
+        throw new Error(i18n.t('common.unknownError')); // Lokalize edildi
       }
     }, { lang });
   },
@@ -296,10 +296,16 @@ export const apiUtils = {
     if (error?.response?.data?.error?.message) {
       return error.response.data.error.message;
     }
-    if (error?.message) {
+    if (error?.message && typeof error.message === 'string') { // type guard eklendi
+      if (error.message.includes('Network Error')) {
+        return i18n.t('common.networkError');
+      }
+      if (error.message.includes('timeout')) {
+        return i18n.t('common.networkError');
+      }
       return error.message;
     }
-    return 'Bilinmeyen bir hata oluştu';
+    return i18n.t('common.unknownError'); // Lokalize edildi
   },
 
   /**

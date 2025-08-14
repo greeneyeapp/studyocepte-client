@@ -1,17 +1,18 @@
-// kodlar/app/+not-found.tsx
 import { Link, Stack } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { Colors, Spacing, Typography } from '@/constants';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 export default function NotFoundScreen() {
+  const { t } = useTranslation(); // useTranslation hook'u kullanıldı
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
+      <Stack.Screen options={{ title: t('common.error') }} /> {/* 'Oops!' yerine common.error kullanıldı */}
       <View style={styles.container}>
         <Text style={styles.title}>404</Text>
-        <Text style={styles.text}>This screen doesn't exist.</Text>
+        <Text style={styles.text}>{t('common.unknownError')}</Text> {/* 'This screen doesn't exist.' yerine common.unknownError kullanıldı */}
         <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>Go to home screen!</Text>
+          <Text style={styles.linkText}>{t('productDetail.backToHome')}</Text> {/* 'Go to home screen!' yerine productDetail.backToHome kullanıldı */}
         </Link>
       </View>
     </>

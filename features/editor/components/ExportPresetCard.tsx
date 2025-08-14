@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { ExportPreset, ShareOption } from '../config/exportTools';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface ExportPresetCardProps {
   preset: ExportPreset;
@@ -16,6 +17,7 @@ export const ExportPresetCard: React.FC<ExportPresetCardProps> = ({
   onPress,
   isSelected = false
 }) => {
+  const { t } = useTranslation(); // t hook'u kullanıldı
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'social': return '#FF6B6B';
@@ -44,7 +46,7 @@ export const ExportPresetCard: React.FC<ExportPresetCardProps> = ({
           <Feather name={preset.icon as any} size={20} color={categoryColor} />
         </View>
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>{preset.name}</Text>
+          <Text style={styles.title}>{t(`exportPresets.${preset.id}.name`)}</Text> {/* Lokalize edildi */}
           <Text style={styles.dimensions}>
             {preset.dimensions.width} × {preset.dimensions.height}
           </Text>
@@ -53,10 +55,10 @@ export const ExportPresetCard: React.FC<ExportPresetCardProps> = ({
           <Feather name="check-circle" size={20} color={Colors.primary} />
         )}
       </View>
-      <Text style={styles.description}>{preset.description}</Text>
+      <Text style={styles.description}>{t(`exportPresets.${preset.id}.description`)}</Text> {/* Lokalize edildi */}
       <View style={styles.details}>
         <Text style={styles.format}>{preset.format.toUpperCase()}</Text>
-        <Text style={styles.quality}>Kalite: {Math.round(preset.quality * 100)}%</Text>
+        <Text style={styles.quality}>{t('editor.quality', { quality: Math.round(preset.quality * 100) })}</Text> {/* Lokalize edildi */}
       </View>
     </TouchableOpacity>
   );
@@ -73,6 +75,7 @@ export const ShareOptionButton: React.FC<ShareOptionButtonProps> = ({
   onPress,
   disabled = false
 }) => {
+  const { t } = useTranslation(); // t hook'u kullanıldı
   const getOptionColor = (type: string) => {
     switch (type) {
       case 'gallery': return '#34C759';
@@ -94,7 +97,7 @@ export const ShareOptionButton: React.FC<ShareOptionButtonProps> = ({
         <Feather name={option.icon as any} size={20} color={Colors.card} />
       </View>
       <Text style={[styles.shareText, disabled && styles.shareTextDisabled]}>
-        {option.name}
+        {t(`editor.shareOptions.${option.id}`)} {/* Lokalize edildi */}
       </Text>
     </TouchableOpacity>
   );
@@ -113,6 +116,7 @@ export const ExportPreview: React.FC<ExportPreviewProps> = ({
   backgroundUri,
   settings
 }) => {
+  const { t } = useTranslation(); // t hook'u kullanıldı
   const aspectRatio = preset.dimensions.width / preset.dimensions.height;
   const previewWidth = 120;
   const previewHeight = previewWidth / aspectRatio;
@@ -143,7 +147,7 @@ export const ExportPreview: React.FC<ExportPreviewProps> = ({
         />
       </View>
       <Text style={styles.previewDimensions}>
-        {preset.dimensions.width} × {preset.dimensions.height}
+        {t('editor.dimensions', { width: preset.dimensions.width, height: preset.dimensions.height })} {/* Lokalize edildi */}
       </Text>
     </View>
   );

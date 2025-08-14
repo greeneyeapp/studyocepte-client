@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Colors, Typography, Spacing } from '@/constants';
 import { LazyImageUtils } from './LazyImage';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 // DÜZELTME: global nesnesine 'gc' metodu ekle ve __DEV__ için tip tanımı yap
 declare global {
@@ -72,6 +73,7 @@ const OptimizedFlatListComponent = <T,>(
   }: OptimizedFlatListProps<T>,
   ref: React.Ref<FlatList<T>> // DÜZELTME: Ref'i bileşene forward et
 ) => {
+  const { t } = useTranslation(); // t hook'u kullanıldı
   const flatListRef = useRef<FlatList<T>>(null);
   
   // DÜZELTME: ref forwarding ile kendi ref'imizi birleştir
@@ -203,8 +205,8 @@ const OptimizedFlatListComponent = <T,>(
       <View style={styles.emptyContainer}>
         {emptyComponent || (
           <>
-            <Text style={styles.emptyTitle}>Henüz içerik yok</Text>
-            <Text style={styles.emptySubtitle}>İçerik eklendiğinde burada görünecek</Text>
+            <Text style={styles.emptyTitle}>{t('common.noContent')}</Text>
+            <Text style={styles.emptySubtitle}>{t('common.contentWillAppearHere')}</Text>
           </>
         )}
       </View>
@@ -217,7 +219,7 @@ const OptimizedFlatListComponent = <T,>(
         {loadingComponent || (
           <>
             <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Yükleniyor...</Text>
+            <Text style={styles.loadingText}>{t('common.loading')}</Text>
           </>
         )}
       </View>

@@ -26,7 +26,8 @@ const PhotoItem: React.FC<{
   isSelectionMode: boolean;
   onPress: (photo: ProductPhoto) => void;
   onLongPress: (photo: ProductPhoto) => void;
-}> = React.memo(({ photo, isSelected, isSelectionMode, onPress, onLongPress }) => {
+  t: any; // t prop'u eklendi
+}> = React.memo(({ photo, isSelected, isSelectionMode, onPress, onLongPress, t }) => {
   if (!photo) return null;
 
   // ⭐ GÜÇLÜ CACHE-BUSTING: URI'yi her render'da unique yap
@@ -85,7 +86,7 @@ const PhotoItem: React.FC<{
         photo.status === 'processing' && styles.statusProcessing
       ]}>
         <Text style={styles.statusText}>
-          {photo.status === 'raw' ? 'Ham' : photo.status === 'processing' ? 'İşleniyor' : 'İşlendi'}
+          {photo.status === 'raw' ? t('productDetail.rawStatus') : photo.status === 'processing' ? t('productDetail.processingStatus') : t('productDetail.processedStatus')}
         </Text>
       </View>
 
@@ -211,12 +212,12 @@ export default function ProductDetailScreen() {
   const handleDeleteSinglePhoto = useCallback((photoId: string) => {
     if (!product?.id) return;
     DialogService.show({
-      title: 'Fotoğrafı Sil',
-      message: 'Bu fotoğrafı silmek istediğinizden emin misiniz?',
+      title: t('productDetail.deletePhotoTitle'),
+      message: t('productDetail.deletePhotoMessage'),
       buttons: [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sil', style: 'destructive',
+          text: t('common.delete'), style: 'destructive',
           onPress: async () => {
             loadingRef.current?.show();
             try {
@@ -245,7 +246,7 @@ export default function ProductDetailScreen() {
         },
       ],
     });
-  }, [product?.id, deletePhoto]);
+  }, [product?.id, deletePhoto, t]);
 
   const handleDeleteSelectedPhotos = useCallback(async () => {
     if (!product?.id) return;
@@ -253,12 +254,12 @@ export default function ProductDetailScreen() {
       return;
     }
     DialogService.show({
-      title: 'Seçili Fotoğrafları Sil',
-      message: `Seçili ${selectedPhotos.size} fotoğrafı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`,
+      title: t('productDetail.deleteSelectedPhotosTitle'),
+      message: t('productDetail.deleteSelectedPhotosMessage', { count: selectedPhotos.size }),
       buttons: [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sil', style: 'destructive',
+          text: t('common.delete'), style: 'destructive',
           onPress: async () => {
             loadingRef.current?.show();
             try {
@@ -286,13 +287,13 @@ export default function ProductDetailScreen() {
         },
       ],
     });
-  }, [product?.id, selectedPhotos, deletePhoto]);
+  }, [product?.id, selectedPhotos, deletePhoto, t]);
 
   const handleEditProductName = useCallback(() => {
     if (!product?.id) return;
     InputDialogService.show({
-      title: 'Ürün Adını Düzenle',
-      placeholder: 'Yeni ürün adı',
+      title: t('productDetail.editProductName'),
+      placeholder: t('productDetail.newProductNamePlaceholder'),
     }).then(async (newName) => {
       if (newName?.trim()) {
         loadingRef.current?.show();
@@ -303,17 +304,17 @@ export default function ProductDetailScreen() {
         }
       }
     });
-  }, [product?.id, updateProductName]);
+  }, [product?.id, updateProductName, t]);
 
   const handleDeleteProduct = useCallback(() => {
     if (!product?.id) return;
     DialogService.show({
-      title: 'Ürünü Sil',
-      message: 'Bu ürünü ve tüm fotoğraflarını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+      title: t('productDetail.deleteProductTitle'),
+      message: t('productDetail.deleteProductMessage'),
       buttons: [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sil', style: 'destructive',
+          text: t('common.delete'), style: 'destructive',
           onPress: async () => {
             loadingRef.current?.show();
             try {
@@ -325,7 +326,7 @@ export default function ProductDetailScreen() {
         }
       ]
     });
-  }, [product?.id, deleteProduct, router]);
+  }, [product?.id, deleteProduct, router, t]);
 
   const handleRemoveBackgrounds = useCallback(async () => {
     if (!product?.id) return;
@@ -333,7 +334,7 @@ export default function ProductDetailScreen() {
       return;
     }
     const photosArray = Array.from(selectedPhotos);
-    loadingRef.current?.show({ text: 'Arka planlar temizleniyor...' });
+    loadingRef.current?.show({ text: t('imageProcessing.backgroundsBeingCleaned') });
     try {
       const success = await removeMultipleBackgrounds(product.id, photosArray);
       setSelectedPhotos(new Set());
@@ -359,7 +360,7 @@ export default function ProductDetailScreen() {
     } finally {
       loadingRef.current?.hide();
     }
-  }, [product?.id, selectedPhotos, removeMultipleBackgrounds]);
+  }, [product?.id, selectedPhotos, removeMultipleBackgrounds, t]);
 
   const handleRemoveSingleBackground = useCallback(async (photoId: string) => {
     if (!product) return;
@@ -412,12 +413,12 @@ export default function ProductDetailScreen() {
     } else {
       if (photo.status === 'raw') {
         DialogService.show({
-          title: 'Arka Planı Temizle',
-          message: 'Bu fotoğrafın arka planını temizlemek ister misiniz?',
+          title: t('productDetail.removeBackgroundTitle'),
+          message: t('imageProcessing.singleBackgroundRemovalPrompt'),
           buttons: [
-            { text: 'İptal', style: 'cancel' },
+            { text: t('common.cancel'), style: 'cancel' },
             {
-              text: 'Temizle',
+              text: t('common.clean'),
               onPress: () => handleRemoveSingleBackground(photo.id),
               style: 'default',
             },
@@ -427,7 +428,7 @@ export default function ProductDetailScreen() {
         handleEditPhoto(photo);
       }
     }
-  }, [isSelectionMode, handleEditPhoto, handleRemoveSingleBackground]);
+  }, [isSelectionMode, handleEditPhoto, handleRemoveSingleBackground, t]);
 
   useEffect(() => {
     if (isSelectionMode && selectedPhotos.size === 0) {
@@ -446,8 +447,8 @@ export default function ProductDetailScreen() {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <Feather name="alert-circle" size={48} color={Colors.error} />
-        <Text style={styles.errorTitle}>Ürün Bulunamadı</Text>
-        <Text style={styles.errorSubtitle}>Bu ürün silinmiş veya bulunamıyor.</Text>
+        <Text style={styles.errorTitle}>{t('productDetail.productNotFoundTitle')}</Text>
+        <Text style={styles.errorSubtitle}>{t('productDetail.productNotFoundSubtitle')}</Text>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => {
@@ -455,7 +456,7 @@ export default function ProductDetailScreen() {
             router.push('/(tabs)/home');
           }}
         >
-          <Text style={styles.backButtonText}>Ana Sayfaya Dön</Text>
+          <Text style={styles.backButtonText}>{t('productDetail.backToHome')}</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -477,7 +478,7 @@ export default function ProductDetailScreen() {
           </TouchableOpacity>
           <View style={styles.headerInfo}>
             <Text style={styles.headerTitle} numberOfLines={1}>{product.name}</Text>
-            <Text style={styles.headerSubtitle}>{product.photos.length} fotoğraf</Text>
+            <Text style={styles.headerSubtitle}>{product.photos.length} {t('productDetail.photosCountLabel')}</Text>
           </View>
         </View>
         <View style={styles.headerRight}>
@@ -492,13 +493,13 @@ export default function ProductDetailScreen() {
 
       {isSelectionMode && (
         <View style={styles.selectionHeader}>
-          <Text style={styles.selectionText}>{selectedPhotos.size} fotoğraf seçili</Text>
+          <Text style={styles.selectionText}>{t('productDetail.selectPhotos', { count: selectedPhotos.size })}</Text>
           <View style={styles.selectionActions}>
             <TouchableOpacity style={styles.selectionButton} onPress={handleRemoveBackgrounds} disabled={selectedPhotos.size === 0}>
-              <Text style={styles.selectionButtonText}>Arka Plan Temizle</Text>
+              <Text style={styles.selectionButtonText}>{t('productDetail.removeBackgroundsAction')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.selectionButton, styles.deleteSelectionButton]} onPress={handleDeleteSelectedPhotos} disabled={selectedPhotos.size === 0}>
-              <Text style={styles.selectionButtonText}>Sil</Text>
+              <Text style={styles.selectionButtonText}>{t('productDetail.deleteAction')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -513,7 +514,7 @@ export default function ProductDetailScreen() {
             onRefresh={handleRefresh}
             colors={[Colors.primary]}
             tintColor={Colors.primary}
-            title="Yüksek kalite thumbnail yenileniyor..." // ⭐ Custom refresh message
+            title={t('productDetail.refreshThumbnailMessage')}
           />
         }
       >
@@ -527,6 +528,7 @@ export default function ProductDetailScreen() {
                 isSelectionMode={isSelectionMode}
                 onPress={handlePhotoPress}
                 onLongPress={handlePhotoLongPress}
+                t={t} // t prop'u geçirildi
               />
             ))}
           </View>
@@ -535,8 +537,8 @@ export default function ProductDetailScreen() {
             <View style={styles.emptyPhotosIcon}>
               <Feather name="camera" size={64} color={Colors.gray300} />
             </View>
-            <Text style={styles.emptyPhotosTitle}>Henüz Fotoğraf Yok</Text>
-            <Text style={styles.emptyPhotosSubtitle}>İlk fotoğrafını eklemek için + butonuna dokun.</Text>
+            <Text style={styles.emptyPhotosTitle}>{t('productDetail.noPhotos')}</Text>
+            <Text style={styles.emptyPhotosSubtitle}>{t('productDetail.noPhotosSubtitle')}</Text>
           </View>
         )}
       </ScrollView>

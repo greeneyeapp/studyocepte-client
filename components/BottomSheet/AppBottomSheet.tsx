@@ -1,4 +1,3 @@
-// kodlar/components/BottomSheet/AppBottomSheet.tsx
 import React, { forwardRef, useImperativeHandle, useState, useRef, useCallback } from 'react';
 import { Animated, StyleSheet, Text, View, TouchableOpacity, Pressable, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';

@@ -7,6 +7,7 @@ import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { EXPORT_PRESETS, SHARE_OPTIONS, EXPORT_CATEGORIES, ExportPreset, ShareOption } from '../config/exportTools';
 import { ToastService } from '@/components/Toast/ToastService';
 import { BottomSheetService, BottomSheetAction } from '@/components/BottomSheet/BottomSheetService'; // BottomSheetService import edildi
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface ExportToolbarProps {
   selectedPreset: ExportPreset | null;
@@ -20,7 +21,8 @@ const CompactPresetCard: React.FC<{
   preset: ExportPreset;
   isSelected: boolean;
   onPress: () => void;
-}> = ({ preset, isSelected, onPress }) => {
+  t: any; // t prop'u eklendi
+}> = ({ preset, isSelected, onPress, t }) => {
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'social': return '#FF6B6B';
@@ -46,7 +48,7 @@ const CompactPresetCard: React.FC<{
           <Feather name={preset.icon as any} size={16} color={Colors.card} />
         </View>
         <View style={styles.compactInfo}>
-          <Text style={styles.compactTitle} numberOfLines={1}>{preset.name}</Text>
+          <Text style={styles.compactTitle} numberOfLines={1}>{t(`exportPresets.${preset.id}.name`)}</Text> {/* Lokalize edildi */}
           <Text style={styles.compactDimensions}>
             {preset.dimensions.width} × {preset.dimensions.height}
           </Text>
@@ -65,6 +67,7 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
   setSelectedPreset,
   shareWithOption,
 }) => {
+  const { t } = useTranslation(); // t hook'u kullanıldı
   const [selectedCategory, setSelectedCategory] = useState<string>('social');
 
   // KESİN ÇÖZÜM: handlePresetSelect artık doğrudan BottomSheet'i tetikleyecek
@@ -77,7 +80,7 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
     // BottomSheet için aksiyonları hazırla
     const actions: BottomSheetAction[] = SHARE_OPTIONS.map(option => ({
       id: option.id,
-      text: option.name,
+      text: t(`editor.shareOptions.${option.id}`), // Lokalize edildi
       icon: option.icon as any,
       // Doğrudan shareWithOption'ı çağır, selectedPreset'i burada gönderiyoruz
       onPress: () => {
@@ -89,7 +92,7 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
 
     // BottomSheet'i göster
     BottomSheetService.show({
-      title: `${preset.name} (${preset.dimensions.width}×${preset.dimensions.height})`, // Başlıkta seçili preset bilgisi
+      title: t('editor.exportPresetSelected', { presetName: t(`exportPresets.${preset.id}.name`), width: preset.dimensions.width, height: preset.dimensions.height }), // Başlıkta seçili preset bilgisi
       actions: actions,
     });
   };
@@ -122,7 +125,7 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
                 styles.categoryChipText, 
                 selectedCategory === category.key && styles.categoryChipTextActive
               ]}>
-                {category.name}
+                {t(`editor.presetCategories.${category.key}`)} {/* Lokalize edildi */}
               </Text>
             </TouchableOpacity>
           ))}
@@ -137,7 +140,8 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
             preset={preset} 
             isSelected={selectedPreset?.id === preset.id} 
             // KESİN ÇÖZÜM: onPress artık doğrudan handlePresetSelect'i çağırıyor
-            onPress={() => handlePresetSelect(preset)} 
+            onPress={() => handlePresetSelect(preset)}
+            t={t} // t prop'u geçirildi
           />
         ))}
         <View style={{ height: 40 }} />

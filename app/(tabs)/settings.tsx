@@ -75,16 +75,23 @@ export default function SettingsScreen() {
   // GÜNCELLEME: Çıkış onayı artık tasarıma uygun DialogService kullanıyor.
   const handleLogout = () => {
     DialogService.show({
-      title: "Çıkış Yap",
-      message: "Oturumu sonlandırmak istediğinizden emin misiniz?",
+      title: t('settings.logoutTitle'),
+      message: t('settings.logoutMessage'),
       buttons: [
-        { text: "İptal", style: 'cancel' },
-        { text: "Çıkış Yap", style: 'destructive', onPress: async () => await logout() },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('settings.logoutTitle'), style: 'destructive', onPress: async () => await logout() },
       ],
     });
   };
 
-  const getCurrentLanguageLabel = () => i18n.language === 'en' ? 'English' : 'Türkçe';
+  const getCurrentLanguageLabel = () => {
+    switch (i18n.language) {
+      case 'en': return t('settings.currentLanguageLabel.en');
+      case 'tr': return t('settings.currentLanguageLabel.tr');
+      case 'es': return t('settings.currentLanguageLabel.es');
+      default: return 'English';
+    }
+  };
 
   if (!user) return <SafeAreaView style={styles.container} />;
 
@@ -96,7 +103,7 @@ export default function SettingsScreen() {
         <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
           <Feather name="arrow-left" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Hesap</Text>
+        <Text style={styles.headerTitle}>{t('settings.account')}</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -104,7 +111,7 @@ export default function SettingsScreen() {
         {/* Profil Kartı (Sadeleştirildi) */}
         <Card style={styles.profileCard}>
           <View style={styles.profileCardContent}>
-            <ProfileAvatar name={user.name || 'Misafir'} />
+            <ProfileAvatar name={user.name || t('common.guest')} /> {/* Misafir kullanıcı adı lokalize edildi */}
             <Text style={styles.userName}>{user.name}</Text>
             {!isGuest && (
               <Text style={styles.userEmail} numberOfLines={1} ellipsizeMode="tail">
@@ -117,13 +124,13 @@ export default function SettingsScreen() {
 
         {/* Uygulama Ayarları */}
         <View style={styles.sectionContainer}>
-          <SectionHeader title="Uygulama Ayarları" icon="settings" />
+          <SectionHeader title={t('settings.appSettings')} icon="settings" />
           <Card padding="none" style={styles.settingsCard}>
-            <ModernSettingCard icon="globe" title="Dil" subtitle="Uygulama dilini değiştirin" value={getCurrentLanguageLabel()} onPress={() => { }} iconColor={Colors.primary} />
+            <ModernSettingCard icon="globe" title={t('settings.language')} subtitle={t('settings.languageSubtitle')} value={getCurrentLanguageLabel()} onPress={() => { }} iconColor={Colors.primary} />
             <ModernSettingCard
-              icon="credit-card" title="Abonelik"
-              subtitle={isGuest ? "Abone olmak için hesap oluşturun" : "Premium özelliklere erişin"}
-              onPress={() => ToastService.show(isGuest ? 'Lütfen önce kayıt olun.' : 'Yakında gelecek!')}
+              icon="credit-card" title={t('settings.subscription')}
+              subtitle={isGuest ? t('settings.subscriptionSubtitleGuest') : t('settings.subscriptionSubtitleUser')}
+              onPress={() => ToastService.show(isGuest ? t('settings.guestRegisterPrompt') : t('settings.comingSoon'))}
               iconColor={Colors.accent} isLast
             />
           </Card>
@@ -131,21 +138,21 @@ export default function SettingsScreen() {
 
         {/* Destek ve Hakkında */}
         <View style={styles.sectionContainer}>
-          <SectionHeader title="Destek ve Bilgi" icon="help-circle" />
+          <SectionHeader title={t('settings.supportAndInfo')} icon="help-circle" />
           <Card padding="none" style={styles.settingsCard}>
-            <ModernSettingCard icon="message-circle" title="Destek" subtitle="Yardım alın ve geri bildirimde bulunun" onPress={() => { }} iconColor="#10B981" />
-            <ModernSettingCard icon="info" title="Hakkında" subtitle="Uygulama bilgileri ve sürüm" value="v1.0.0" onPress={() => { }} iconColor="#8B5CF6" />
-            <ModernSettingCard icon="star" title="Uygulamayı Değerlendirin" subtitle="App Store'da bizi değerlendirin" onPress={() => { }} iconColor="#F59E0B" showChevron={false} isLast />
+            <ModernSettingCard icon="message-circle" title={t('settings.support')} subtitle={t('settings.supportSubtitle')} onPress={() => { }} iconColor="#10B981" />
+            <ModernSettingCard icon="info" title={t('settings.about')} subtitle={t('settings.aboutSubtitle')} value="v1.0.0" onPress={() => { }} iconColor="#8B5CF6" />
+            <ModernSettingCard icon="star" title={t('settings.rateApp')} subtitle={t('settings.rateAppSubtitle')} onPress={() => { }} iconColor="#F59E0B" showChevron={false} isLast />
           </Card>
         </View>
 
         {/* GÜNCELLEME: Yeni Çıkış Yap Butonu */}
         <View style={styles.sectionContainer}>
-          <SectionHeader title="Hesap" icon="user" />
+          <SectionHeader title={t('settings.account')} icon="user" />
           <Card padding="none" style={styles.settingsCard}>
             <ModernSettingCard
               icon="log-out"
-              title="Çıkış Yap"
+              title={t('settings.logoutTitle')}
               onPress={handleLogout}
               iconColor={Colors.error}
               titleColor={Colors.error}

@@ -9,11 +9,13 @@ import { GlobalUIProvider } from '@/context/GlobalUIProvider';
 import { useAssets } from 'expo-asset';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import AppLoading from '@/components/Loading/AppLoading';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 SplashScreen.preventAutoHideAsync();
 
 // Bu bileşen, state değişikliklerine göre yönlendirmeyi ve geçiş animasyonunu yönetir.
 function RootLayoutNav() {
+  const { t } = useTranslation(); // useTranslation hook'u kullanıldı
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const segments = useSegments();
   const router = useRouter();
@@ -23,12 +25,12 @@ function RootLayoutNav() {
 
   useEffect(() => {
     const inAuthGroup = segments[0] === '(auth)';
-    
+
     // Senaryo 1: Kullanıcı giriş yaptı ve hala auth ekranında.
     if (isAuthenticated && inAuthGroup) {
       setTransitioning(true); // Geçiş animasyonunu göster
       router.replace('/(tabs)/home'); // Yönlendirmeyi yap
-      
+
       // Yönlendirmenin tamamlanması ve yeni ekranın render olması için bekle, sonra animasyonu kaldır.
       setTimeout(() => setTransitioning(false), 800);
     }
@@ -37,7 +39,7 @@ function RootLayoutNav() {
     if (!isAuthenticated && !inAuthGroup) {
       setTransitioning(true); // Geçiş animasyonunu göster
       router.replace('/(auth)/login'); // Yönlendirmeyi yap
-      
+
       // Yönlendirme bitince animasyonu kaldır.
       setTimeout(() => setTransitioning(false), 800);
     }
@@ -50,34 +52,35 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="+not-found" />
       </Stack>
-      
+
       {/* Animasyon, bir servisle değil, doğrudan burada koşullu olarak render edilir. */}
-      {isTransitioning && <AppLoading />}
+      {isTransitioning && <AppLoading text={t('appLoading.transitioning')} />} {/* text prop'u eklendi */}
     </>
   );
 }
 
 // Bu ana bileşen, uygulamanın başlaması için gereken her şeyi yükler.
 export default function RootLayout() {
+  const { t } = useTranslation(); // useTranslation hook'u kullanıldı
   const { checkAuthStatus } = useAuthStore();
   const [isAuthChecked, setAuthChecked] = useState(false);
-  
+
   const [fontsLoaded, fontError] = useFonts({
-    'Inter-Regular': Inter_400Regular, 'Inter-Medium': Inter_500Medium,
-    'Inter-SemiBold': Inter_600SemiBold, 'Inter-Bold': Inter_700Bold,
+    'Inter-Regular': Inter_400Regular, 'Inter-500Medium': Inter_500Medium,
+    'Inter-600SemiBold': Inter_600SemiBold, 'Inter-700Bold': Inter_700Bold,
   });
 
   const [assets, assetsError] = useAssets([
     require('@/assets/images/icon-transparant.png')
   ]);
-  
+
   useEffect(() => {
     // Uygulama başlarken auth durumunu kontrol et.
     checkAuthStatus().finally(() => {
       setAuthChecked(true);
     });
   }, []);
-  
+
   // Her şeyin (font, asset, auth kontrolü) hazır olup olmadığını kontrol et.
   const isAppReady = (fontsLoaded || fontError) && (assets || assetsError) && isAuthChecked;
 
@@ -88,7 +91,7 @@ export default function RootLayout() {
   }, [isAppReady]);
 
   if (!isAppReady) {
-    return null; // Her şey hazır olana kadar Splash Screen görünür kalır.
+    return <AppLoading text={t('appLoading.initializing')} />; // text prop'u eklendi
   }
 
   return (

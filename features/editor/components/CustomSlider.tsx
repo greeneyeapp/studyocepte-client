@@ -4,6 +4,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Colors, Typography, Spacing } from '@/constants';
 import { FeatureConfig } from '../config/features';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface CustomSliderProps {
   feature: FeatureConfig;
@@ -21,6 +22,7 @@ export const CustomSlider: React.FC<CustomSliderProps> = ({
   feature, value, onValueChange, onSlidingStart, onSlidingComplete, isActive,
   hasMixedValues = false, productValue = 0, backgroundValue = 0,
 }) => {
+  const { t } = useTranslation(); // t hook'u kullanıldı
   const handleValueChange = useCallback((newValue: number) => onValueChange(Math.round(newValue)), [onValueChange]);
   const formattedValue = useMemo(() => (value > 0 ? `+${value}` : `${value}`), [value]);
 
@@ -29,7 +31,7 @@ export const CustomSlider: React.FC<CustomSliderProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.featureLabel}>{feature.label}</Text>
+        <Text style={styles.featureLabel}>{t(`editor.featureLabels.${feature.key}`)}</Text> {/* Lokalize edildi */}
         <Text style={styles.featureValue}>{formattedValue}</Text>
       </View>
       <Slider

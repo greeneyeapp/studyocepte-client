@@ -38,6 +38,7 @@ export const GlobalUIProvider = ({ children }: { children: ReactNode }) => {
       <InputDialog ref={inputDialogRefCallback} />
 
       {/* AppLoading bileşeni ref ile birlikte burada render edilir. */}
+      {/* AppLoading'deki text prop'u artık _layout.tsx içinde yönetiliyor, burada boş kalabilir */}
       <AppLoading ref={loadingRefCallback} />
     </>
   );

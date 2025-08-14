@@ -39,7 +39,8 @@
       "minutesAgo": "{{minutes}} dakika önce",
       "hoursAgo": "{{hours}} saat önce",
       "daysAgo": "{{days}} gün önce"
-    }
+    },
+    "batchCancelledSuccess": "Toplu işlem başarıyla iptal edildi."
   },
   "auth": {
     "login": "Giriş",
@@ -153,10 +154,7 @@
     "shareOptions": {
       "gallery": "Galeriye Kaydet",
       "galleryDescription": "Seçili format ile kaydet",
-      "share": "Paylaş...",
-      "shareDescription": "Seçili format ile paylaş",
-      "quickCustom": "Hızlı boyut belirle",
-      "quickCustomDescription": "Hızlı boyut belirle"
+      "share": "Paylaş..."
     },
     "quality": "Kalite: {{quality}}%",
     "dimensions": "{{width}} × {{height}}",
@@ -179,7 +177,7 @@
       "original": "Orijinal",
       "clean_ecommerce": "Temiz E-Ticaret",
       "vivid_pop": "Canlı Pop",
-      "dramatic_contrast": "Dramatik Kontrast",
+      "dramatik_contrast": "Dramatik Kontrast",
       "vintage_dream": "Vintage Rüya",
       "cinematic_teal_orange": "Sinematik (T&O)",
       "golden_hour": "Altın Saat",
@@ -235,9 +233,11 @@
     "refNotReady": "Önizleme hazır değil. Lütfen tekrar deneyin.",
     "imageNotCreated": "Görüntü oluşturulamadı.",
     "exportSuccessGallery": "Galeriye kaydedildi.",
-    "exportSuccessQuick": "Görüntü galeriye kaydedildi.",
     "exportSuccessShare": "Paylaşım başarılı.",
     "exportFailedTimeout": "İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.",
+    "minDimensionError": "Minimum boyut {{minSize}}x{{minSize}} piksel olmalıdır.",
+    "maxDimensionError": "Maksimum boyut {{maxSize}}x{{maxSize}} piksel olmalıdır.",
+    "maxPixelCountError": "Toplam piksel sayısı çok büyük. Daha küçük boyutlar deneyin.",
     "exportFailedCapture": "Görüntü yakalanırken hata oluştu. Editöre geri dönüp tekrar deneyin.",
     "exportFailedPermission": "Galeri izni gerekli. Ayarlardan izin verin.",
     "thumbnailUpdating": "Önizleme güncelleniyor...",
@@ -385,6 +385,8 @@
     "custom_classic_photo": { "name": "Klasik Fotoğraf (3:2)", "description": "1080x720 - 35mm film fotoğrafı oranı" },
     "custom_portrait": { "name": "Dikey Portre (2:3)", "description": "720x1080 - Dikey fotoğraf portre oranı" },
     "custom_cinematic": { "name": "Sinematik (21:9)", "description": "2560x1080 - Ultra geniş sinema ekranı oranı" },
+    "customGeneratedName": "Özel {{width}}x{{height}}",
+    "customGeneratedDescription": "Kullanıcı tanımlı {{width}}x{{height}} boyutu",
     "custom_square_hd": { "name": "HD Kare", "description": "1920x1920 - Yüksek çözünürlüklü kare format" },
     "custom_a4_landscape": { "name": "A4 Yatay", "description": "3508x2480px - Yatay A4 belge/sunum formatı" },
     "custom_4k_uhd": { "name": "4K Ultra HD", "description": "3840x2160 - Ultra yüksek çözünürlüklü ekranlar için" },

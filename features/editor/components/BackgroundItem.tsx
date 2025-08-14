@@ -4,6 +4,7 @@ import React from 'react';
 import { TouchableOpacity, Image, View, StyleSheet, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors, BorderRadius, Spacing } from '@/constants';
+import { useTranslation } from 'react-i18next'; // useTranslation import edildi
 
 interface Background {
   id: string;
@@ -23,6 +24,7 @@ export const BackgroundItem: React.FC<BackgroundItemProps> = ({
   isSelected,
   onPress,
 }) => {
+  const { t } = useTranslation(); // t hook'u kullanıldı
   return (
     <TouchableOpacity
       style={[
@@ -48,7 +50,7 @@ export const BackgroundItem: React.FC<BackgroundItemProps> = ({
         ) : (
           <View style={styles.placeholderContainer}>
             <Feather name="image" size={24} color={Colors.gray400} />
-            <Text style={styles.placeholderText}>Yükleniyor...</Text>
+            <Text style={styles.placeholderText}>{t('common.loading')}</Text> {/* Lokalize edildi */}
           </View>
         )}
       </View>

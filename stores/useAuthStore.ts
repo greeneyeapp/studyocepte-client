@@ -73,12 +73,12 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       });
       
       return true;
-    } catch (e: any) {
+    } catch (e: any) { // error type any eklendi
       const errorMessage = apiUtils.extractErrorMessage(e);
       set({ error: errorMessage });
       
       // Network hatasını kontrol et
-      if (errorMessage.includes('ağ') || errorMessage.includes('network')) {
+      if (errorMessage.includes(i18n.t('common.networkError')) || errorMessage.includes('network')) { // Lokalize edildi
         set({ isOnline: false });
       }
       
@@ -103,11 +103,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       });
       
       return true;
-    } catch (e: any) {
+    } catch (e: any) { // error type any eklendi
       const errorMessage = apiUtils.extractErrorMessage(e);
       set({ error: errorMessage });
       
-      if (errorMessage.includes('ağ') || errorMessage.includes('network')) {
+      if (errorMessage.includes(i18n.t('common.networkError')) || errorMessage.includes('network')) { // Lokalize edildi
         set({ isOnline: false });
       }
       
@@ -143,11 +143,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       });
       
       return true;
-    } catch (e: any) {
+    } catch (e: any) { // error type any eklendi
       const errorMessage = apiUtils.extractErrorMessage(e);
       set({ error: errorMessage });
       
-      if (errorMessage.includes('ağ') || errorMessage.includes('network')) {
+      if (errorMessage.includes(i18n.t('common.networkError')) || errorMessage.includes('network')) { // Lokalize edildi
         set({ isOnline: false });
       }
       
@@ -187,11 +187,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       });
       
       return true;
-    } catch (e: any) {
+    } catch (e: any) { // error type any eklendi
       const errorMessage = apiUtils.extractErrorMessage(e);
       set({ error: errorMessage });
       
-      if (errorMessage.includes('ağ') || errorMessage.includes('network')) {
+      if (errorMessage.includes(i18n.t('common.networkError')) || errorMessage.includes('network')) { // Lokalize edildi
         set({ isOnline: false });
       }
       
@@ -218,11 +218,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         user: userWithToken,
         isOnline: true 
       });
-    } catch (e: any) {
+    } catch (e: any) { // error type any eklendi
       // Profil refresh hatası kritik değil
       console.warn('Profile refresh failed:', apiUtils.extractErrorMessage(e));
       
-      if (apiUtils.extractErrorMessage(e).includes('ağ')) {
+      if (apiUtils.extractErrorMessage(e).includes(i18n.t('common.networkError'))) { // Lokalize edildi
         set({ isOnline: false });
       }
     }

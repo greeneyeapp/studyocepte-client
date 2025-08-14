@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { imageProcessor } from './imageProcessor';
 import { Asset } from 'expo-asset';
+import i18n from '@/i18n'; // i18n import edildi
 
 interface BackgroundThumbnail {
   id: string;
@@ -265,7 +266,8 @@ class BackgroundThumbnailManager {
       return thumbnailPath;
     } catch (error) {
       console.error('❌ Failed to create SUPER HIGH QUALITY background thumbnail for', backgroundId, ':', error);
-      return null;
+      // Lokalize edildi
+      throw new Error(i18n.t('backgrounds.loadFailed')); 
     }
   }
 

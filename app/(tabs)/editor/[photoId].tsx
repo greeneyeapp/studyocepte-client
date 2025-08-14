@@ -28,7 +28,7 @@ import { ExportToolbar } from '@/features/editor/components/ExportToolbar';
 import { BackgroundPickerToolbar } from '@/features/editor/components/BackgroundPickerToolbar';
 import { DraftManager } from '@/features/editor/components/DraftManager';
 
-import { ToolType, TargetType } from '@/features/editor/config/tools';
+import { ToolType, TargetType, MAIN_TOOLS, TARGET_SELECTOR } from '@/features/editor/config/tools';
 import { ADJUST_FEATURES, BACKGROUND_FEATURES } from '@/features/editor/config/features';
 import { ALL_FILTERS } from '@/features/editor/config/filters';
 import { Colors, Spacing, Typography } from '@/constants';
@@ -343,8 +343,21 @@ export default function EnhancedEditorScreen() {
 
   const handleResetAll = () => {
     console.log('🔄 Reset all settings');
-    resetAllSettings();
-    store.clearDraft();
+    DialogService.show({
+      title: t('editor.editorHeaderResetTitle'),
+      message: t('editor.editorHeaderResetMessage'),
+      buttons: [
+        {
+          text: t('common.cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('editor.reset'),
+          style: 'destructive',
+          onPress: resetAllSettings
+        }
+      ]
+    });
   };
 
   const handleCancel = () => {
@@ -449,6 +462,7 @@ export default function EnhancedEditorScreen() {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>{t('editor.previewLoading')}</Text>
       </SafeAreaView>
     );
   }
@@ -557,7 +571,7 @@ export default function EnhancedEditorScreen() {
                             <FeatureButton
                               key={f.key}
                               icon={f.icon}
-                              label={f.label}
+                              label={t(`editor.featureLabels.${f.key}`)} // Lokalize edildi
                               value={getSliderValue(f.key)}
                               isActive={activeFeature === f.key}
                               onPress={() => handleFeaturePress(f.key)}

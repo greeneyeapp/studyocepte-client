@@ -34,7 +34,7 @@ export default function LoginScreen() {
       ToastService.show(t('auth.emptyFieldsMessage'));
       return;
     }
-    
+
     // Doğru butonu loading durumuna getir
     setActiveAction(actionType);
 
@@ -42,12 +42,12 @@ export default function LoginScreen() {
     const success = actionType === 'login'
       ? await login(email, password)
       : await guestLogin();
-    
+
     // Eğer işlem BAŞARISIZ olursa, toast göster ve butonları tekrar aktif hale getir.
     if (!success) {
       const error = useAuthStore.getState().error;
-      const defaultMessage = actionType === 'login' ? t('auth.loginFailed') : 'Misafir Girişi Başarısız';
-      ToastService.show( t('auth.tryAgain'));
+      const defaultMessage = actionType === 'login' ? t('auth.loginFailed') : t('auth.guestLoginFailed');
+      ToastService.show(t('auth.tryAgain'));
       setActiveAction(null); // Butonları tekrar kullanılabilir yap
     }
     // Başarılı olursa hiçbir şey yapma. _layout.tsx geçişi yönetecek ve bu component zaten yok olacak.
@@ -60,33 +60,33 @@ export default function LoginScreen() {
           <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
             <View style={styles.formWrapper}>
               <View style={styles.headerContainer}>
-                <Text style={styles.title}>Stüdyo Cepte</Text>
+                <Text style={styles.title}>{t('appName')}</Text>
                 <Text style={styles.subtitle}>{t('auth.loginSubtitle')}</Text>
               </View>
               <View style={styles.formContainer}>
                 <TextInput placeholder={t('auth.emailPlaceholder')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
                 <TextInput placeholder={t('auth.passwordPlaceholder')} value={password} onChangeText={setPassword} secureTextEntry />
-                
+
                 {/* Her buton artık kendi LOKAL durumunu kontrol ediyor */}
-                <Button 
-                  title="Giriş Yap" 
-                  onPress={() => handleAction('login')} 
+                <Button
+                  title={t('auth.loginButton')}
+                  onPress={() => handleAction('login')}
                   loading={activeAction === 'login'} // Sadece bu butonun eylemi aktifse loading olur
                   disabled={activeAction !== null}  // Herhangi bir eylem aktifse ikisi de disabled olur
-                  size="medium" 
+                  size="medium"
                 />
-                <Button 
-                  title="Misafir Olarak Devam Et" 
-                  onPress={() => handleAction('guest')} 
-                  variant="outline" 
+                <Button
+                  title={t('auth.guestLoginButton')}
+                  onPress={() => handleAction('guest')}
+                  variant="outline"
                   loading={activeAction === 'guest'} // Sadece bu butonun eylemi aktifse loading olur
                   disabled={activeAction !== null}   // Herhangi bir eylem aktifse ikisi de disabled olur
-                  size="medium" 
-                  icon={<Feather name="user" size={18} color={Colors.primary} />} 
+                  size="medium"
+                  icon={<Feather name="user" size={18} color={Colors.primary} />}
                 />
               </View>
               <TouchableOpacity style={styles.registerLinkContainer} onPress={() => router.push('/(auth)/register')}>
-                <Text style={styles.registerText}>Hesabın yok mu? <Text style={styles.registerLink}>Kayıt Ol</Text></Text>
+                <Text style={styles.registerText}>{t('auth.noAccount')} <Text style={styles.registerLink}>{t('auth.registerNow')}</Text></Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
