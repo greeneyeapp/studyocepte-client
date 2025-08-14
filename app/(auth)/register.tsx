@@ -5,7 +5,7 @@ import {
   SafeAreaView, ScrollView, TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTranslation } from 'react-i18next'; // ADDED
+import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { Colors, Spacing, Typography, Layout } from '@/constants';
@@ -14,30 +14,30 @@ import { Button } from '@/components/Button';
 import { ToastService } from '@/components/Toast/ToastService';
 
 // --- Validasyon Yardımcı Fonksiyonları ---
-const validateName = (name: string, t: any): { isValid: boolean; message: string } => { // t prop added
+const validateName = (name: string): { isValid: boolean; message: string } => {
   const trimmedName = name.trim();
   if (!trimmedName.includes(' ')) {
-    return { isValid: false, message: t('auth.nameValidationSpace') }; // LOCALIZED
+    return { isValid: false, message: 'Lütfen adınızı ve soyadınızı aralarında boşluk bırakarak girin.' };
   }
   const parts = trimmedName.split(' ');
-  const firstName = parts; // Kept original logic (parts) for first name
+  const firstName = parts[0];
   const lastName = parts[parts.length - 1];
   if (firstName.length < 2 || lastName.length < 2) {
-    return { isValid: false, message: t('auth.nameValidationLength') }; // LOCALIZED
+    return { isValid: false, message: 'Adınız ve soyadınız en az 2 harften oluşmalıdır.' };
   }
   return { isValid: true, message: '' };
 };
 
-const validatePassword = (password: string, t: any): { isValid: boolean; message: string } => { // t prop added
+const validatePassword = (password: string): { isValid: boolean; message: string } => {
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(password)) {
-    return { isValid: false, message: t('auth.passwordValidationRules') }; // LOCALIZED
+    return { isValid: false, message: 'Şifre; en az 8 karakter, 1 büyük, 1 küçük harf, 1 rakam ve 1 özel karakter içermelidir.' };
   }
   return { isValid: true, message: '' };
 };
 
 export default function RegisterScreen() {
-  const { t } = useTranslation(); // ADDED
+  const { t } = useTranslation();
   const router = useRouter();
 
   const [name, setName] = useState('');
@@ -55,22 +55,22 @@ export default function RegisterScreen() {
     if (isRegistering) return;
 
     // Validasyonlar
-    const nameValidation = validateName(name, t); // t prop passed
+    const nameValidation = validateName(name);
     if (!nameValidation.isValid) {
       ToastService.show(nameValidation.message );
       return;
     }
     if (!email.trim()) {
-      ToastService.show(t('auth.emptyEmail')); // LOCALIZED
+      ToastService.show('E-posta alanı boş bırakılamaz.');
       return;
     }
-    const passwordValidation = validatePassword(password, t); // t prop passed
+    const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
       ToastService.show(passwordValidation.message);
       return;
     }
     if (password !== confirmPassword) {
-      ToastService.show(t('auth.passwordMismatchMessage') ); // LOCALIZED
+      ToastService.show(t('auth.passwordMismatchMessage') );
       return;
     }
 
@@ -82,8 +82,8 @@ export default function RegisterScreen() {
     // Eğer işlem BAŞARISIZ olursa, toast göster ve butonu tekrar aktif hale getir.
     if (!success) {
       const error = useAuthStore.getState().error;
-      ToastService.show( error || t('auth.tryAgain') ); // LOCALIZED
-      setRegistering(false); // Butonları tekrar kullanılabilir yap
+      ToastService.show( error || t('auth.tryAgain') );
+      setRegistering(false); // Butonu tekrar kullanılabilir yap
     }
     // Başarılı olursa hiçbir şey yapma. _layout.tsx geçişi yönetecek.
   };
@@ -95,19 +95,19 @@ export default function RegisterScreen() {
           <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
             <View style={styles.formWrapper}>
               <View style={styles.headerContainer}>
-                <Text style={styles.title}>{t('auth.createAccount')}</Text> {/* LOCALIZED */}
-                <Text style={styles.subtitle}>{t('auth.registerSubtitle')}</Text> {/* LOCALIZED */}
+                <Text style={styles.title}>Hesap Oluştur</Text>
+                <Text style={styles.subtitle}>{t('auth.registerSubtitle')}</Text>
               </View>
 
               <View style={styles.formContainer}>
-                <TextInput placeholder={t('auth.fullName')} value={name} onChangeText={setName} autoCapitalize="words" /> {/* LOCALIZED */}
-                <TextInput placeholder={t('auth.emailPlaceholder')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" /> {/* LOCALIZED */}
-                <TextInput placeholder={t('auth.passwordPlaceholder')} value={password} onChangeText={setPassword} secureTextEntry /> {/* LOCALIZED */}
-                <TextInput placeholder={t('auth.confirmPasswordPlaceholder')} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry /> {/* LOCALIZED */}
+                <TextInput placeholder="Ad Soyad" value={name} onChangeText={setName} autoCapitalize="words" />
+                <TextInput placeholder={t('auth.emailPlaceholder')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+                <TextInput placeholder={t('auth.passwordPlaceholder')} value={password} onChangeText={setPassword} secureTextEntry />
+                <TextInput placeholder={t('auth.confirmPasswordPlaceholder')} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
                 
                 {/* Buton artık kendi LOKAL durumunu kontrol ediyor */}
                 <Button 
-                  title={t('auth.registerButton')} // LOCALIZED
+                  title={t('auth.registerButton')} 
                   onPress={handleRegister} 
                   loading={isRegistering}
                   disabled={isRegistering} 
@@ -117,8 +117,8 @@ export default function RegisterScreen() {
 
               <TouchableOpacity style={styles.loginLinkContainer} onPress={() => router.push('/(auth)/login')}>
                 <Text style={styles.loginText}>
-                  {t('auth.alreadyHaveAccount')}{' '} {/* LOCALIZED */}
-                  <Text style={styles.loginLink}>{t('auth.loginNow')}</Text> {/* LOCALIZED */}
+                  Zaten bir hesabın var mı?{' '}
+                  <Text style={styles.loginLink}>Giriş Yap</Text>
                 </Text>
               </TouchableOpacity>
             </View>

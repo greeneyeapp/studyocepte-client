@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
-  TouchableOpacity, SafeAreaView,
+  TouchableOpacity, SafeAreaView, Linking, // Linking eklendi
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
@@ -10,7 +10,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { Card } from '@/components/Card';
 import { ToastService } from '@/components/Toast/ToastService';
-import { DialogService } from '@/components/Dialog/DialogService'; // Bu import önemli
+import { DialogService } from '@/components/Dialog/DialogService';
 
 // Akıllı Renk Seçen Profil Avatarı Bileşeni
 const ProfileAvatar: React.FC<{ name: string }> = ({ name }) => {
@@ -72,7 +72,6 @@ export default function SettingsScreen() {
 
   const handleBackPress = () => router.back();
 
-  // GÜNCELLEME: Çıkış onayı artık tasarıma uygun DialogService kullanıyor.
   const handleLogout = () => {
     DialogService.show({
       title: "Çıkış Yap",
@@ -85,6 +84,21 @@ export default function SettingsScreen() {
   };
 
   const getCurrentLanguageLabel = () => i18n.language === 'en' ? 'English' : 'Türkçe';
+
+  // Yeni URL açma fonksiyonları
+  const openPrivacyPolicy = () => {
+    Linking.openURL('https://greeneyeapp.com/legal/studyocepte-privacy').catch(err => {
+      console.error("Gizlilik Politikası açılamadı", err);
+      ToastService.error("Gizlilik politikası açılamadı.");
+    });
+  };
+
+  const openTermsOfUse = () => {
+    Linking.openURL('https://greeneyeapp.com/legal/studyocepte-terms').catch(err => {
+      console.error("Kullanım Koşulları açılamadı", err);
+      ToastService.error("Kullanım koşulları açılamadı.");
+    });
+  };
 
   if (!user) return <SafeAreaView style={styles.container} />;
 
@@ -134,6 +148,22 @@ export default function SettingsScreen() {
           <SectionHeader title="Destek ve Bilgi" icon="help-circle" />
           <Card padding="none" style={styles.settingsCard}>
             <ModernSettingCard icon="message-circle" title="Destek" subtitle="Yardım alın ve geri bildirimde bulunun" onPress={() => { }} iconColor="#10B981" />
+            {/* YENİ: Gizlilik Politikası */}
+            <ModernSettingCard 
+              icon="shield" 
+              title="Gizlilik Politikası" 
+              subtitle="Verileriniz nasıl işleniyor?" 
+              onPress={openPrivacyPolicy} 
+              iconColor="#28a745" // Yeşil
+            />
+            {/* YENİ: Kullanım Koşulları */}
+            <ModernSettingCard 
+              icon="file-text" 
+              title="Kullanım Koşulları" 
+              subtitle="Hizmet kullanım şartları" 
+              onPress={openTermsOfUse} 
+              iconColor="#007bff" // Mavi
+            />
             <ModernSettingCard icon="info" title="Hakkında" subtitle="Uygulama bilgileri ve sürüm" value="v1.0.0" onPress={() => { }} iconColor="#8B5CF6" />
             <ModernSettingCard icon="star" title="Uygulamayı Değerlendirin" subtitle="App Store'da bizi değerlendirin" onPress={() => { }} iconColor="#F59E0B" showChevron={false} isLast />
           </Card>
@@ -178,7 +208,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md, // Bu satırı değiştirin
+    paddingVertical: Spacing.md,
     backgroundColor: Colors.card,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
@@ -190,9 +220,9 @@ const styles = StyleSheet.create({
 
   profileCard: {
     marginBottom: Spacing.xl, borderRadius: BorderRadius.xl,
-    padding: Spacing.xl, // İçerik için padding eklendi
+    padding: Spacing.xl,
   },
-  profileCardContent: { // İçeriği ortalamak için yeni stil
+  profileCardContent: {
     alignItems: 'center',
   },
   userName: {

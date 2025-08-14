@@ -1,4 +1,4 @@
-// features/editor/components/ExportComponents.tsx - HIZLI EXPORT DESTEKLİ VERSİYON
+// features/editor/components/ExportComponents.tsx
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
@@ -78,7 +78,7 @@ export const ShareOptionButton: React.FC<ShareOptionButtonProps> = ({
     switch (type) {
       case 'gallery': return '#34C759';
       case 'generic': return Colors.primary;
-      case 'quick_custom': return '#FF9500'; // Turuncu renk
+      // case 'quick_custom' kaldırıldı
       default: return Colors.primary;
     }
   };
@@ -87,7 +87,7 @@ export const ShareOptionButton: React.FC<ShareOptionButtonProps> = ({
     switch (type) {
       case 'gallery': return 'Seçili format ile kaydet';
       case 'generic': return 'Seçili format ile paylaş';
-      case 'quick_custom': return 'Hızlı boyut belirle';
+      // case 'quick_custom' kaldırıldı
       default: return '';
     }
   };
@@ -103,19 +103,14 @@ export const ShareOptionButton: React.FC<ShareOptionButtonProps> = ({
     >
       <View style={[styles.shareIconContainer, { backgroundColor: optionColor }]}>
         <Feather name={option.icon as any} size={20} color={Colors.card} />
-        
-        {/* Hızlı export için özel işaret */}
-        {option.type === 'quick_custom' && (
-          <View style={styles.quickBadge}>
-            <Feather name="zap" size={10} color={Colors.card} />
-          </View>
-        )}
+
+        {/* Hızlı export için özel işaret kaldırıldı */}
       </View>
-      
+
       <Text style={[styles.shareText, disabled && styles.shareTextDisabled]}>
         {option.name}
       </Text>
-      
+
       <Text style={[styles.shareDescription, disabled && styles.shareTextDisabled]}>
         {getOptionDescription(option.type)}
       </Text>
@@ -142,7 +137,7 @@ export const ExportPreview: React.FC<ExportPreviewProps> = ({
 
   return (
     <View style={styles.previewContainer}>
-      <View 
+      <View
         style={[
           styles.previewFrame,
           {
@@ -265,19 +260,7 @@ const styles = StyleSheet.create({
     elevation: 4,
     position: 'relative',
   },
-  quickBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#FF6B35',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.card,
-  },
+  // quickBadge kaldırıldı
   shareText: {
     ...Typography.captionMedium,
     color: Colors.textPrimary,

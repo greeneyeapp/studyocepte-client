@@ -1,3 +1,4 @@
+// client/app/(auth)/login.tsx - TAM VE DOĞRU ÇÖZÜM
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, KeyboardAvoidingView, Platform,
@@ -6,85 +7,50 @@ import {
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { Colors, Spacing, Typography, Layout } from '@/constants';
 import { TextInput } from '@/components/TextInput';
 import { Button } from '@/components/Button';
 import { ToastService } from '@/components/Toast/ToastService';
 
-// --- Validasyon Yardımcı Fonksiyonları ---
-const validateName = (name: string): { isValid: boolean; message: string } => {
-  const trimmedName = name.trim();
-  if (!trimmedName.includes(' ')) {
-    return { isValid: false, message: 'Lütfen adınızı ve soyadınızı aralarında boşluk bırakarak girin.' };
-  }
-  const parts = trimmedName.split(' ');
-  const firstName = parts[0];
-  const lastName = parts[parts.length - 1];
-  if (firstName.length < 2 || lastName.length < 2) {
-    return { isValid: false, message: 'Adınız ve soyadınız en az 2 harften oluşmalıdır.' };
-  }
-  return { isValid: true, message: '' };
-};
-
-const validatePassword = (password: string): { isValid: boolean; message: string } => {
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-  if (!passwordRegex.test(password)) {
-    return { isValid: false, message: 'Şifre; en az 8 karakter, 1 büyük, 1 küçük harf, 1 rakam ve 1 özel karakter içermelidir.' };
-  }
-  return { isValid: true, message: '' };
-};
-
-export default function RegisterScreen() {
+export default function LoginScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const { login, guestLogin } = useAuthStore();
 
-  const { register } = useAuthStore();
-  
-  // YENİ: Butonun yüklenme durumunu yönetmek için LOKAL state.
-  const [isRegistering, setRegistering] = useState(false);
+  // YENİ: Hangi eylemin aktif olduğunu tutan LOKAL state.
+  // Bu state, butonların görünümünü yönetecek.
+  const [activeAction, setActiveAction] = useState<'login' | 'guest' | null>(null);
 
-  const handleRegister = async () => {
-    // Zaten bir kayıt işlemi devam ediyorsa tekrar tıklamayı engelle
-    if (isRegistering) return;
+  const handleAction = async (actionType: 'login' | 'guest') => {
+    // Zaten bir işlem devam ediyorsa tekrar tıklamayı engelle
+    if (activeAction) return;
 
-    // Validasyonlar
-    const nameValidation = validateName(name);
-    if (!nameValidation.isValid) {
-      ToastService.show(nameValidation.message );
+    // Giriş yapma eylemi için validasyon
+    if (actionType === 'login' && (!email.trim() || !password.trim())) {
+      ToastService.show(t('auth.emptyFieldsMessage'));
       return;
     }
-    if (!email.trim()) {
-      ToastService.show('E-posta alanı boş bırakılamaz.');
-      return;
-    }
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.isValid) {
-      ToastService.show(passwordValidation.message);
-      return;
-    }
-    if (password !== confirmPassword) {
-      ToastService.show(t('auth.passwordMismatchMessage') );
-      return;
-    }
-
-    // Butonu loading durumuna getir
-    setRegistering(true);
-
-    const success = await register(name.trim(), email.trim(), password);
     
-    // Eğer işlem BAŞARISIZ olursa, toast göster ve butonu tekrar aktif hale getir.
+    // Doğru butonu loading durumuna getir
+    setActiveAction(actionType);
+
+    // Store'daki ilgili fonksiyonu çağır
+    const success = actionType === 'login'
+      ? await login(email, password)
+      : await guestLogin();
+    
+    // Eğer işlem BAŞARISIZ olursa, toast göster ve butonları tekrar aktif hale getir.
     if (!success) {
       const error = useAuthStore.getState().error;
-      ToastService.show( error || t('auth.tryAgain') );
-      setRegistering(false); // Butonu tekrar kullanılabilir yap
+      const defaultMessage = actionType === 'login' ? t('auth.loginFailed') : 'Misafir Girişi Başarısız';
+      ToastService.show( t('auth.tryAgain'));
+      setActiveAction(null); // Butonları tekrar kullanılabilir yap
     }
-    // Başarılı olursa hiçbir şey yapma. _layout.tsx geçişi yönetecek.
+    // Başarılı olursa hiçbir şey yapma. _layout.tsx geçişi yönetecek ve bu component zaten yok olacak.
   };
 
   return (
@@ -94,31 +60,33 @@ export default function RegisterScreen() {
           <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
             <View style={styles.formWrapper}>
               <View style={styles.headerContainer}>
-                <Text style={styles.title}>Hesap Oluştur</Text>
-                <Text style={styles.subtitle}>{t('auth.registerSubtitle')}</Text>
+                <Text style={styles.title}>Stüdyo Cepte</Text>
+                <Text style={styles.subtitle}>{t('auth.loginSubtitle')}</Text>
               </View>
-
               <View style={styles.formContainer}>
-                <TextInput placeholder="Ad Soyad" value={name} onChangeText={setName} autoCapitalize="words" />
                 <TextInput placeholder={t('auth.emailPlaceholder')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
                 <TextInput placeholder={t('auth.passwordPlaceholder')} value={password} onChangeText={setPassword} secureTextEntry />
-                <TextInput placeholder={t('auth.confirmPasswordPlaceholder')} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
                 
-                {/* Buton artık kendi LOKAL durumunu kontrol ediyor */}
+                {/* Her buton artık kendi LOKAL durumunu kontrol ediyor */}
                 <Button 
-                  title={t('auth.registerButton')} 
-                  onPress={handleRegister} 
-                  loading={isRegistering}
-                  disabled={isRegistering} 
-                  size="medium"
+                  title="Giriş Yap" 
+                  onPress={() => handleAction('login')} 
+                  loading={activeAction === 'login'} // Sadece bu butonun eylemi aktifse loading olur
+                  disabled={activeAction !== null}  // Herhangi bir eylem aktifse ikisi de disabled olur
+                  size="medium" 
+                />
+                <Button 
+                  title="Misafir Olarak Devam Et" 
+                  onPress={() => handleAction('guest')} 
+                  variant="outline" 
+                  loading={activeAction === 'guest'} // Sadece bu butonun eylemi aktifse loading olur
+                  disabled={activeAction !== null}   // Herhangi bir eylem aktifse ikisi de disabled olur
+                  size="medium" 
+                  icon={<Feather name="user" size={18} color={Colors.primary} />} 
                 />
               </View>
-
-              <TouchableOpacity style={styles.loginLinkContainer} onPress={() => router.push('/(auth)/login')}>
-                <Text style={styles.loginText}>
-                  Zaten bir hesabın var mı?{' '}
-                  <Text style={styles.loginLink}>Giriş Yap</Text>
-                </Text>
+              <TouchableOpacity style={styles.registerLinkContainer} onPress={() => router.push('/(auth)/register')}>
+                <Text style={styles.registerText}>Hesabın yok mu? <Text style={styles.registerLink}>Kayıt Ol</Text></Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -139,7 +107,7 @@ const styles = StyleSheet.create({
   title: { ...Typography.h1, color: Colors.textPrimary, marginBottom: Spacing.sm },
   subtitle: { ...Typography.body, color: Colors.textSecondary, textAlign: 'center' },
   formContainer: { gap: Spacing.md },
-  loginLinkContainer: { marginTop: Spacing.xl, alignItems: 'center' },
-  loginText: { ...Typography.body, color: Colors.textPrimary },
-  loginLink: { color: Colors.primary, fontWeight: '600' },
+  registerLinkContainer: { marginTop: Spacing.xl, alignItems: 'center' },
+  registerText: { ...Typography.body, color: Colors.textPrimary },
+  registerLink: { color: Colors.primary, fontWeight: '600' },
 });

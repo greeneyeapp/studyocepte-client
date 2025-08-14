@@ -1,4 +1,4 @@
-// features/editor/components/ExportToolbar.tsx - SİMPLİFİİED EXPORT TOOLBAR (GALERİ VE PAYLAŞ BUTONLARI ALT MENÜYE TAŞINDI, BUTON GÖRÜNÜRLÜĞÜ DÜZELTİLDİ, 'FORMAT SEÇİN' ALANI VE BOŞ ALANI TAMAMEN KALDIRILDI VE SEÇİM DOĞRUDAN BOTTOMSHEET'İ TETİKLER)
+// features/editor/components/ExportToolbar.tsx
 
 import React, { useState } from 'react';
 import { View, ScrollView, Text, StyleSheet, TouchableOpacity, LayoutAnimation, ActivityIndicator } from 'react-native';
@@ -6,7 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants';
 import { EXPORT_PRESETS, SHARE_OPTIONS, EXPORT_CATEGORIES, ExportPreset, ShareOption } from '../config/exportTools';
 import { ToastService } from '@/components/Toast/ToastService';
-import { BottomSheetService, BottomSheetAction } from '@/components/BottomSheet/BottomSheetService'; // BottomSheetService import edildi
+import { BottomSheetService, BottomSheetAction } from '@/components/BottomSheet/BottomSheetService';
 
 interface ExportToolbarProps {
   selectedPreset: ExportPreset | null;
@@ -67,12 +67,12 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('social');
 
-  // KESİN ÇÖZÜM: handlePresetSelect artık doğrudan BottomSheet'i tetikleyecek
+  // `handlePresetSelect` artık doğrudan `BottomSheet`'i tetikler
   const handlePresetSelect = (preset: ExportPreset) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    
+
     // Preset'i seçili olarak ayarla (UI'da checkmark'ın görünmesi için)
-    setSelectedPreset(preset); 
+    setSelectedPreset(preset);
 
     // BottomSheet için aksiyonları hazırla
     const actions: BottomSheetAction[] = SHARE_OPTIONS.map(option => ({
@@ -82,9 +82,8 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
       // Doğrudan shareWithOption'ı çağır, selectedPreset'i burada gönderiyoruz
       onPress: () => {
         // BottomSheet kapanırken animation sorununu engellemek için küçük bir gecikme
-        // ve View referansının stabil hale gelmesi için daha uzun bir gecikme ekledik.
-        setTimeout(() => shareWithOption(option, preset), 300); // 100ms'den 300ms'ye çıkarıldı
-      }, 
+        setTimeout(() => shareWithOption(option, preset), 300);
+      },
     }));
 
     // BottomSheet'i göster
@@ -95,31 +94,31 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
   };
 
   const filteredPresets = EXPORT_PRESETS.filter(p => p.category === selectedCategory);
-  
+
   return (
     <View style={styles.container}>
       {/* KESİN ÇÖZÜM: actionsSection tamamen kaldırıldı. Export sayfasında üst kısımda boş alan kalmayacak. */}
       {/* selectedPreset null ise hiçbir şey render edilmiyor, selectedPreset varsa da o alan render edilmiyor */}
-      
+
       {/* Kategori Seçici */}
       <View style={styles.categorySection}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
           {EXPORT_CATEGORIES.map((category) => (
-            <TouchableOpacity 
-              key={category.key} 
+            <TouchableOpacity
+              key={category.key}
               style={[
-                styles.categoryChip, 
+                styles.categoryChip,
                 selectedCategory === category.key && styles.categoryChipActive
-              ]} 
+              ]}
               onPress={() => setSelectedCategory(category.key)}
             >
-              <Feather 
-                name={category.icon as any} 
-                size={14} 
-                color={selectedCategory === category.key ? Colors.card : Colors.textSecondary} 
+              <Feather
+                name={category.icon as any}
+                size={14}
+                color={selectedCategory === category.key ? Colors.card : Colors.textSecondary}
               />
               <Text style={[
-                styles.categoryChipText, 
+                styles.categoryChipText,
                 selectedCategory === category.key && styles.categoryChipTextActive
               ]}>
                 {category.name}
@@ -132,12 +131,12 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
       {/* Preset Listesi */}
       <ScrollView style={styles.presetsSection} contentContainerStyle={styles.presetsContainer}>
         {filteredPresets.map((preset) => (
-          <CompactPresetCard 
-            key={preset.id} 
-            preset={preset} 
-            isSelected={selectedPreset?.id === preset.id} 
+          <CompactPresetCard
+            key={preset.id}
+            preset={preset}
+            isSelected={selectedPreset?.id === preset.id}
             // KESİN ÇÖZÜM: onPress artık doğrudan handlePresetSelect'i çağırıyor
-            onPress={() => handlePresetSelect(preset)} 
+            onPress={() => handlePresetSelect(preset)}
           />
         ))}
         <View style={{ height: 40 }} />
@@ -147,36 +146,14 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: Colors.background 
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background
   },
-  
-  // KESİN ÇÖZÜM: actionsSection stili artık JSX'te ilgili View render edilmediği için kullanılmıyor.
-  // Ancak referans olarak burada bırakılabilir.
-  actionsSection: { 
-    backgroundColor: Colors.card, 
-    padding: Spacing.lg, 
-    borderBottomWidth: 1, 
-    borderBottomColor: Colors.border, 
-    minHeight: 140, // Bu minHeight artık kullanılmayacak
-    justifyContent: 'center',
-    alignItems: 'center', 
-  },
-  
-  sectionTitleSmall: { 
-    ...Typography.h3, 
-    color: Colors.textPrimary, 
-    textAlign: 'center', 
-    marginBottom: Spacing.xs 
-  },
-  selectedPresetInfoSmall: { 
-    ...Typography.body,
-    color: Colors.textSecondary, 
-    textAlign: 'center', 
-    marginBottom: Spacing.lg 
-  },
-  
+
+  // `actionsSection` ve ilgili stilleri kaldırıldı.
+  // sectionTitleSmall ve selectedPresetInfoSmall artık kullanılmadığı için kaldırılabilir.
+
   exportMainButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -201,103 +178,103 @@ const styles = StyleSheet.create({
     color: Colors.card,
     fontWeight: '600',
   },
-  
-  noSelectionContainer: { 
-    alignItems: 'center', 
-    justifyContent: 'center', 
+
+  noSelectionContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: Spacing.xl,
-    flex: 1, 
+    flex: 1,
   },
-  
-  categorySection: { 
-    backgroundColor: Colors.card, 
-    paddingVertical: Spacing.md, 
-    borderBottomWidth: 1, 
-    borderBottomColor: Colors.border 
+
+  categorySection: {
+    backgroundColor: Colors.card,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border
   },
-  
-  categoryScroll: { 
-    paddingHorizontal: Spacing.md, 
-    gap: Spacing.sm 
+
+  categoryScroll: {
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm
   },
-  
-  categoryChip: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingHorizontal: Spacing.md, 
-    paddingVertical: Spacing.sm, 
-    borderRadius: BorderRadius.full, 
-    backgroundColor: Colors.gray100, 
-    borderWidth: 1, 
-    borderColor: "transparent", 
-    gap: Spacing.xs 
+
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.gray100,
+    borderWidth: 1,
+    borderColor: "transparent",
+    gap: Spacing.xs
   },
-  
-  categoryChipActive: { 
-    backgroundColor: Colors.primary, 
-    borderColor: Colors.primary 
+
+  categoryChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary
   },
-  
-  categoryChipText: { 
-    ...Typography.caption, 
-    fontWeight: '500', 
-    color: Colors.textSecondary 
+
+  categoryChipText: {
+    ...Typography.caption,
+    fontWeight: '500',
+    color: Colors.textSecondary
   },
-  
-  categoryChipTextActive: { 
-    color: Colors.card 
+
+  categoryChipTextActive: {
+    color: Colors.card
   },
-  
-  presetsSection: { 
-    flex: 1 
+
+  presetsSection: {
+    flex: 1
   },
-  
-  presetsContainer: { 
-    padding: Spacing.md 
+
+  presetsContainer: {
+    padding: Spacing.md
   },
-  
-  compactCard: { 
-    backgroundColor: Colors.card, 
-    borderRadius: BorderRadius.md, 
-    padding: Spacing.md, 
-    marginBottom: Spacing.sm, 
-    borderWidth: 1, 
-    borderColor: Colors.border 
+
+  compactCard: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border
   },
-  
-  compactCardSelected: { 
-    borderColor: Colors.primary, 
-    borderWidth: 2, 
-    backgroundColor: Colors.primary + '05' 
+
+  compactCardSelected: {
+    borderColor: Colors.primary,
+    borderWidth: 2,
+    backgroundColor: Colors.primary + '05'
   },
-  
-  compactHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: Spacing.md 
+
+  compactHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md
   },
-  
-  compactIcon: { 
-    width: 32, 
-    height: 32, 
-    borderRadius: BorderRadius.sm, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+
+  compactIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: BorderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  
-  compactInfo: { 
-    flex: 1 
+
+  compactInfo: {
+    flex: 1
   },
-  
-  compactTitle: { 
-    ...Typography.bodyMedium, 
-    color: Colors.textPrimary, 
-    fontWeight: '600' 
+
+  compactTitle: {
+    ...Typography.bodyMedium,
+    color: Colors.textPrimary,
+    fontWeight: '600'
   },
-  
-  compactDimensions: { 
-    ...Typography.caption, 
-    color: Colors.textSecondary, 
-    marginTop: 2 
+
+  compactDimensions: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginTop: 2
   },
 });

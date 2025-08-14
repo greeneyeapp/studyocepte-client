@@ -1,4 +1,4 @@
-// services/exportService.ts - HIZLI EXPORT DESTEKLİ VERSİYON
+// services/exportService.ts
 
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
@@ -18,19 +18,19 @@ export class ExportService {
    */
   private static async writeBase64ToFile(base64Data: string, filename: string): Promise<string> {
     const fileUri = FileSystem.cacheDirectory + filename;
-    
+
     console.log('💾 Writing file:', filename, 'Size:', base64Data.length);
-    
+
     await FileSystem.writeAsStringAsync(fileUri, base64Data, {
       encoding: FileSystem.EncodingType.Base64,
     });
-    
+
     // Dosyanın gerçekten oluştuğunu kontrol et
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
     if (!fileInfo.exists) {
       throw new Error('Dosya oluşturulamadı');
     }
-    
+
     console.log('✅ File created successfully:', fileInfo.size, 'bytes');
     return fileUri;
   }
@@ -52,18 +52,19 @@ export class ExportService {
     try {
       fileUri = await this.writeBase64ToFile(base64Data, filename);
 
-      if (shareOption.type === 'gallery' || shareOption.type === 'quick_custom') {
+      // `quick_custom` tipi kaldırıldığı için sadece 'gallery' tipi kontrol edildi.
+      if (shareOption.type === 'gallery') {
         // Galeri izni iste
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status !== 'granted') {
           throw new Error('Galeri izni gerekli. Lütfen ayarlardan izin verin.');
         }
-        
+
         // Galeriye kaydet
         const asset = await MediaLibrary.createAssetAsync(fileUri);
         console.log('📱 Saved to gallery:', asset.id);
-        
-      } else {
+
+      } else { // Artık sadece 'generic' paylaşım kalıyor
         // Generic paylaşım
         const isAvailable = await Sharing.isAvailableAsync();
         if (!isAvailable) {
@@ -93,38 +94,6 @@ export class ExportService {
   }
 
   /**
-   * Hızlı export için özel fonksiyon
+   * `quickExport` fonksiyonu tamamen kaldırıldı.
    */
-  static async quickExport(
-    base64Data: string, 
-    width: number, 
-    height: number
-  ): Promise<void> {
-    const preset: ExportPreset = {
-      id: `quick_${Date.now()}`,
-      name: `Özel ${width}×${height}`,
-      description: `Hızlı export`,
-      dimensions: { width, height },
-      format: 'png',
-      quality: 0.95,
-      category: 'custom',
-      icon: 'zap',
-    };
-
-    const shareOption: ShareOption = {
-      id: 'quick_gallery',
-      name: 'Hızlı Kaydet',
-      icon: 'zap',
-      type: 'quick_custom',
-    };
-
-    const filename = `studyo-cepte-quick-${width}x${height}-${Date.now()}.png`;
-
-    await this.shareWithOption({
-      shareOption,
-      preset,
-      base64Data,
-      filename,
-    });
-  }
 }

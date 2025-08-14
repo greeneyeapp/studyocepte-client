@@ -1,4 +1,5 @@
 // services/backgroundThumbnailManager.ts - 600x600 PNG SÜPER YÜKSEK KALİTE
+
 import * as FileSystem from 'expo-file-system';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { imageProcessor } from './imageProcessor';
@@ -14,6 +15,11 @@ interface BackgroundThumbnail {
 interface BackgroundCache {
   [backgroundId: string]: BackgroundThumbnail;
 }
+
+// YENİ: Hex renk kodu kontrolü için yardımcı fonksiyon
+const isHexColor = (str: string): boolean => {
+  return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3}|[A-Fa-f0-9]{8})$/.test(str);
+};
 
 /**
  * ⭐ SÜPER YÜKSEK KALİTE: 600x600 PNG Background thumbnail cache ve optimization manager
@@ -139,6 +145,12 @@ class BackgroundThumbnailManager {
     try {
       await this.initializeCache();
 
+      // YENİ: Eğer fullImageModule bir hex renk kodu ise, onu doğrudan döndür.
+      if (typeof fullImageModule === 'string' && isHexColor(fullImageModule)) {
+        console.log('🎨 Hex color detected, returning directly:', fullImageModule);
+        return fullImageModule;
+      }
+
       // Cache'de var mı kontrol et
       const cached = this.cache[backgroundId];
       if (cached) {
@@ -171,6 +183,8 @@ class BackgroundThumbnailManager {
           }
         } catch (assetError) {
           console.warn('⚠️ Asset loading failed, using fallback:', backgroundId, assetError);
+          // Fallback URI, asset'in yüklenememesi durumunda kullanılabilir.
+          // Bu, genellikle sadece Android'de `require` edilmiş yerel varlıklar için geçerlidir.
           fullImageUriString = `android.resource://com.greeneyeapp.studyocepte/${fullImageModule}`;
         }
       } else {
@@ -211,6 +225,12 @@ class BackgroundThumbnailManager {
    * ⭐ SÜPER YÜKSEK KALİTE: 600x600 PNG Background thumbnail oluştur
    */
   private async createSuperHighQualityThumbnail(backgroundId: string, fullImageUri: string): Promise<string | null> {
+    // YENİ: Eğer fullImageUri bir hex renk kodu ise, thumbnail oluşturmaya çalışma
+    if (isHexColor(fullImageUri)) {
+      console.log('🎨 Skipping thumbnail creation for hex color:', fullImageUri);
+      return fullImageUri; // Zaten bir renk kodu olduğu için doğrudan döndür
+    }
+
     try {
       const thumbnailFilename = `bg_thumb_super_hq_${backgroundId}_${Date.now()}.png`; // ⭐ PNG format
       const thumbnailPath = this.cacheDirectory + thumbnailFilename;
@@ -276,6 +296,12 @@ class BackgroundThumbnailManager {
     try {
       const thumbnail = this.cache[backgroundId];
       if (thumbnail) {
+        // YENİ: Eğer thumbnailUri bir renk kodu ise silmeye çalışma
+        if (isHexColor(thumbnail.thumbnailUri)) {
+          console.log('🎨 Skipping deletion for hex color thumbnail:', backgroundId);
+          delete this.cache[backgroundId];
+          return;
+        }
         await FileSystem.deleteAsync(thumbnail.thumbnailUri, { idempotent: true });
         delete this.cache[backgroundId];
         console.log('🗑️ SUPER HIGH QUALITY background thumbnail deleted:', backgroundId);
@@ -343,6 +369,12 @@ class BackgroundThumbnailManager {
 
     const results = await Promise.allSettled(
       backgrounds.map(async (bg) => {
+        // YENİ: Eğer background bir renk kodu ise, pre-cache'i atla
+        if (typeof bg.fullUrl === 'string' && isHexColor(bg.fullUrl)) {
+          console.log('🎨 Skipping preload for hex color background:', bg.id);
+          return null;
+        }
+
         try {
           const result = await this.getThumbnail(bg.id, bg.fullUrl);
           if (result) {
@@ -388,6 +420,11 @@ class BackgroundThumbnailManager {
       const idsToRemove: string[] = [];
 
       for (const [backgroundId, thumbnail] of Object.entries(this.cache)) {
+        // YENİ: Eğer thumbnailUri bir renk kodu ise dosya varlığını kontrol etmeye çalışma
+        if (isHexColor(thumbnail.thumbnailUri)) {
+          continue;
+        }
+
         try {
           const fileInfo = await FileSystem.getInfoAsync(thumbnail.thumbnailUri);
           if (!fileInfo.exists) {

@@ -1,4 +1,5 @@
-// features/editor/hooks/useExportManager.ts - YÜKSEK KALİTE EXPORT SİSTEMİ
+// features/editor/hooks/useExportManager.ts
+
 import { useState, useRef, useCallback } from 'react';
 import { View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
@@ -19,10 +20,10 @@ export const useExportManager = () => {
    */
   const waitForViewRef = async (maxRetries: number = 60, retryInterval: number = 100): Promise<boolean> => {
     console.log('🔍 HIGH QUALITY ref waiting started...', { maxRetries, retryInterval });
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       const hasDirectRef = !!viewRef.current;
-      
+
       // Test capture ile gerçek hazırlığı kontrol et
       if (hasDirectRef) {
         try {
@@ -30,34 +31,34 @@ export const useExportManager = () => {
           const testResult = await captureRef(viewRef, {
             format: 'png',
             quality: 1.0, // 0.5 → 1.0 (yüksek kalite test)
-            width: 200,   // 100 → 200 (daha büyük test boyutu)
-            height: 200,  // 100 → 200
+            width: 200, // 100 → 200 (daha büyük test boyutu)
+            height: 200, // 100 → 200
             result: 'tmpfile',
           });
-          
+
           // Test dosyasını hemen sil
           try {
             await FileSystem.deleteAsync(testResult, { idempotent: true });
           } catch {}
-          
+
           console.log(`✅ HIGH QUALITY ref ready and working! Attempt: ${attempt}/${maxRetries}`);
           return true;
-          
-        } catch (captureError) {
+
+        } catch (captureError: any) {
           console.log(`⚠️ Ref exists but capture failed (${attempt}/${maxRetries}):`, captureError.message);
         }
       } else {
         console.log(`🔍 Ref not available yet (${attempt}/${maxRetries})`);
       }
-      
+
       // Her 10 denemede bir progress logu
       if (attempt % 10 === 0) {
         console.log(`⏳ HIGH QUALITY ref waiting... ${attempt}/${maxRetries} (${(attempt * retryInterval)}ms) - hasRef: ${hasDirectRef}`);
       }
-      
+
       await new Promise(resolve => setTimeout(resolve, retryInterval));
     }
-    
+
     console.error(`❌ HIGH QUALITY ref not ready after ${maxRetries * retryInterval}ms`);
     return false;
   };
@@ -66,7 +67,9 @@ export const useExportManager = () => {
    * ⭐ YÜKSEK KALİTE: RETRY MEKANİZMASI ile export fonksiyonu
    */
   const shareWithOption = async (shareOption: ShareOption, preset?: ExportPreset) => {
-    if (!preset && shareOption.type !== 'quick_custom') {
+    // `quick_custom` kaldırıldığı için, bu kontrolü basitleştiriyoruz.
+    // Artık `preset` her zaman beklenen bir `ExportPreset` olmalı.
+    if (!preset) { // `shareOption.type !== 'quick_custom'` koşulu kaldırıldı
       ToastService.show('Lütfen bir format seçin');
       return;
     }
@@ -78,7 +81,7 @@ export const useExportManager = () => {
       // 1. Ref'in hazır olmasını bekle - daha uzun süre
       console.log('🔄 HIGH QUALITY export starting, waiting for ref...');
       const refReady = await waitForViewRef(60, 100); // 6 saniye toplam
-      
+
       if (!refReady) {
         throw new Error('Yüksek kalite önizleme görüntüsü hazır değil. Lütfen tekrar deneyin.');
       }
@@ -93,16 +96,10 @@ export const useExportManager = () => {
         canMeasure: !!(viewRef.current as any)?.measure,
       });
 
-      const exportPreset = preset || {
-        id: 'quick_default', 
-        name: 'Yüksek Kalite Export', 
-        description: 'Varsayılan yüksek kalite boyut',
-        dimensions: { width: 1080, height: 1080 }, 
-        format: 'png' as const, 
-        quality: 1.0, // ⭐ YÜKSEK KALİTE: 0.95 → 1.0
-        category: 'custom' as const, 
-        icon: 'zap',
-      };
+      // `quick_default` veya benzeri bir varsayılan preset tanımı,
+      // `quick_custom` tipinin kaldırılmasıyla artık kullanılmayacak.
+      // Bu kod bloğunu tamamen kaldırabilirsiniz.
+      const exportPreset = preset; // Artık `preset` her zaman tanımlı olacak.
 
       console.log('🖼️ HIGH QUALITY capture starting...', {
         format: exportPreset.format,
@@ -112,13 +109,13 @@ export const useExportManager = () => {
 
       // 3. ⭐ SÜPER YÜKSEK KALİTE: ÜÇ AŞAMALI CAPTURE SİSTEMİ
       console.log('🖼️ Starting SUPER HIGH QUALITY three-stage capture system...');
-      
+
       // Aşama 1: ULTRA yüksek çözünürlükte PNG capture (kayıpsız)
       const ultraHighResWidth = Math.max(4096, exportPreset.dimensions.width * 2); // 2x büyük
       const ultraHighResHeight = Math.max(4096, exportPreset.dimensions.height * 2);
-      
+
       console.log('📸 Stage 1: ULTRA HIGH RES capture...', { ultraHighResWidth, ultraHighResHeight });
-      
+
       const ultraHighResUri = await captureRef(viewRef, {
         format: 'png', // PNG = lossless
         quality: 1.0,   // Maksimum kalite
@@ -130,14 +127,14 @@ export const useExportManager = () => {
 
       console.log('✅ ULTRA HIGH RES capture completed:', ultraHighResUri);
 
-      // Aşama 2: Yüksek kalite ara resize (2x hedef boyut)
+      // Aşama 2: Yüksek kalite ara resize (1.5x hedef boyut)
       const { manipulateAsync, SaveFormat } = await import('expo-image-manipulator');
-      
+
       const intermediateWidth = exportPreset.dimensions.width * 1.5; // 1.5x hedef boyut
       const intermediateHeight = exportPreset.dimensions.height * 1.5;
-      
+
       console.log('📸 Stage 2: Intermediate resize...', { intermediateWidth, intermediateHeight });
-      
+
       const intermediateResult = await manipulateAsync(
         ultraHighResUri,
         [
@@ -158,7 +155,7 @@ export const useExportManager = () => {
 
       // Aşama 3: Final hedef boyuta optimize resize
       console.log('📸 Stage 3: Final optimize resize...');
-      
+
       const finalResult = await manipulateAsync(
         intermediateResult.uri,
         [
@@ -214,9 +211,7 @@ export const useExportManager = () => {
       let successMessage = '';
       if (shareOption.type === 'gallery') {
         successMessage = `${exportPreset.name} yüksek kalite formatında galeriye kaydedildi`;
-      } else if (shareOption.type === 'quick_custom') {
-        successMessage = `Özel yüksek kalite boyutta görüntü galeriye kaydedildi`;
-      } else {
+      } else { // `shareOption.type === 'quick_custom'` kontrolü kaldırıldı
         successMessage = `${exportPreset.name} yüksek kalite formatında paylaşım başarılı`;
       }
 
@@ -225,10 +220,10 @@ export const useExportManager = () => {
 
     } catch (error: any) {
       console.error('❌ HIGH QUALITY export failed:', error);
-      
+
       // Kullanıcı dostu hata mesajları
       let userMessage = error.message;
-      
+
       if (error.message.includes('timeout') || error.message.includes('null')) {
         userMessage = 'Yüksek kalite görüntü hazırlanırken zaman aşımı. Lütfen tekrar deneyin.';
       } else if (error.message.includes('capture')) {
@@ -236,9 +231,9 @@ export const useExportManager = () => {
       } else if (error.message.includes('permission')) {
         userMessage = 'Galeri izni gerekli. Ayarlardan izin verin.';
       }
-      
+
       ToastService.show(userMessage);
-      
+
     } finally {
       setIsExporting(false);
       LoadingService.hide();
@@ -261,7 +256,7 @@ export const useExportManager = () => {
     skiaViewRef: viewRef, // EditorPreview'da kullanılacak
     shareWithOption,
     debugRefStatus, // Development için
-    
+
     // Export durumu kontrolü
     isRefReady: !!viewRef.current,
   };

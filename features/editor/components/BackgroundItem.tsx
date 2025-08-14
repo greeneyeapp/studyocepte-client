@@ -8,8 +8,8 @@ import { Colors, BorderRadius, Spacing } from '@/constants';
 interface Background {
   id: string;
   name: string;
-  thumbnailUrl: string;
-  fullUrl: string;
+  thumbnailUrl: any; // require() veya hex renk kodu için any type
+  fullUrl: any;
 }
 
 interface BackgroundItemProps {
@@ -18,11 +18,20 @@ interface BackgroundItemProps {
   onPress: () => void;
 }
 
+// YENİ: Hex renk kodu kontrolü için yardımcı fonksiyon
+const isHexColor = (str: string | number): boolean => {
+  if (typeof str !== 'string') return false;
+  return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3}|[A-Fa-f0-9]{8})$/.test(str);
+};
+
 export const BackgroundItem: React.FC<BackgroundItemProps> = ({
   background,
   isSelected,
   onPress,
 }) => {
+  // YENİ: Thumbnail URL'in bir renk kodu olup olmadığını kontrol et
+  const isColorThumbnail = isHexColor(background.thumbnailUrl);
+
   return (
     <TouchableOpacity
       style={[
@@ -33,7 +42,9 @@ export const BackgroundItem: React.FC<BackgroundItemProps> = ({
       activeOpacity={0.7}
     >
       <View style={styles.imageContainer}>
-        {background.thumbnailUrl ? (
+        {isColorThumbnail ? ( // Eğer bir renk kodu ise
+          <View style={[styles.colorThumbnail, { backgroundColor: background.thumbnailUrl }]} />
+        ) : background.thumbnailUrl ? ( // Değilse ve bir URI ise Image kullan
           <Image
             source={{ uri: background.thumbnailUrl }}
             style={styles.backgroundImage}
@@ -45,7 +56,7 @@ export const BackgroundItem: React.FC<BackgroundItemProps> = ({
             }}
             resizeMode="cover"
           />
-        ) : (
+        ) : ( // Hiçbiri değilse placeholder göster
           <View style={styles.placeholderContainer}>
             <Feather name="image" size={24} color={Colors.gray400} />
             <Text style={styles.placeholderText}>Yükleniyor...</Text>
@@ -59,7 +70,7 @@ export const BackgroundItem: React.FC<BackgroundItemProps> = ({
           <Feather name="check" size={12} color={Colors.card} />
         </View>
       )}
-      
+
       {/* Seçim kenarlığı */}
       {isSelected && <View style={styles.selectionBorder} />}
     </TouchableOpacity>
@@ -78,7 +89,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: Colors.gray100,
   },
-  
+
   containerSelected: {
     borderColor: Colors.primary,
     transform: [{ scale: 1.05 }],
@@ -88,19 +99,26 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 6,
   },
-  
+
   imageContainer: {
     width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
+  // YENİ: Renkli önizlemeler için stil
+  colorThumbnail: {
+    width: '100%',
+    height: '100%',
+    // backgroundColor prop ile renk doğrudan atanacak
+  },
+
   backgroundImage: {
     width: '100%',
     height: '100%',
   },
-  
+
   placeholderContainer: {
     width: '100%',
     height: '100%',
@@ -108,7 +126,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   placeholderText: {
     fontSize: 8,
     color: Colors.gray500,
@@ -116,7 +134,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'center',
   },
-  
+
   selectionIndicator: {
     position: 'absolute',
     bottom: 4,
@@ -135,7 +153,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.card,
   },
-  
+
   selectionBorder: {
     position: 'absolute',
     top: -2,

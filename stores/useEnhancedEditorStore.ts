@@ -135,7 +135,7 @@ interface EditorActions {
 }
 
 const defaultSettings: EditorSettings = {
-  backgroundId: 'home_1',
+  backgroundId: 'home_1', // Bu, genel varsayılan değer olarak kalabilir.
   photoX: 0.5, photoY: 0.5, photoScale: 1.0, photoRotation: 0,
   product_exposure: 0, product_brightness: 0, product_contrast: 0, product_saturation: 0,
   product_vibrance: 0, product_warmth: 0, product_clarity: 0, product_highlights: 0, product_shadows: 0,
@@ -184,15 +184,21 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           get().saveDraftForPhoto(currentPhoto.id);
         }
 
-        // Yeni photo için draft var mı kontrol et ve otomatik yükle
         const existingDraft = get().loadDraftForPhoto(photo.id);
         let loadedSettings: EditorSettings;
 
         if (existingDraft) {
           console.log('📂 Auto-loading existing HIGH QUALITY draft for photo:', photo.id);
           loadedSettings = existingDraft.settings;
+        } else if (photo.editorSettings && Object.keys(photo.editorSettings).length > 0) {
+          // Fotoğrafın zaten kaydedilmiş editor ayarları var.
+          console.log('⚙️ Loading existing editor settings from photo:', photo.id);
+          loadedSettings = { ...photo.editorSettings };
         } else {
-          loadedSettings = { ...defaultSettings, ...(photo.editorSettings || {}) };
+          // İlk defa bu fotoğrafı düzenliyoruz veya ayarlar sıfırlanmış.
+          // Varsayılan beyaz arka planı uygula.
+          console.log('✨ First time editing or reset, applying default white background for photo:', photo.id);
+          loadedSettings = { ...defaultSettings, backgroundId: 'white_solid' }; // Burada 'white_solid' ID'sini kullanıyoruz
         }
 
         const initialEntry = { settings: loadedSettings, timestamp: Date.now() };
@@ -541,11 +547,11 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
             try {
               // Image cache temizle
               await imageProcessor.clearImageCache();
-              
+
               // Force product store reload
               const productStore = useProductStore.getState();
               await productStore.loadProducts();
-              
+
               console.log('🔄 HIGH QUALITY forced product store refresh for UI update');
             } catch (refreshError) {
               console.warn('⚠️ Cache refresh warning:', refreshError);
@@ -575,7 +581,8 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       // ===== RESET ACTIONS =====
 
       resetAllSettings: () => {
-        const resetSettings = { ...defaultSettings };
+        // YENİ: Varsayılan ayarlara ek olarak arka plan ID'sini 'white_solid' olarak ayarla
+        const resetSettings = { ...defaultSettings, backgroundId: 'white_solid' };
         const initialEntry = { settings: resetSettings, timestamp: Date.now() };
 
         set({
@@ -593,7 +600,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           get().clearDraftForPhoto(activePhoto.id);
         }
 
-        console.log('🔄 All HIGH QUALITY settings reset to default');
+        console.log('🔄 All HIGH QUALITY settings reset to default, background set to white.');
       },
 
       resetCropAndRotation: () => {
