@@ -233,7 +233,7 @@ class MemoryManager {
 
     if (totalEstimated > this.maxMemoryThreshold) {
       console.log(`⚠️ [${Platform.OS}] Memory pressure detected, cleaning up...`);
-      await this.forceCleanup(); // Bellek eşiği aşılırsa zorunlu temizlik yap
+      await this.emergencyCleanup(); // Bellek eşiği aşılırsa zorunlu temizlik yap
 
       // Platforma özgü bekleme
       if (Platform.OS === 'ios') {
