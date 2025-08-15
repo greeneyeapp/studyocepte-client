@@ -1,64 +1,126 @@
-// services/imageProcessor.ts - YÜKSEK KALİTE THUMBNAIL VERSİYON (ÇEVİRİ ANAHTARLARI KULLANILDI)
+// services/imageProcessor.ts - PLATFORM-OPTIMIZED Image Processing
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
+import { Platform } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { EditorSettings } from '@/stores/useEnhancedEditorStore';
-import i18n from '@/i18n'; // i18n import edildi
-import { memoryManager } from './memoryManager'; // memoryManager import edildi
+import { memoryManager, CriticalOperationManager } from './memoryManager';
+import i18n from '@/i18n';
 
 export const imageProcessor = {
-  // Olası geçici dosyaların bulunduğu dizin
-  tempImagesDir: FileSystem.documentDirectory + 'temp_images/',
+  /**
+   * ✅ ÇÖZÜM 2: Platform-Optimized Thumbnail Creation
+   * Belirtilen URI'deki görselden optimize edilmiş bir küçük resim oluşturur.
+   * Cihaza özel ayarlar ve bellek yönetimi ile performans odaklıdır.
+   * @param originalUri Orijinal görselin URI'si.
+   * @param format Çıkış formatı ('jpeg' veya 'png').
+   * @returns Oluşturulan küçük resmin kalıcı URI'si.
+   * @throws Hata oluşursa.
+   */
+  createThumbnail: async (originalUri: string, format?: 'jpeg' | 'png'): Promise<string> => {
+    return await memoryManager.addOperation(async () => {
+      // Platforma özgü yapılandırma ayarlarını al
+      const config = memoryManager.getThumbnailConfig();
+      const finalFormat = format || config.format;
+      const saveFormat = finalFormat === 'png' ? SaveFormat.PNG : SaveFormat.JPEG;
 
-  // Thumbnail boyutları ve formatları optimize edildi
-  THUMBNAIL_CONFIG: {
-    width: 300,
-    height: 300,
-    format: SaveFormat.JPEG,
-    compress: 0.8,
+      console.log(`🖼️ [${Platform.OS}] Creating optimized thumbnail:`, {
+        size: `${config.width}x${config.height}`,
+        format: finalFormat,
+        quality: config.quality
+      });
+
+      try {
+        // Görseli yeniden boyutlandır ve sıkıştır
+        const tempResult = await manipulateAsync(
+          originalUri,
+          [{ resize: { width: config.width } }],
+          {
+            compress: config.quality,
+            format: saveFormat
+          }
+        );
+
+        // Geçici dosyayı kalıcı bir konuma taşı
+        const permanentUri = await imageProcessor.moveToDocuments(
+          tempResult.uri,
+          `thumb_${Platform.OS}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${finalFormat}`
+        );
+
+        console.log(`✅ [${Platform.OS}] Optimized thumbnail created:`, permanentUri);
+        return permanentUri;
+
+      } catch (error: any) {
+        console.error(`❌ [${Platform.OS}] Thumbnail creation failed:`, error);
+        throw new Error(i18n.t('imageProcessing.createThumbnailFailed'));
+      }
+    }, {
+      // Bellek yöneticisine özel seçenekler
+      priority: 'normal',
+      memoryEstimate: Platform.OS === 'ios' ? 8 : 12, // iOS: 8MB, Android: 12MB
+      timeout: 25000
+    });
   },
-  PREVIEW_CAPTURE_CONFIG: {
-    width: 400,
-    height: 400,
-    format: SaveFormat.JPEG,
-    quality: 0.85,
+
+  /**
+   * ✅ ÇÖZÜM 4: Platform-Optimized Strong Cache Busting
+   * Belirtilen URI'ye önbellek bozan parametreler ekleyerek güçlü bir önbellek bozan URI oluşturur.
+   * Uygulamanın en güncel görselleri göstermesini sağlar.
+   * @param originalUri Orijinal görsel URI'si.
+   * @param version İsteğe bağlı sürüm numarası.
+   * @param randomId İsteğe bağlı rastgele kimlik.
+   * @returns Önbellek bozan parametreler eklenmiş yeni URI.
+   */
+  createStrongCacheBustedUri: (originalUri: string, version?: number, randomId?: string): string => {
+    if (!originalUri) return originalUri;
+
+    const timestamp = Date.now();
+    const versionParam = version || Math.floor(timestamp / 1000);
+    const randomParam = randomId || Math.random().toString(36).substr(2, 9);
+
+    // Mevcut parametreleri temizle
+    let cleanUri = originalUri.split('?')[0];
+
+    // Platforma özgü önbellek bozan strateji
+    const cacheBustingParams = Platform.OS === 'ios'
+      ? [
+        `cb=${timestamp}`,         // Önbellek bozan zaman damgası
+        `v=${versionParam}`,        // Sürüm numarası
+        `r=${randomParam}`,         // Rastgele kimlik
+        `ios=1`                     // iOS bayrağı
+      ]
+      : [
+        `cb=${timestamp}`,         // Önbellek bozan zaman damgası
+        `v=${versionParam}`,        // Sürüm numarası
+        `r=${randomParam}`,         // Rastgele kimlik
+        `android=1`                 // Android bayrağı
+      ];
+
+    const finalUri = `${cleanUri}?${cacheBustingParams.join('&')}`;
+
+    console.log(`🔄 [${Platform.OS}] Strong cache-busted URI created:`, {
+      original: originalUri,
+      final: finalUri,
+      params: { timestamp, versionParam, randomParam }
+    });
+
+    return finalUri;
   },
 
-  createThumbnail: async (originalUri: string, format: 'jpeg' | 'png' = 'jpeg'): Promise<string> => {
-    const saveFormat = format === 'png' ? SaveFormat.PNG : SaveFormat.JPEG;
-    const compressQuality = format === 'png' ? 0.95 : imageProcessor.THUMBNAIL_CONFIG.compress;
-
-    try {
-      const tempResult = await manipulateAsync(
-        originalUri,
-        [{ resize: { width: imageProcessor.THUMBNAIL_CONFIG.width, height: imageProcessor.THUMBNAIL_CONFIG.height } }],
-        { 
-          compress: compressQuality,
-          format: saveFormat
-        }
-      );
-
-      console.log(i18n.t('imageProcessor.thumbnailCreatedLog'), tempResult.uri);
-
-      const permanentUri = await imageProcessor.moveToDocuments(
-        tempResult.uri,
-        `thumb_hq_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${format}`
-      );
-
-      console.log(i18n.t('imageProcessor.thumbnailMovedToPermanentLog'), permanentUri);
-      await memoryManager.clearImageCache(); // Hafif cache temizliği
-      return permanentUri;
-
-    } catch (error: any) {
-      console.error(i18n.t('imageProcessor.createThumbnailFailedLog'), error.message);
-      throw new Error(i18n.t('imageProcessor.createThumbnailFailed'));
-    }
-  },
-
+  /**
+   * ✅ Platform-Optimized File Moving
+   * Geçici bir dosyayı uygulama belgeler dizinindeki kalıcı bir konuma taşır.
+   * Bellek yönetimi ve geçici dosya temizliğini içerir.
+   * @param tempUri Geçici dosyanın URI'si.
+   * @param filename Yeni dosya adı.
+   * @returns Kalıcı dosyanın URI'si.
+   * @throws Hata oluşursa.
+   */
   moveToDocuments: async (tempUri: string, filename: string): Promise<string> => {
     try {
-      const documentsDir = imageProcessor.tempImagesDir;
+      const documentsDir = FileSystem.documentDirectory + 'temp_images/';
 
+      // Dizin yoksa oluştur
       const dirInfo = await FileSystem.getInfoAsync(documentsDir);
       if (!dirInfo.exists) {
         await FileSystem.makeDirectoryAsync(documentsDir, { intermediates: true });
@@ -66,243 +128,42 @@ export const imageProcessor = {
 
       const permanentUri = documentsDir + filename;
 
+      // Dosyayı kopyala
       await FileSystem.copyAsync({
         from: tempUri,
         to: permanentUri
       });
 
-      // Kaynak URI'si geçici bir dosya ise sil
-      if (tempUri.startsWith(FileSystem.cacheDirectory!)) {
-        try {
-          await FileSystem.deleteAsync(tempUri, { idempotent: true });
-        } catch (cleanupError) {
-          console.warn(i18n.t('common.cleanupWarning'), cleanupError);
-        }
+      // Platforma özgü temizleme stratejisi
+      try {
+        await FileSystem.deleteAsync(tempUri, { idempotent: true });
+      } catch (cleanupError) {
+        console.warn(`⚠️ [${Platform.OS}] Failed to cleanup temp file:`, cleanupError);
       }
 
       return permanentUri;
 
     } catch (error: any) {
-      console.error(i18n.t('imageProcessor.moveToDocumentsFailedLog'), error.message);
-      throw new Error(i18n.t('imageProcessor.moveToDocumentsFailed'));
+      console.error(`❌ [${Platform.OS}] Failed to move to documents:`, error);
+      throw new Error(i18n.t('imageProcessing.moveToPermanentFailed'));
     }
   },
 
-  createFilteredThumbnail: async (
-    originalUri: string,
-    editorSettings: EditorSettings,
-    backgroundUri?: string
-  ): Promise<string> => {
-    try {
-      console.log(i18n.t('imageProcessor.creatingFilteredThumbnailLog'), {
-        hasBackground: !!backgroundUri,
-        settingsKeys: Object.keys(editorSettings)
-      });
-
-      const tempResized = await manipulateAsync(
-        originalUri,
-        [{ resize: { width: imageProcessor.PREVIEW_CAPTURE_CONFIG.width, height: imageProcessor.PREVIEW_CAPTURE_CONFIG.height } }],
-        {
-          compress: imageProcessor.PREVIEW_CAPTURE_CONFIG.quality,
-          format: imageProcessor.PREVIEW_CAPTURE_CONFIG.format
-        }
-      );
-
-      const tempFiltered = await imageProcessor.applyBasicFilters(
-        tempResized.uri,
-        editorSettings
-      );
-
-      const permanentUri = await imageProcessor.moveToDocuments(
-        tempFiltered,
-        `filtered_thumb_hq_${Date.now()}.jpeg`
-      );
-
-      if (tempFiltered !== tempResized.uri) {
-        try {
-          await FileSystem.deleteAsync(tempFiltered, { idempotent: true });
-        } catch (error) {
-          console.warn(i18n.t('common.cleanupWarning'), error.message);
-        }
-      }
-
-      console.log(i18n.t('imageProcessor.filteredThumbnailCreatedLog'));
-      await memoryManager.clearImageCache();
-      return permanentUri;
-
-    } catch (error: any) {
-      console.error(i18n.t('imageProcessor.createFilteredThumbnailFailedLog'), error.message);
-      // Hata durumunda bile orijinal görselden bir thumbnail oluşturmayı dene
-      return await imageProcessor.createThumbnail(originalUri, 'jpeg');
-    }
-  },
-
-  applyBasicFilters: async (
-    imageUri: string,
-    settings: EditorSettings
-  ): Promise<string> => {
-    try {
-      const actions: any[] = [];
-
-      if (settings.photoRotation && settings.photoRotation !== 0) {
-        actions.push({
-          rotate: settings.photoRotation
-        });
-      }
-
-      // Diğer basic filtreler burada manipulateAsync ile eklenebilir
-      // Örn: brightness, contrast vb. (eğer manipulateAsync tarafından destekleniyorsa)
-
-      if (actions.length > 0) {
-        const tempResult = await manipulateAsync(
-          imageUri,
-          actions,
-          {
-            compress: imageProcessor.PREVIEW_CAPTURE_CONFIG.quality,
-            format: imageProcessor.PREVIEW_CAPTURE_CONFIG.format
-          }
-        );
-
-        const permanentUri = await imageProcessor.moveToDocuments(
-          tempResult.uri,
-          `filtered_hq_${Date.now()}.jpeg`
-        );
-
-        return permanentUri;
-      }
-
-      return imageUri;
-
-    } catch (error: any) {
-      console.error(i18n.t('imageProcessor.filterApplicationFailedLog'), error.message);
-      return imageUri;
-    }
-  },
-
-  captureFilteredThumbnail: async (
-    viewRef: any,
-    targetSize: { width: number; height: number } = { width: 400, height: 400 }
-  ): Promise<string> => {
-    try {
-      if (!viewRef?.current) {
-        throw new Error(i18n.t('imageProcessor.viewRefNotAvailable'));
-      }
-
-      console.log(i18n.t('imageProcessor.capturingFilteredThumbnailLog'));
-
-      const tempCaptured = await captureRef(viewRef, {
-        format: imageProcessor.PREVIEW_CAPTURE_CONFIG.format as any,
-        quality: imageProcessor.PREVIEW_CAPTURE_CONFIG.quality,
-        width: targetSize.width,
-        height: targetSize.height,
-        result: 'tmpfile',
-        snapshotContentContainer: false, // Sadece view'ın kendisini yakala, scroll içeriğini değil
-      });
-
-      console.log(i18n.t('imageProcessor.viewCapturedLog'), tempCaptured);
-
-      const permanentUri = await imageProcessor.moveToDocuments(
-        tempCaptured,
-        `captured_thumb_hq_${Date.now()}.jpeg`
-      );
-
-      return permanentUri;
-
-    } catch (error: any) {
-      console.error(i18n.t('imageProcessor.captureFilteredThumbnailFailedLog'), error.message);
-      throw new Error(i18n.t('imageProcessor.captureFilteredThumbnailFailed'));
-    }
-  },
-
-  saveFilteredThumbnail: async (
-    productId: string,
-    photoId: string,
-    sourceUri: string
-  ): Promise<string> => {
-    try {
-      const { fileSystemManager } = await import('@/services/fileSystemManager');
-
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substr(2, 9);
-      const version = Math.floor(timestamp / 1000); // Daha dinamik bir versiyonlama
-
-      const thumbnailFilename = `thumb_hq_${photoId}_v${version}_${randomId}.jpeg`; // JPEG formatı
-
-      console.log(i18n.t('imageProcessor.savingCacheBustedThumbnailLog'), {
-        photoId,
-        filename: thumbnailFilename,
-        timestamp,
-        version,
-        randomId,
-        sourceUri: sourceUri.substring(0, Math.min(sourceUri.length, 50)) + '...'
-      });
-
-      const permanentUri = await fileSystemManager.saveImage(
-        productId,
-        sourceUri,
-        thumbnailFilename
-      );
-
-      // Kaynak URI'si geçici bir dosya ise sil
-      if (sourceUri.startsWith(FileSystem.cacheDirectory!) || sourceUri.startsWith(imageProcessor.tempImagesDir)) {
-        try {
-          await FileSystem.deleteAsync(sourceUri, { idempotent: true });
-        } catch (cleanupError) {
-          console.warn(i18n.t('common.cleanupWarning'), cleanupError);
-        }
-      }
-
-      console.log(i18n.t('imageProcessor.cacheBustedThumbnailSavedLog'), {
-        photoId,
-        filename: thumbnailFilename,
-        uri: permanentUri,
-        timestamp,
-        version
-      });
-
-      return imageProcessor.createStrongCacheBustedUri(permanentUri, version, randomId);
-
-    } catch (error: any) {
-      console.error(i18n.t('imageProcessor.saveThumbnailFailedLog'), error.message);
-      throw new Error(`${i18n.t('imageProcessor.saveThumbnailFailed')}${error.message}`);
-    }
-  },
-
-  createStrongCacheBustedUri: (originalUri: string, version?: number, randomId?: string): string => {
-    if (!originalUri) return originalUri;
-
-    const timestamp = Date.now();
-    // Eğer bir versiyon veya randomId verilmemişse, zaman damgasıyla yenisini oluştur
-    const versionParam = version || Math.floor(timestamp / 1000);
-    const randomParam = randomId || Math.random().toString(36).substr(2, 9);
-    
-    // URI'deki mevcut sorgu parametrelerini temizle
-    let cleanUri = originalUri.split('?')[0];
-    
-    const cacheBustingParams = [
-      `cb=${timestamp}`, // Genel cache buster
-      `v=${versionParam}`, // Versiyon parametresi (içerik değişimi için)
-      `r=${randomParam}`, // Rastgele parametre (ekstra garanti için)
-    ].join('&');
-
-    const finalUri = `${cleanUri}?${cacheBustingParams}`;
-    
-    console.log(i18n.t('imageProcessor.strongCacheBustedUriCreatedLog'), {
-      original: originalUri,
-      final: finalUri.substring(0, Math.min(finalUri.length, 100)) + '...',
-      params: { timestamp, versionParam, randomParam }
-    });
-
-    return finalUri;
-  },
-
+  /**
+   * ✅ Platform-Optimized Thumbnail Refresh
+   * Mevcut bir küçük resmi güçlü önbellek bozan bir URI ile yeniler.
+   * Görselin uygulamanın önbelleğinde güncellenmesini sağlar.
+   * @param originalThumbnailUri Orijinal küçük resmin URI'si.
+   * @returns Yenilenmiş, önbellek bozan URI.
+   */
   refreshThumbnail: async (originalThumbnailUri: string): Promise<string> => {
     try {
+      // Güçlü önbellek bozan sürüm oluştur
       const cacheBustedUri = imageProcessor.createStrongCacheBustedUri(originalThumbnailUri);
 
-      // React Native Image cache'ini tetiklemek için bir yöntem
-      // `Image.getSize` çağrısı, URI'nin tekrar yüklenmesini sağlar.
-      if (typeof global !== 'undefined' && (global as any).__turboModuleProxy) {
+      // Platforma özgü görsel önbelleği temizleme
+      if (Platform.OS === 'ios') {
+        // iOS: Daha agresif önbellek temizleme
         try {
           const { Image } = await import('react-native');
           if (Image.getSize) {
@@ -310,129 +171,164 @@ export const imageProcessor = {
               Image.getSize(
                 cacheBustedUri,
                 () => resolve(true),
-                (error) => {
-                  console.warn(i18n.t('imageProcessor.imageSizeCheckFailedLog'), error);
-                  resolve(false); // Başarısız olsa bile devam et
-                }
+                () => resolve(false)
               );
             });
           }
         } catch (error) {
-          console.warn(i18n.t('imageProcessor.imageCacheRefreshWarning'), error);
+          console.warn(`⚠️ [${Platform.OS}] Image cache refresh warning:`, error);
         }
+      } else {
+        // Android: Daha nazik önbellek yönetimi
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      console.log(i18n.t('imageProcessor.thumbnailRefreshedLog'), {
-        original: originalThumbnailUri.substring(0, Math.min(originalThumbnailUri.length, 50)) + '...',
-        cacheBusted: cacheBustedUri.substring(0, Math.min(cacheBustedUri.length, 50)) + '...'
+      console.log(`🔄 [${Platform.OS}] Thumbnail refreshed with strong cache busting:`, {
+        original: originalThumbnailUri,
+        cacheBusted: cacheBustedUri
       });
 
       return cacheBustedUri;
 
-    } catch (error: any) {
-      console.warn(i18n.t('imageProcessor.thumbnailRefreshFailedLog'), error.message);
+    } catch (error) {
+      console.warn(`⚠️ [${Platform.OS}] Thumbnail refresh failed, returning original:`, error);
       return originalThumbnailUri;
     }
   },
 
-  // Ortak bellek temizleme fonksiyonunu memoryManager'a devret
+  /**
+   * ✅ Platform-Optimized Image Cache Clearing
+   * React Native'in görsel önbelleklerini (bellek ve disk) platforma özel olarak temizler.
+   * Uygulamanın kullandığı belleği optimize etmeye yardımcı olur.
+   * @returns Promise<void>
+   */
   clearImageCache: async (): Promise<void> => {
-    await memoryManager.cleanup();
-  },
-
-  base64ToTempFile: async (base64Data: string, filename: string = `temp_hq_${Date.now()}.png`): Promise<string> => {
     try {
-      const documentsDir = imageProcessor.tempImagesDir;
+      const { Image } = await import('react-native');
 
-      const dirInfo = await FileSystem.getInfoAsync(documentsDir);
-      if (!dirInfo.exists) {
-        await FileSystem.makeDirectoryAsync(documentsDir, { intermediates: true });
+      // Platforma özgü önbellek temizleme
+      if (Platform.OS === 'ios') {
+        // iOS: Agresif önbellek temizleme
+        if (typeof Image.clearMemoryCache === 'function') {
+          await Image.clearMemoryCache();
+          console.log(`🧹 [iOS] React Native image memory cache cleared`);
+        }
+
+        if (typeof Image.clearDiskCache === 'function') {
+          await Image.clearDiskCache();
+          console.log(`🧹 [iOS] React Native image disk cache cleared`);
+        }
+      } else {
+        // Android: Seçici önbellek temizleme
+        if (typeof Image.clearMemoryCache === 'function') {
+          await Image.clearMemoryCache();
+          console.log(`🧹 [Android] React Native image memory cache cleared`);
+        }
+        // Performans için Android'de disk önbelleği temizlemeyi atla
       }
 
-      const permanentUri = documentsDir + filename;
-
-      await FileSystem.writeAsStringAsync(permanentUri, base64Data, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      const fileInfo = await FileSystem.getInfoAsync(permanentUri);
-      if (!fileInfo.exists) {
-        throw new Error(i18n.t('filesystem.fileSaveCheckFailed'));
-      }
-
-      console.log(i18n.t('imageProcessor.base64FileSavedPermanentlyLog'), permanentUri);
-      return permanentUri;
-
-    } catch (error: any) {
-      console.error(i18n.t('imageProcessor.base64FileConversionFailedLog'), error.message);
-      throw new Error(i18n.t('imageProcessor.base64ToTempFileFailed'));
+    } catch (error) {
+      console.warn(`⚠️ [${Platform.OS}] Image cache clearing failed:`, error);
     }
   },
 
-  cleanupTempFiles: async (): Promise<void> => {
-    try {
-      const cacheDir = FileSystem.cacheDirectory;
-      if (cacheDir) {
-        const cacheFiles = await FileSystem.readDirectoryAsync(cacheDir);
-        const tempCacheFiles = cacheFiles.filter(file =>
-          file.includes('ImageManipulator') ||
-          file.startsWith('tmp-') ||
-          file.startsWith('view-shot-') ||
-          file.startsWith('bg_thumb_')
-        );
+  /**
+   * ✅ Platform-Optimized Base64 to File
+   * Base64 kodlu bir dizeyi geçici bir dosyaya kaydeder.
+   * Genellikle görsel verilerini ağdan alıp yerel olarak depolamak için kullanılır.
+   * @param base64Data Base64 kodlu görsel verisi.
+   * @param filename İsteğe bağlı dosya adı.
+   * @returns Oluşturulan dosyanın URI'si.
+   * @throws Hata oluşursa.
+   */
+  base64ToTempFile: async (base64Data: string, filename?: string): Promise<string> => {
+    return await memoryManager.addOperation(async () => {
+      try {
+        const config = memoryManager.getThumbnailConfig();
+        const finalFilename = filename || `temp_${Platform.OS}_${Date.now()}.${config.format}`;
+        const documentsDir = FileSystem.documentDirectory + 'temp_images/';
 
-        const cacheDeletePromises = tempCacheFiles.map(file =>
-          FileSystem.deleteAsync(cacheDir + file, { idempotent: true })
-            .catch(error => console.warn(i18n.t('common.cleanupWarning'), file, error.message))
-        );
+        const dirInfo = await FileSystem.getInfoAsync(documentsDir);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(documentsDir, { intermediates: true });
+        }
 
-        await Promise.allSettled(cacheDeletePromises);
-      }
+        const permanentUri = documentsDir + finalFilename;
 
-      const tempImagesDir = imageProcessor.tempImagesDir;
-      const dirInfo = await FileSystem.getInfoAsync(tempImagesDir);
-
-      if (dirInfo.exists) {
-        const tempFiles = await FileSystem.readDirectoryAsync(tempImagesDir);
-        const now = Date.now();
-        const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-        const oldFilePromises = tempFiles.map(async (file) => {
-          try {
-            const fileUri = tempImagesDir + file;
-            const fileInfo = await FileSystem.getInfoAsync(fileUri);
-
-            if (fileInfo.exists && fileInfo.modificationTime) {
-              const fileAge = now - fileInfo.modificationTime * 1000;
-              if (fileAge > maxAge) {
-                await FileSystem.deleteAsync(fileUri, { idempotent: true });
-                console.log(i18n.t('imageProcessor.oldTempFileDeletedLog'), file);
-              }
-            }
-          } catch (error) {
-            console.warn(i18n.t('imageProcessor.oldFileCleanupWarning'), file, error.message);
-          }
+        await FileSystem.writeAsStringAsync(permanentUri, base64Data, {
+          encoding: FileSystem.EncodingType.Base64,
         });
 
-        await Promise.allSettled(oldFilePromises);
+        const fileInfo = await FileSystem.getInfoAsync(permanentUri);
+        if (!fileInfo.exists) {
+          throw new Error(i18n.t('imageProcessing.moveToPermanentFailed'));
+        }
+
+        console.log(`✅ [${Platform.OS}] Base64 file saved:`, permanentUri);
+        return permanentUri;
+
+      } catch (error: any) {
+        console.error(`❌ [${Platform.OS}] Base64 file conversion failed:`, error);
+        throw new Error(i18n.t('imageProcessing.base64ToFileFailed'));
       }
+    }, {
+      priority: 'normal',
+      memoryEstimate: Platform.OS === 'ios' ? 6 : 10, // iOS: 6MB, Android: 10MB
+      timeout: 15000
+    });
+  },
 
-      console.log(i18n.t('imageProcessor.tempFilesCleanupCompletedLog'));
+  /**
+   * ✅ Platform-Optimized Temp Files Cleanup
+   * Uygulamanın geçici dosyalarını bellek yöneticisi aracılığıyla temizler.
+   * @returns Promise<void>
+   */
+  cleanupTempFiles: async (): Promise<void> => {
+    try {
+      // Bellek yöneticisinin platforma duyarlı temizleme işlevini kullan
+      await memoryManager.cleanupMemory();
 
-    } catch (error: any) {
-      console.warn(i18n.t('common.cleanupWarning'), error.message);
+      console.log(`🧹 [${Platform.OS}] Temp files cleanup completed`);
+
+    } catch (error) {
+      console.warn(`⚠️ [${Platform.OS}] Cleanup warning:`, error);
     }
   },
 
+  /**
+   * ✅ Platform-Optimized Memory Usage Optimization
+   * Geçici dosyaları temizleyerek ve platforma özel bellek optimizasyonları uygulayarak
+   * uygulamanın bellek kullanımını optimize eder.
+   * @returns Promise<void>
+   */
   optimizeMemoryUsage: async (): Promise<void> => {
-    await memoryManager.cleanup();
+    try {
+      await imageProcessor.cleanupTempFiles();
+
+      // Platforma özgü bellek optimizasyonu
+      if (Platform.OS === 'ios') {
+        // iOS: Eğer varsa çöp toplamayı zorla
+        if (__DEV__ && global.gc) {
+          global.gc();
+          console.log(`🗑️ [iOS] Image processor garbage collection triggered`);
+        }
+      } else {
+        // Android: Daha nazik bellek yönetimi
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      console.log(`🔧 [${Platform.OS}] Memory optimization completed`);
+    } catch (error) {
+      console.warn(`⚠️ [${Platform.OS}] Memory optimization failed:`, error);
+    }
   },
 
-  createCacheBustedUri: (originalUri: string): string => {
-    console.warn(i18n.t('imageProcessor.createCacheBustedUriDeprecationWarning'));
-    return imageProcessor.createStrongCacheBustedUri(originalUri);
-  },
-
+  /**
+   * ✅ File Validation and Recovery
+   * Bir dosyanın varlığını doğrular ve bulunamazsa kurtarmaya çalışır (şu anda basit bir kontrol).
+   * @param uri Doğrulanacak dosyanın URI'si.
+   * @returns Dosya varsa URI, yoksa null.
+   */
   validateAndRecoverFile: async (uri: string): Promise<string | null> => {
     try {
       if (!uri) return null;
@@ -442,12 +338,421 @@ export const imageProcessor = {
         return uri;
       }
 
-      console.warn(i18n.t('imageProcessor.fileNotFoundRecoveryAttemptLog'), uri);
+      console.warn(`⚠️ [${Platform.OS}] File not found, attempting recovery:`, uri);
+      // Gelecekte burada daha karmaşık kurtarma mantığı olabilir.
       return null;
 
-    } catch (error: any) {
-      console.warn(i18n.t('imageProcessor.fileValidationFailedLog'), uri, error.message);
+    } catch (error) {
+      console.warn(`⚠️ [${Platform.OS}] File validation failed:`, uri, error);
       return null;
     }
+  },
+
+  /**
+   * ✅ Get Platform-Specific Processing Stats
+   * Bellek yöneticisinden ve kritik operasyon yöneticisinden platforma özgü işlem istatistiklerini alır.
+   * @returns İşlem istatistiklerini içeren bir nesne.
+   */
+  getProcessingStats() {
+    const memoryStatus = memoryManager.getMemoryStatus();
+
+    return {
+      platform: Platform.OS,
+      memoryStatus,
+      thumbnailConfig: memoryManager.getThumbnailConfig(),
+      previewConfig: memoryManager.getPreviewConfig(),
+      activeCriticalOps: CriticalOperationManager.getActiveCriticalOperations(),
+    };
+  },
+
+  // ⚠️ DEPRECATED: Use createStrongCacheBustedUri instead
+  createCacheBustedUri: (originalUri: string): string => {
+    console.warn(`⚠️ [${Platform.OS}] createCacheBustedUri deprecated, use createStrongCacheBustedUri instead`);
+    return imageProcessor.createStrongCacheBustedUri(originalUri);
+  },
+
+  /**
+   * ✅ Advanced Memory Monitoring
+   * Bellek kullanım istatistiklerini ve bunlara dayalı optimizasyon önerilerini döndürür.
+   * @returns Bellek kullanım istatistikleri ve öneriler.
+   */
+  getMemoryUsageStats: () => {
+    const memoryStatus = memoryManager.getMemoryStatus();
+    const processingStats = memoryManager.getProcessingStats();
+
+    return {
+      platform: Platform.OS,
+      memoryStatus,
+      processingStats,
+      recommendations: {
+        shouldReduceQuality: memoryStatus.isLowMemory,
+        shouldDelayOperations: memoryStatus.operationsInQueue > 3,
+        shouldCleanupCache: memoryStatus.usedMemory > (Platform.OS === 'ios' ? 120 : 250),
+      }
+    };
+  },
+
+  /**
+   * ✅ Batch Operation Support
+   * Bir dizi işlemi partiler halinde işler, bellek güvenliği için sıralı yürütme ve partiler arası gecikmeler kullanır.
+   * @param operations İşlenecek asenkron işlem dizisi.
+   * @param batchSize Her partideki işlem sayısı.
+   * @returns Tüm işlemlerin sonuçlarını içeren bir dizi.
+   */
+  processBatch: async (
+    operations: Array<() => Promise<any>>,
+    batchSize: number = Platform.OS === 'ios' ? 2 : 3
+  ): Promise<any[]> => {
+    const results = [];
+
+    for (let i = 0; i < operations.length; i += batchSize) {
+      const batch = operations.slice(i, i + batchSize);
+
+      console.log(`📦 [${Platform.OS}] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(operations.length / batchSize)}`);
+
+      // Bellek güvenliği için parti içindeki sıralı işlem
+      const batchResults = [];
+      for (const operation of batch) {
+        const result = await memoryManager.addOperation(operation, {
+          priority: 'normal',
+          memoryEstimate: Platform.OS === 'ios' ? 8 : 12,
+          timeout: 20000
+        });
+        batchResults.push(result);
+      }
+
+      results.push(...batchResults);
+
+      // Partiler arasında platforma özgü gecikme
+      if (i + batchSize < operations.length) {
+        await new Promise(resolve => setTimeout(resolve, Platform.OS === 'ios' ? 800 : 400));
+      }
+    }
+
+    return results;
+  },
+
+  /**
+   * ✅ Smart Quality Adjustment Based on Memory
+   * Mevcut bellek durumuna göre optimal görsel kalitesi ve boyut ayarlarını döndürür.
+   * @returns Optimal format, kalite ve boyut ayarlarını içeren bir nesne.
+   */
+  getOptimalQuality: (): { format: 'jpeg' | 'png', quality: number, size: number } => {
+    const memoryStatus = memoryManager.getMemoryStatus();
+
+    if (memoryStatus.isLowMemory) {
+      // Düşük bellek: agresif sıkıştırma
+      return {
+        format: 'jpeg',
+        quality: Platform.OS === 'ios' ? 0.6 : 0.7,
+        size: Platform.OS === 'ios' ? 200 : 250
+      };
+    } else if (memoryStatus.usedMemory > memoryStatus.availableMemory * 0.7) {
+      // Orta bellek basıncı: dengeli
+      return {
+        format: Platform.OS === 'ios' ? 'jpeg' : 'png',
+        quality: Platform.OS === 'ios' ? 0.75 : 0.85,
+        size: Platform.OS === 'ios' ? 250 : 350
+      };
+    } else {
+      // İyi bellek: yüksek kalite
+      return {
+        format: Platform.OS === 'ios' ? 'jpeg' : 'png',
+        quality: Platform.OS === 'ios' ? 0.85 : 0.95,
+        size: Platform.OS === 'ios' ? 300 : 400
+      };
+    }
+  },
+
+  /**
+   * ✅ Emergency Memory Recovery
+   * Acil durumlarda bellek kurtarma işlemleri başlatır.
+   * Geçici dosyaları temizler, görsel önbelleklerini temizler ve çöp toplamayı zorlar.
+   * @returns Promise<void>
+   */
+  emergencyMemoryRecovery: async (): Promise<void> => {
+    console.log(`🆘 [${Platform.OS}] Emergency memory recovery initiated`);
+
+    try {
+      // 1. Acil temizlik
+      await memoryManager.emergencyCleanup();
+
+      // 2. Tüm görsel önbelleklerini temizle
+      await imageProcessor.clearImageCache();
+
+      // 3. Platforma özgü kurtarma
+      if (Platform.OS === 'ios') {
+        // iOS: Daha agresif kurtarma - önbellek dizinindeki dosyaları sil
+        const cacheDir = FileSystem.cacheDirectory;
+        if (cacheDir) {
+          const files = await FileSystem.readDirectoryAsync(cacheDir);
+          await Promise.allSettled(files.map(file =>
+            FileSystem.deleteAsync(cacheDir + file, { idempotent: true })
+          ));
+        }
+      }
+
+      // 4. Eğer varsa çöp toplamayı zorla
+      if (__DEV__ && global.gc) {
+        global.gc();
+      }
+
+      console.log(`✅ [${Platform.OS}] Emergency memory recovery completed`);
+    } catch (error) {
+      console.error(`❌ [${Platform.OS}] Emergency memory recovery failed:`, error);
+    }
+  },
+
+  /**
+   * ✅ ÇÖZÜM 2: Platform-Optimized Filtered Thumbnail
+   * Editör ayarları ve isteğe bağlı bir arka plan URI'si ile optimize edilmiş bir filtreli küçük resim oluşturur.
+   * @param originalUri Orijinal görselin URI'si.
+   * @param editorSettings Uygulanacak editör ayarları.
+   * @param backgroundUri İsteğe bağlı arka plan görseli URI'si.
+   * @returns Oluşturulan filtreli küçük resmin kalıcı URI'si.
+   * @throws Hata oluşursa.
+   */
+  createFilteredThumbnail: async (
+    originalUri: string,
+    editorSettings: EditorSettings,
+    backgroundUri?: string
+  ): Promise<string> => {
+    return await CriticalOperationManager.withLock('filtered-thumbnail', async () => {
+      return await memoryManager.addOperation(async () => {
+        try {
+          const config = memoryManager.getPreviewConfig();
+
+          console.log(`🖼️ [${Platform.OS}] Creating optimized filtered thumbnail:`, {
+            size: `${config.width}x${config.height}`,
+            format: config.format,
+            quality: config.quality,
+            hasBackground: !!backgroundUri
+          });
+
+          // Platforma optimize edilmiş yeniden boyutlandırma
+          const tempResized = await manipulateAsync(
+            originalUri,
+            [{ resize: { width: config.width, height: config.height } }],
+            {
+              compress: config.quality,
+              format: config.format === 'png' ? SaveFormat.PNG : SaveFormat.JPEG
+            }
+          );
+
+          // Temel filtreleri uygula
+          const tempFiltered = await imageProcessor.applyBasicFilters(
+            tempResized.uri,
+            editorSettings
+          );
+
+          // Kalıcı konuma taşı
+          const permanentUri = await imageProcessor.moveToDocuments(
+            tempFiltered,
+            `filtered_${Platform.OS}_${Date.now()}.${config.format}`
+          );
+
+          // Geçici dosyaları temizle
+          if (tempFiltered !== tempResized.uri) {
+            try {
+              await FileSystem.deleteAsync(tempFiltered, { idempotent: true });
+            } catch (error) {
+              console.warn(`⚠️ [${Platform.OS}] Temp cleanup warning:`, error);
+            }
+          }
+
+          console.log(`✅ [${Platform.OS}] Optimized filtered thumbnail created`);
+          return permanentUri;
+
+        } catch (error: any) {
+          console.error(`❌ [${Platform.OS}] Filtered thumbnail creation failed:`, error);
+          // Geri dönüş: normal küçük resim oluştur
+          return await imageProcessor.createThumbnail(originalUri);
+        }
+      }, {
+        priority: 'high',
+        memoryEstimate: Platform.OS === 'ios' ? 15 : 25, // iOS: 15MB, Android: 25MB
+        timeout: 30000
+      });
+    });
+  },
+
+  /**
+   * ✅ Platform-Optimized Basic Filters
+   * Bir görsele temel filtre ayarlarını (örneğin döndürme) uygular.
+   * @param imageUri Filtrelerin uygulanacağı görselin URI'si.
+   * @param settings Editör ayarları.
+   * @returns İşlenmiş görselin URI'si veya değişiklik yapılmadıysa orijinal URI.
+   */
+  applyBasicFilters: async (
+    imageUri: string,
+    settings: EditorSettings
+  ): Promise<string> => {
+    try {
+      const actions: any[] = [];
+
+      // Döndürme
+      if (settings.photoRotation && settings.photoRotation !== 0) {
+        actions.push({
+          rotate: settings.photoRotation
+        });
+      }
+
+      // Eğer herhangi bir manipülasyon varsa uygula
+      if (actions.length > 0) {
+        const config = memoryManager.getPreviewConfig();
+
+        const tempResult = await manipulateAsync(
+          imageUri,
+          actions,
+          {
+            compress: config.quality,
+            format: config.format === 'png' ? SaveFormat.PNG : SaveFormat.JPEG
+          }
+        );
+
+        // Kalıcı konuma taşı
+        const permanentUri = await imageProcessor.moveToDocuments(
+          tempResult.uri,
+          `filtered_basic_${Platform.OS}_${Date.now()}.${config.format}`
+        );
+
+        return permanentUri;
+      }
+
+      return imageUri; // Değişiklik gerekmez
+
+    } catch (error: any) {
+      console.error(`❌ [${Platform.OS}] Basic filter application failed:`, error);
+      return imageUri; // Geri dönüş: orijinali döndür
+    }
+  },
+
+  /**
+   * ✅ ÇÖZÜM 2: Platform-Optimized View Capture
+   * Belirtilen bir React Native görünümünden optimize edilmiş bir görsel yakalar.
+   * @param viewRef Yakalanacak görünümün referansı.
+   * @param targetSize Hedef genişlik ve yükseklik (isteğe bağlı).
+   * @returns Yakalanan görselin kalıcı URI'si.
+   * @throws Hata oluşursa.
+   */
+  captureFilteredThumbnail: async (
+    viewRef: any,
+    targetSize?: { width: number; height: number }
+  ): Promise<string> => {
+    return await CriticalOperationManager.withLock('view-capture', async () => {
+      return await memoryManager.addOperation(async () => {
+        try {
+          if (!viewRef?.current) {
+            throw new Error('View ref is not available');
+          }
+
+          const config = targetSize || memoryManager.getPreviewConfig();
+
+          console.log(`📸 [${Platform.OS}] Capturing optimized view:`, {
+            size: `${config.width}x${config.height}`,
+            platform: Platform.OS
+          });
+
+          // Platforma optimize edilmiş yakalama ayarları
+          const captureOptions = {
+            format: Platform.OS === 'ios' ? 'jpeg' : 'png', // iOS: JPEG, Android: PNG
+            quality: Platform.OS === 'ios' ? 0.85 : 0.95,   // iOS: daha düşük, Android: daha yüksek
+            width: config.width,
+            height: config.height,
+            result: 'tmpfile' as const,
+          };
+
+          const tempCaptured = await captureRef(viewRef, captureOptions);
+
+          console.log(`✅ [${Platform.OS}] View captured:`, tempCaptured);
+
+          // Kalıcı konuma taşı
+          const permanentUri = await imageProcessor.moveToDocuments(
+            tempCaptured,
+            `captured_${Platform.OS}_${Date.now()}.${captureOptions.format}`
+          );
+
+          return permanentUri;
+
+        } catch (error: any) {
+          console.error(`❌ [${Platform.OS}] View capture failed:`, error);
+          throw new Error(i18n.t('imageProcessing.captureFilteredThumbnailFailed'));
+        }
+      }, {
+        priority: 'high',
+        memoryEstimate: Platform.OS === 'ios' ? 20 : 35, // iOS: 20MB, Android: 35MB
+        timeout: 20000
+      });
+    });
+  },
+
+  /**
+   * ✅ ÇÖZÜM 4: Smart Cache-Busted Thumbnail Save
+   * Belirli bir ürün ve fotoğraf için filtreli bir küçük resmi akıllı önbellek bozan URI ile kaydeder.
+   * @param productId İlgili ürünün kimliği.
+   * @param photoId Kaydedilen fotoğrafın kimliği.
+   * @param sourceUri Kaydedilecek küçük resmin kaynak URI'si.
+   * @returns Kaydedilen küçük resmin güçlü önbellek bozan URI'si.
+   * @throws Hata oluşursa.
+   */
+  saveFilteredThumbnail: async (
+    productId: string,
+    photoId: string,
+    sourceUri: string
+  ): Promise<string> => {
+    return await memoryManager.addOperation(async () => {
+      try {
+        // Döngüsel bağımlılıkları önlemek için dinamik içe aktarma
+        const { fileSystemManager } = await import('@/services/fileSystemManager');
+
+        // Platforma optimize edilmiş önbellek bozan
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substr(2, 9);
+        const version = Math.floor(timestamp / 1000);
+        const format = Platform.OS === 'ios' ? 'jpeg' : 'png';
+        const thumbnailFilename = `thumb_${Platform.OS}_${photoId}_v${version}_${randomId}.${format}`;
+
+        console.log(`💾 [${Platform.OS}] Saving cache-busted thumbnail:`, {
+          photoId,
+          filename: thumbnailFilename,
+          platform: Platform.OS,
+          timestamp,
+          version
+        });
+
+        // fileSystemManager kullanarak kaydet
+        const permanentUri = await fileSystemManager.saveImage(
+          productId,
+          sourceUri,
+          thumbnailFilename
+        );
+
+        // Kaynak geçici ise temizle
+        if (sourceUri.includes('temp_images/') || sourceUri.includes('cache/')) {
+          try {
+            await FileSystem.deleteAsync(sourceUri, { idempotent: true });
+          } catch (cleanupError) {
+            console.warn(`⚠️ [${Platform.OS}] Source cleanup warning:`, cleanupError);
+          }
+        }
+
+        console.log(`✅ [${Platform.OS}] Cache-busted thumbnail saved:`, {
+          photoId,
+          filename: thumbnailFilename,
+          uri: permanentUri
+        });
+
+        // Güçlü önbellek bozan URI'yi döndür
+        return imageProcessor.createStrongCacheBustedUri(permanentUri, version, randomId);
+
+      } catch (error: any) {
+        console.error(`❌ [${Platform.OS}] Thumbnail save failed:`, error);
+        throw new Error(`${i18n.t('imageProcessing.saveThumbnailFailed')}: ${error.message}`);
+      }
+    }, {
+      priority: 'normal',
+      memoryEstimate: Platform.OS === 'ios' ? 8 : 12, // iOS: 8MB, Android: 12MB
+      timeout: 25000
+    });
   }
 };

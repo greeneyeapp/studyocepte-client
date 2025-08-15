@@ -1,10 +1,10 @@
-// services/backgroundThumbnailManager.ts - 300x300 JPEG SÜPER YÜKSEK KALİTE (ÇEVİRİ ANAHTARLARI KULLANILDI)
+// services/backgroundThumbnailManager.ts - 600x600 PNG SÜPER YÜKSEK KALİTE (ÇEVİRİ ANAHTARLARI KULLANILDI)
 
 import * as FileSystem from 'expo-file-system';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { imageProcessor } from './imageProcessor';
 import { Asset } from 'expo-asset';
 import i18n from '@/i18n'; // i18n import edildi
-import { memoryManager } from './memoryManager'; // memoryManager import edildi
 
 interface BackgroundThumbnail {
   id: string;
@@ -24,18 +24,14 @@ const isHexColor = (str: string): boolean => {
 class BackgroundThumbnailManager {
   private cache: BackgroundCache = {};
   private cacheDirectory: string;
-  private maxCacheSize: number = 50 * 1024 * 1024; // 50MB cache boyutu
-  private maxThumbnailAge: number = 7 * 24 * 60 * 60 * 1000; // 7 gün
-  // Thumbnail boyutu optimize edildi: 600x600 PNG -> 300x300 JPEG (Daha küçük ve verimli)
-  private thumbnailSize: { width: number; height: number } = { width: 300, height: 300 };
-  private thumbnailFormat: SaveFormat = SaveFormat.JPEG;
-  private thumbnailCompressQuality: number = 0.8; // JPEG kalitesi
-
+  private maxCacheSize: number = 100 * 1024 * 1024;
+  private maxThumbnailAge: number = 7 * 24 * 60 * 60 * 1000;
+  private thumbnailSize: { width: number; height: number } = { width: 600, height: 600 };
   private isInitialized: boolean = false;
   private initPromise: Promise<void> | null = null;
 
   constructor() {
-    this.cacheDirectory = FileSystem.cacheDirectory + 'bg_thumbnails_optimized/';
+    this.cacheDirectory = FileSystem.cacheDirectory + 'bg_thumbnails_super_hq/';
   }
 
   private async initializeCache(): Promise<void> {
@@ -54,45 +50,43 @@ class BackgroundThumbnailManager {
       const dirInfo = await FileSystem.getInfoAsync(this.cacheDirectory);
       if (!dirInfo.exists) {
         await FileSystem.makeDirectoryAsync(this.cacheDirectory, { intermediates: true });
-        console.log(i18n.t('bgThumbnailManager.directoryCreatedLog'));
+        console.log(i18n.t('bgThumbnailManager.directoryCreatedLog')); // Çeviri anahtarı kullanıldı
       }
 
       await this.loadCacheIndex();
       await this.cleanupOldThumbnails();
 
       this.isInitialized = true;
-      console.log(i18n.t('bgThumbnailManager.cacheInitializedLog'));
+      console.log(i18n.t('bgThumbnailManager.cacheInitializedLog')); // Çeviri anahtarı kullanıldı
     } catch (error: any) {
-      console.error(i18n.t('bgThumbnailManager.failedToInitializeCacheLog'), error.message);
+      console.error(i18n.t('bgThumbnailManager.failedToInitializeCacheLog'), error.message); // Çeviri anahtarı kullanıldı
       this.isInitialized = false;
       throw error;
-    } finally {
-      this.initPromise = null; // Promise tamamlandığında sıfırla
     }
   }
 
   private async loadCacheIndex(): Promise<void> {
     try {
-      const indexPath = this.cacheDirectory + 'cache_index_optimized.json'; // Index dosyası adı güncellendi
+      const indexPath = this.cacheDirectory + 'cache_index_super_hq.json';
       const indexInfo = await FileSystem.getInfoAsync(indexPath);
 
       if (indexInfo.exists) {
         const indexContent = await FileSystem.readAsStringAsync(indexPath);
         this.cache = JSON.parse(indexContent);
-        console.log(i18n.t('bgThumbnailManager.cacheLoadedLog', { count: Object.keys(this.cache).length }));
+        console.log(i18n.t('bgThumbnailManager.cacheLoadedLog', { count: Object.keys(this.cache).length })); // Çeviri anahtarı kullanıldı
       }
     } catch (error: any) {
-      console.warn(i18n.t('bgThumbnailManager.failedToLoadCacheIndexLog'), error.message);
-      this.cache = {}; // Hata durumunda cache'i sıfırla
+      console.warn(i18n.t('bgThumbnailManager.failedToLoadCacheIndexLog'), error.message); // Çeviri anahtarı kullanıldı
+      this.cache = {};
     }
   }
 
   private async saveCacheIndex(): Promise<void> {
     try {
-      const indexPath = this.cacheDirectory + 'cache_index_optimized.json';
+      const indexPath = this.cacheDirectory + 'cache_index_super_hq.json';
       await FileSystem.writeAsStringAsync(indexPath, JSON.stringify(this.cache));
     } catch (error: any) {
-      console.error(i18n.t('bgThumbnailManager.failedToSaveCacheIndexLog'), error.message);
+      console.error(i18n.t('bgThumbnailManager.failedToSaveCacheIndexLog'), error.message); // Çeviri anahtarı kullanıldı
     }
   }
 
@@ -101,7 +95,6 @@ class BackgroundThumbnailManager {
     const toDelete: string[] = [];
     let totalSize = 0;
 
-    // Önce eskimiş ve boyutu aşanları işaretle
     for (const [backgroundId, thumbnail] of Object.entries(this.cache)) {
       const age = now - thumbnail.createdAt;
 
@@ -112,15 +105,13 @@ class BackgroundThumbnailManager {
       }
     }
 
-    // İşaretlenenleri sil
     for (const backgroundId of toDelete) {
       await this.deleteThumbnail(backgroundId);
     }
 
-    // Boyut sınırı aşılmışsa en eski olanları silmeye devam et
     if (totalSize > this.maxCacheSize) {
       const sortedThumbnails = Object.entries(this.cache)
-        .sort(([, a], [, b]) => a.createdAt - b.createdAt); // En eskiden en yeniye sırala
+        .sort(([, a], [, b]) => a.createdAt - b.createdAt);
 
       while (totalSize > this.maxCacheSize && sortedThumbnails.length > 0) {
         const [backgroundId, thumbnail] = sortedThumbnails.shift()!;
@@ -130,68 +121,64 @@ class BackgroundThumbnailManager {
     }
 
     await this.saveCacheIndex();
-    console.log(i18n.t('bgThumbnailManager.cleanupCompletedLog'));
+    console.log(i18n.t('bgThumbnailManager.cleanupCompletedLog')); // Çeviri anahtarı kullanıldı
   }
 
   async getThumbnail(backgroundId: string, fullImageModule: any): Promise<string | null> {
     try {
       await this.initializeCache();
 
-      // Eğer modül bir hex renk kodu ise, doğrudan döndür
       if (typeof fullImageModule === 'string' && isHexColor(fullImageModule)) {
-        console.log(i18n.t('bgThumbnailManager.hexColorDetectedLog'), fullImageModule);
+        console.log(i18n.t('bgThumbnailManager.hexColorDetectedLog'), fullImageModule); // Çeviri anahtarı kullanıldı
         return fullImageModule;
       }
 
-      // Cache'te var mı kontrol et
       const cached = this.cache[backgroundId];
       if (cached) {
         const fileInfo = await FileSystem.getInfoAsync(cached.thumbnailUri);
         if (fileInfo.exists) {
-          console.log(i18n.t('bgThumbnailManager.servedFromCacheLog'), backgroundId);
+          console.log(i18n.t('bgThumbnailManager.servedFromCacheLog'), backgroundId); // Çeviri anahtarı kullanıldı
           return cached.thumbnailUri;
         } else {
-          // Cache'te kayıtlı ama dosya yoksa, cache'ten sil
           delete this.cache[backgroundId];
           await this.saveCacheIndex();
         }
       }
 
-      // Dosya URI'sini çözümle
       let fullImageUriString: string;
       if (typeof fullImageModule === 'number') {
-        // Asset'i yükle (timeout ile)
         try {
           const asset = Asset.fromModule(fullImageModule);
+
           const assetPromise = asset.downloadAsync();
           const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error(i18n.t('bgThumbnailManager.assetDownloadTimeout'))), 5000);
+            setTimeout(() => reject(new Error(i18n.t('bgThumbnailManager.assetDownloadTimeout'))), 5000); // Çeviri anahtarı kullanıldı
           });
+
           await Promise.race([assetPromise, timeoutPromise]);
+
           fullImageUriString = asset.localUri || asset.uri;
           if (!fullImageUriString) {
-            throw new Error(i18n.t('bgThumbnailManager.failedToResolveAssetUri', { module: fullImageModule }));
+            throw new Error(i18n.t('bgThumbnailManager.failedToResolveAssetUri', { module: fullImageModule })); // Çeviri anahtarı kullanıldı
           }
         } catch (assetError: any) {
-          console.warn(i18n.t('bgThumbnailManager.assetLoadingFailedLog'), backgroundId, assetError.message);
-          // Android resource fallback (eğer Expo asset'i çözemezse)
+          console.warn(i18n.t('bgThumbnailManager.assetLoadingFailedLog'), backgroundId, assetError.message); // Çeviri anahtarı kullanıldı
           fullImageUriString = `android.resource://com.greeneyeapp.studyocepte/${fullImageModule}`;
         }
       } else {
         fullImageUriString = fullImageModule;
       }
 
-      console.log(i18n.t('bgThumbnailManager.creatingThumbnailLog'), backgroundId);
+      console.log(i18n.t('bgThumbnailManager.creatingThumbnailLog'), backgroundId); // Çeviri anahtarı kullanıldı
 
-      // Thumbnail oluştur (timeout ile)
-      const thumbnailPromise = this.createOptimizedThumbnail(backgroundId, fullImageUriString);
-      const timeoutPromiseForThumbnail = new Promise<string | null>((_, reject) => {
-        setTimeout(() => reject(new Error(i18n.t('bgThumbnailManager.thumbnailCreationTimeout'))), 15000); // Daha uzun timeout
+      const thumbnailPromise = this.createSuperHighQualityThumbnail(backgroundId, fullImageUriString);
+      const timeoutPromise = new Promise<string | null>((_, reject) => {
+        setTimeout(() => reject(new Error(i18n.t('bgThumbnailManager.thumbnailCreationTimeout'))), 10000); // Çeviri anahtarı kullanıldı
       });
-      const thumbnailUri = await Promise.race([thumbnailPromise, timeoutPromiseForThumbnail]);
+
+      const thumbnailUri = await Promise.race([thumbnailPromise, timeoutPromise]);
 
       if (thumbnailUri) {
-        // Oluşturulan thumbnail'ı cache'e ekle
         const fileInfo = await FileSystem.getInfoAsync(thumbnailUri);
         this.cache[backgroundId] = {
           id: backgroundId,
@@ -199,35 +186,36 @@ class BackgroundThumbnailManager {
           createdAt: Date.now(),
           size: fileInfo.size || 0
         };
+
         await this.saveCacheIndex();
-        console.log(i18n.t('bgThumbnailManager.thumbnailCreatedAndCachedLog'), backgroundId);
+        console.log(i18n.t('bgThumbnailManager.thumbnailCreatedAndCachedLog'), backgroundId); // Çeviri anahtarı kullanıldı
       }
 
       return thumbnailUri;
     } catch (error: any) {
-      console.warn(i18n.t('bgThumbnailManager.thumbnailFailedReturningNullLog'), backgroundId, error.message);
+      console.warn(i18n.t('bgThumbnailManager.thumbnailFailedReturningNullLog'), backgroundId, error.message); // Çeviri anahtarı kullanıldı
       return null;
     }
   }
 
-  // Thumbnail oluşturma metodunu optimize edildi
-  private async createOptimizedThumbnail(backgroundId: string, fullImageUri: string): Promise<string | null> {
+  private async createSuperHighQualityThumbnail(backgroundId: string, fullImageUri: string): Promise<string | null> {
     if (isHexColor(fullImageUri)) {
-      return fullImageUri; // Renk kodları için thumbnail oluşturma
+      console.log(i18n.t('bgThumbnailManager.skippingThumbnailForHexColorLog'), fullImageUri); // Çeviri anahtarı kullanıldı
+      return fullImageUri;
     }
 
     try {
-      const thumbnailFilename = `bg_thumb_opt_${backgroundId}_${Date.now()}.${this.thumbnailFormat.toLowerCase()}`;
+      const thumbnailFilename = `bg_thumb_super_hq_${backgroundId}_${Date.now()}.png`;
       const thumbnailPath = this.cacheDirectory + thumbnailFilename;
 
-      console.log(i18n.t('bgThumbnailManager.creatingThumbnailWithManipulateLog'), {
+      console.log(i18n.t('bgThumbnailManager.creatingThumbnailWithManipulateLog'), { // Çeviri anahtarı kullanıldı
         input: fullImageUri,
         output: thumbnailPath,
         size: this.thumbnailSize,
-        quality: this.thumbnailCompressQuality
+        quality: 'SUPER HIGH (PNG 1.0)'
       });
 
-      const result = await manipulateAsync(
+      const manipulatePromise = manipulateAsync(
         fullImageUri,
         [
           {
@@ -238,31 +226,35 @@ class BackgroundThumbnailManager {
           }
         ],
         {
-          compress: this.thumbnailCompressQuality,
-          format: this.thumbnailFormat,
+          compress: 1.0,
+          format: SaveFormat.PNG,
         }
       );
 
-      console.log(i18n.t('bgThumbnailManager.manipulateAsyncCompletedLog'), result.uri);
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(i18n.t('bgThumbnailManager.imageManipulationTimeout'))), 12000); // Çeviri anahtarı kullanıldı
+      });
 
-      // Manipule edilen geçici dosyayı kalıcı cache konumuna kopyala
+      const result = await Promise.race([manipulatePromise, timeoutPromise]);
+
+      console.log(i18n.t('bgThumbnailManager.manipulateAsyncCompletedLog'), result.uri); // Çeviri anahtarı kullanıldı
+
       await FileSystem.copyAsync({
         from: result.uri,
         to: thumbnailPath
       });
 
-      console.log(i18n.t('bgThumbnailManager.thumbnailCopiedToCacheLog'), thumbnailPath);
+      console.log(i18n.t('bgThumbnailManager.thumbnailCopiedToCacheLog'), thumbnailPath); // Çeviri anahtarı kullanıldı
 
-      // Geçici dosyayı sil
       try {
         await FileSystem.deleteAsync(result.uri, { idempotent: true });
       } catch (cleanupError) {
-        console.warn(i18n.t('common.cleanupWarning'), cleanupError);
+        console.warn(i18n.t('common.cleanupWarning'), cleanupError); // Çeviri anahtarı kullanıldı
       }
 
       return thumbnailPath;
     } catch (error: any) {
-      console.error(i18n.t('bgThumbnailManager.failedToCreateThumbnailLog', { id: backgroundId }), error.message);
+      console.error(i18n.t('bgThumbnailManager.failedToCreateThumbnailLog', { id: backgroundId }), error.message); // Çeviri anahtarı kullanıldı
       return null;
     }
   }
@@ -272,17 +264,17 @@ class BackgroundThumbnailManager {
       const thumbnail = this.cache[backgroundId];
       if (thumbnail) {
         if (isHexColor(thumbnail.thumbnailUri)) {
-          console.log(i18n.t('bgThumbnailManager.skippingDeletionForHexColorLog'), backgroundId);
-          delete this.cache[backgroundId]; // Cache'ten kaldır
+          console.log(i18n.t('bgThumbnailManager.skippingDeletionForHexColorLog'), backgroundId); // Çeviri anahtarı kullanıldı
+          delete this.cache[backgroundId];
           return;
         }
         await FileSystem.deleteAsync(thumbnail.thumbnailUri, { idempotent: true });
         delete this.cache[backgroundId];
-        console.log(i18n.t('bgThumbnailManager.thumbnailDeletedLog'), backgroundId);
+        console.log(i18n.t('bgThumbnailManager.thumbnailDeletedLog'), backgroundId); // Çeviri anahtarı kullanıldı
       }
     } catch (error: any) {
-      console.warn(i18n.t('bgThumbnailManager.failedToDeleteThumbnailLog'), error.message);
-      delete this.cache[backgroundId]; // Hata olsa bile cache'ten kaldır
+      console.warn(i18n.t('bgThumbnailManager.failedToDeleteThumbnailLog'), error.message); // Çeviri anahtarı kullanıldı
+      delete this.cache[backgroundId];
     }
   }
 
@@ -294,16 +286,16 @@ class BackgroundThumbnailManager {
 
       const deletePromises = files.map(file =>
         FileSystem.deleteAsync(this.cacheDirectory + file, { idempotent: true })
-          .catch(error => console.warn(i18n.t('bgThumbnailManager.failedToDeleteCacheFileLog'), file, error.message))
+          .catch(error => console.warn(i18n.t('bgThumbnailManager.failedToDeleteCacheFileLog'), file, error.message)) // Çeviri anahtarı kullanıldı
       );
 
       await Promise.allSettled(deletePromises);
 
-      this.cache = {}; // Cache'i tamamen sıfırla
+      this.cache = {};
       await this.saveCacheIndex();
-      console.log(i18n.t('bgThumbnailManager.cacheClearedLog'));
+      console.log(i18n.t('bgThumbnailManager.cacheClearedLog')); // Çeviri anahtarı kullanıldı
     } catch (error: any) {
-      console.error(i18n.t('bgThumbnailManager.failedToClearCacheLog'), error.message);
+      console.error(i18n.t('bgThumbnailManager.failedToClearCacheLog'), error.message); // Çeviri anahtarı kullanıldı
     }
   }
 
@@ -330,38 +322,45 @@ class BackgroundThumbnailManager {
   async preloadThumbnails(backgrounds: { id: string; fullUrl: any }[]): Promise<void> {
     if (!backgrounds || backgrounds.length === 0) return;
 
-    console.log(i18n.t('bgThumbnailManager.preloadingThumbnailsLog', { count: backgrounds.length }));
+    console.log(i18n.t('bgThumbnailManager.preloadingThumbnailsLog', { count: backgrounds.length })); // Çeviri anahtarı kullanıldı
 
     const results = await Promise.allSettled(
       backgrounds.map(async (bg) => {
         if (typeof bg.fullUrl === 'string' && isHexColor(bg.fullUrl)) {
-          console.log(i18n.t('bgThumbnailManager.skippingPreloadForHexColorLog'), bg.id);
+          console.log(i18n.t('bgThumbnailManager.skippingPreloadForHexColorLog'), bg.id); // Çeviri anahtarı kullanıldı
           return null;
         }
 
         try {
-          // getThumbnail içinde zaten init ve cache kontrolü var
           const result = await this.getThumbnail(bg.id, bg.fullUrl);
           if (result) {
-            console.log(i18n.t('bgThumbnailManager.preloadedLog'), bg.id);
+            console.log(i18n.t('bgThumbnailManager.preloadedLog'), bg.id); // Çeviri anahtarı kullanıldı
           } else {
-            console.warn(i18n.t('bgThumbnailManager.failedToPreloadLog'), bg.id);
+            console.warn(i18n.t('bgThumbnailManager.failedToPreloadLog'), bg.id); // Çeviri anahtarı kullanıldı
           }
           return result;
         } catch (error: any) {
-          console.warn(i18n.t('bgThumbnailManager.preloadErrorLog', { id: bg.id }), error.message);
+          console.warn(i18n.t('bgThumbnailManager.preloadErrorLog', { id: bg.id }), error.message); // Çeviri anahtarı kullanıldı
           return null;
         }
       })
     );
 
     const successful = results.filter(r => r.status === 'fulfilled' && r.value !== null).length;
-    console.log(i18n.t('bgThumbnailManager.preloadingCompletedLog', { successful, total: backgrounds.length }));
+    console.log(i18n.t('bgThumbnailManager.preloadingCompletedLog', { successful, total: backgrounds.length })); // Çeviri anahtarı kullanıldı
   }
 
-  // Bellek optimizasyonunu memoryManager üzerinden çağır
   async optimizeMemory(): Promise<void> {
-    await memoryManager.cleanup(); // memoryManager'ın tam temizliğini çağır
+    try {
+      await this.cleanupOldThumbnails();
+
+      if (__DEV__ && global.gc) {
+        global.gc();
+        console.log(i18n.t('bgThumbnailManager.memoryOptimizationCompletedLog')); // Çeviri anahtarı kullanıldı
+      }
+    } catch (error: any) {
+      console.warn(i18n.t('bgThumbnailManager.memoryOptimizationFailedLog'), error.message); // Çeviri anahtarı kullanıldı
+    }
   }
 
   async validateCache(): Promise<void> {
@@ -371,7 +370,6 @@ class BackgroundThumbnailManager {
       const idsToRemove: string[] = [];
 
       for (const [backgroundId, thumbnail] of Object.entries(this.cache)) {
-        // Hex renk kodları dosya değildir, atla
         if (isHexColor(thumbnail.thumbnailUri)) {
           continue;
         }
@@ -382,7 +380,6 @@ class BackgroundThumbnailManager {
             idsToRemove.push(backgroundId);
           }
         } catch (error) {
-          // getInfoAsync hata verirse dosya yok sayılır
           idsToRemove.push(backgroundId);
         }
       }
@@ -393,10 +390,10 @@ class BackgroundThumbnailManager {
 
       if (idsToRemove.length > 0) {
         await this.saveCacheIndex();
-        console.log(i18n.t('bgThumbnailManager.cacheValidationCompletedLog', { count: idsToRemove.length }));
+        console.log(i18n.t('bgThumbnailManager.cacheValidationCompletedLog', { count: idsToRemove.length })); // Çeviri anahtarı kullanıldı
       }
     } catch (error: any) {
-      console.warn(i18n.t('bgThumbnailManager.cacheValidationFailedLog'), error.message);
+      console.warn(i18n.t('bgThumbnailManager.cacheValidationFailedLog'), error.message); // Çeviri anahtarı kullanıldı
     }
   }
 }

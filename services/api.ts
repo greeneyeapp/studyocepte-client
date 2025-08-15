@@ -75,21 +75,17 @@ apiClient.interceptors.response.use(
     if (axios.isAxiosError(error) && error.response) {
       if (error.response.status === 401) {
         await AsyncStorage.removeItem('user');
-        // İsteğe bağlı: AuthStore'daki isAuthenticated durumunu da sıfırla
-        // Bu, RootLayout'taki yönlendirmeyi tetikleyecektir.
-        // useAuthStore.getState().logout(); // Eğer bu API response interceptor'da Zustan store'a erişim güvenliyse
       }
       
       const errorData = error.response.data as APIErrorResponse;
       if (errorData && !errorData.success && errorData.error) {
         throw new Error(errorData.error.message);
       } else {
-        const errorMessage = error.response.data?.detail || i18n.t('api.error.server');
+        const errorMessage = error.response.data?.detail || i18n.t('api.error.server'); // Çeviri anahtarı kullanıldı
         throw new Error(errorMessage);
       }
     }
-    // Genel ağ hatası veya sunucuya ulaşılamıyor
-    throw new Error(i18n.t('api.error.network'));
+    throw new Error(i18n.t('api.error.network')); // Çeviri anahtarı kullanıldı
   }
 );
 
@@ -103,8 +99,7 @@ const makeAPICall = async <T>(
     console.error('API Call Error:', {
       message: error.message,
       lang: options?.lang || i18n.language,
-      timestamp: new Date().toISOString(),
-      stack: error.stack, // Hata stack'ini de logla
+      timestamp: new Date().toISOString()
     });
     throw error;
   }
@@ -152,8 +147,6 @@ export const api = {
   },
 
   logout: async (): Promise<void> => {
-    // API tarafında bir logout endpoint'i varsa buraya eklenmeli
-    // Örneğin: await apiClient.post('/auth/logout');
   },
 
   removeMultipleBackgrounds: async (
@@ -167,7 +160,7 @@ export const api = {
         formData.append('files', {
           uri: photo.uri, 
           name: photo.filename,
-          type: 'image/jpeg', // Multiple background removal for JPEG
+          type: photo.filename.endsWith('.png') ? 'image/png' : 'image/jpeg',
         } as any);
       });
 
@@ -177,14 +170,14 @@ export const api = {
         {
           headers: { 'Content-Type': 'multipart/form-data' },
           params: { lang: lang || i18n.language },
-          timeout: 120000, // Artırılmış timeout
+          timeout: 120000,
         }
       );
 
       if (response.data.success && response.data.data) {
         return response.data.data;
       } else {
-        throw new Error(i18n.t('api.error.unexpectedResponse'));
+        throw new Error(i18n.t('api.error.unexpectedResponse')); // Çeviri anahtarı kullanıldı
       }
     }, { lang });
   },
@@ -198,7 +191,7 @@ export const api = {
       formData.append('file', {
         uri: photo.uri,
         name: photo.filename,
-        type: 'image/jpeg', // Single background removal for JPEG
+        type: photo.filename.endsWith('.png') ? 'image/png' : 'image/jpeg',
       } as any);
 
       const response = await apiClient.post<APISuccessResponse<{ processed_image: string }>>(
@@ -214,7 +207,7 @@ export const api = {
       if (response.data.success && response.data.data?.processed_image) {
         return response.data.data.processed_image;
       } else {
-        throw new Error(i18n.t('api.error.unexpectedResponse'));
+        throw new Error(i18n.t('api.error.unexpectedResponse')); // Çeviri anahtarı kullanıldı
       }
     }, { lang });
   },
@@ -273,24 +266,13 @@ export const apiUtils = {
       return error.response.data.error.message;
     }
     if (error?.message) {
-      // Check for common network error messages
-      if (error.message.includes('Network Error')) {
-        return i18n.t('api.error.network');
-      }
-      if (error.message.includes('timeout')) {
-        return i18n.t('api.error.network'); // Timeout da bir ağ hatası olarak kabul edilebilir
-      }
-      if (error.message.includes('ECONNABORTED')) { // Axios timeout hatası
-        return i18n.t('api.error.network');
-      }
       return error.message;
     }
-    return i18n.t('api.error.unknown');
+    return i18n.t('api.error.unknown'); // Çeviri anahtarı kullanıldı
   },
 
   checkNetworkConnection: async (): Promise<boolean> => {
     try {
-      // Daha güvenilir bir health check endpoint'i kullanılabilir
       const response = await apiClient.get('/health', { timeout: 5000 });
       return response.status === 200;
     } catch {
