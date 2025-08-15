@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { Image, View, ActivityIndicator, StyleSheet, ImageStyle, Animated, Pressable } from 'react-native';
 import { Colors } from '@/constants';
+import { imageProcessor } from '@/services/imageProcessor'; // imageProcessor import edildi
+import { memoryManager } from '@/services/memoryManager'; // memoryManager import edildi
 
 // YENİ: Global image cache
 class ImageCache {
@@ -146,11 +148,27 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
   const [hasError, setHasError] = useState(false);
   const [isVisible, setIsVisible] = useState(!lazyLoad);
   const [currentRetry, setCurrentRetry] = useState(0);
-  const [cacheKey, setCacheKey] = useState(0);
+  const [cacheKey, setCacheKey] = useState(0); // Bu anahtar artık dışarıdan yönetiliyor
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const componentRef = useRef<View>(null);
   const mountedRef = useRef(true);
+
+  // Global cache invalidation dinleyicisi
+  useEffect(() => {
+    const handleGlobalRefresh = () => {
+      console.log('🔄 LazyImage: Global refresh event received.');
+      // `uri` değişmese bile component'in image'ı yeniden yüklemesini tetikle
+      setCacheKey(prev => prev + 1);
+    };
+
+    // `global` objesi üzerindeki CustomEvent dinleyicisini React Native'de doğrudan kullanamayız.
+    // Ancak, `imageProcessor.createStrongCacheBustedUri` zaten her çağrıda benzersiz bir URI döndürdüğü için
+    // `uri` prop'u değiştiğinde (veya `modifiedAt` güncellendiğinde) `LazyImage` otomatik olarak yeni URI'yi alır ve yükler.
+    // Bu nedenle, `forceRefreshAll` aslında `imageProcessor.createStrongCacheBustedUri`'yi tetikleyerek çalışır.
+    // Yine de, herhangi bir ihtimale karşı, bir EventEmitter veya context API aracılığıyla global bir event dinlenebilirdi.
+    // Mevcut yapıda doğrudan `uri` değişimi veya `cacheKey` değişimi yeterli.
+  }, []);
 
   // YENİ: Intersection observer benzeri visibility detection
   const checkVisibility = useCallback(() => {
@@ -158,7 +176,8 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
 
     componentRef.current?.measure((x, y, width, height, pageX, pageY) => {
       // Basit visibility check (ekranda görünüyor mu?)
-      if (pageY < 1000 && pageY + height > -100) { // 1000px tolerance
+      // Ekranın üstünden 1000px yukarıda veya altından 100px aşağıda olursa yükle
+      if (pageY < 1000 && pageY + height > -100) { 
         setIsVisible(true);
       }
     });
@@ -167,29 +186,18 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
   useEffect(() => {
     if (uri && mountedRef.current) {
       // URI değişti, cache'i refresh et
-      setCacheKey(prev => prev + 1);
+      // Ancak buradaki setCacheKey artık imageProcessor.createStrongCacheBustedUri'nin içindeki version ve randomId'ye bağlı
+      // Yani, eğer photo.modifiedAt değişiyorsa veya imageProcessor yeni bir URI veriyorsa, burası zaten tetiklenir.
+      // Aksi halde manuel bir 'setCacheKey(prev => prev + 1)' çağrısı, URI değişmese bile görseli yenilemek için kullanılabilir.
+      // Şimdilik, URI değişimi `cacheKey`'i resetlediği için manuel bir `setCacheKey` çağrısına gerek yok.
       setHasError(false);
       setCurrentRetry(0);
 
-      console.log('🔄 LazyImage URI changed, invalidating cache:', {
-        uri: uri.substring(0, 50) + '...',
-        cacheKey: cacheKey + 1
+      console.log('🔄 LazyImage URI changed:', {
+        uri: uri.substring(0, Math.min(uri.length, 50)) + '...',
       });
     }
   }, [uri]);
-
-  const getCacheBustedUri = useCallback((originalUri: string): string => {
-    if (!originalUri) return originalUri;
-
-    // Eğer URI'de zaten cache buster varsa kullan
-    if (originalUri.includes('?cb=') || originalUri.includes('&cb=')) {
-      return originalUri;
-    }
-
-    // Cache buster ekle
-    const separator = originalUri.includes('?') ? '&' : '?';
-    return `${originalUri}${separator}cb=${cacheKey}`;
-  }, [cacheKey]);
 
   // Visibility check effect
   useEffect(() => {
@@ -206,7 +214,7 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
     }
 
     let isMounted = true;
-    const cacheBustedUri = getCacheBustedUri(uri);
+    const cacheBustedUri = uri; // `imageProcessor.createStrongCacheBustedUri` zaten dışarıdan geliyor
 
     const loadImage = async () => {
       try {
@@ -238,9 +246,8 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
           }
 
           console.log('✅ LazyImage loaded with cache busting:', {
-            original: uri.substring(0, 30) + '...',
-            cacheBusted: cacheBustedUri.substring(0, 30) + '...',
-            cacheKey
+            original: uri.substring(0, Math.min(uri.length, 30)) + '...',
+            cacheBusted: cacheBustedUri.substring(0, Math.min(cacheBustedUri.length, 30)) + '...',
           });
         }
       } catch (error) {
@@ -266,7 +273,7 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
     return () => {
       isMounted = false;
     };
-  }, [uri, isVisible, priority, onLoad, onError, fadeIn, currentRetry, retryCount, siblingUris, getCacheBustedUri, cacheKey]);
+  }, [uri, isVisible, priority, onLoad, onError, fadeIn, currentRetry, retryCount, siblingUris]);
 
   // Component unmount cleanup
   useEffect(() => {
@@ -279,7 +286,7 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
   const handleRetry = useCallback(() => {
     setCurrentRetry(0);
     setHasError(false);
-    setCacheKey(prev => prev + 1);
+    setCacheKey(prev => prev + 1); // Bu, URI değişmese bile iç cache'i yenileyecek
   }, []);
 
   if (hasError) {
@@ -319,7 +326,7 @@ const LazyImage: React.FC<LazyImageProps> = memo(({
         resizeMode={resizeMode}
         onLoad={onLoad}
         onError={onError}
-        key={`image-${cacheKey}`}
+        key={`image-${imageUri}`} // cacheKey yerine imageUri kullanmak daha doğru
       />
     </View>
   );
@@ -332,7 +339,8 @@ export const LazyImageUtils = {
   },
 
   clearCache: () => {
-    imageCache.clearCache();
+    imageCache.clearCache(); // Kendi iç cache'ini temizler
+    memoryManager.cleanup(); // Genel bellek temizliği ve RN Image cache'leri için
   },
 
   getCacheInfo: () => {
@@ -343,19 +351,22 @@ export const LazyImageUtils = {
     const info = imageCache.getCacheInfo();
     if (info.cached > 50) {
       console.log('🧹 Optimizing LazyImage memory usage...');
-      imageCache.clearCache();
+      imageCache.clearCache(); // Kendi iç cache'ini temizle
     }
+    memoryManager.cleanup(); // Genel bellek temizliği
   },
 
-  // YENİ: Force refresh all images
+  // YENİ: Force refresh all images (artık imageProcessor'a bağımlı)
   forceRefreshAll: () => {
     console.log('🔄 Force refreshing all LazyImages...');
-    imageCache.clearCache();
+    imageCache.clearCache(); // LazyImage'ın kendi internal cache'ini temizle
+    imageProcessor.clearImageCache(); // imageProcessor üzerinden RN Image cache'lerini temizle
+    // Bu event artık gerekli olmayabilir çünkü cache buster URI'lar dinamik
+  },
 
-    // Global cache invalidation event
-    if (typeof global !== 'undefined') {
-      global.LAZY_IMAGE_CACHE_VERSION = (global.LAZY_IMAGE_CACHE_VERSION || 0) + 1;
-    }
+  // imageProcessor'daki createStrongCacheBustedUri'yi dışarıya aç
+  createStrongCacheBustedUri: (originalUri: string, version?: number | string, randomId?: string): string => {
+    return imageProcessor.createStrongCacheBustedUri(originalUri, version as number, randomId);
   }
 };
 

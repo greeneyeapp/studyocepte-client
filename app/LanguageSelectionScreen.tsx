@@ -139,9 +139,7 @@ export default function LanguageSelectionScreen({ onLanguageSelected }: Language
             </View>
 
             {/* Language Options */}
-            <View style={styles.languageContainer}>
-              <Text style={styles.sectionTitle}>{t('settings.language')}</Text>
-              
+            <View style={styles.languageContainer}>              
               <View style={styles.languageGrid}>
                 {AVAILABLE_LANGUAGES.map((language) => (
                   <LanguageCard
@@ -161,16 +159,9 @@ export default function LanguageSelectionScreen({ onLanguageSelected }: Language
                 onPress={handleContinue}
                 loading={isLoading}
                 disabled={!selectedLanguage || isLoading}
-                size="large"
+                size="medium"
                 icon={<Feather name="arrow-right" size={20} color={Colors.card} />}
               />
-            </View>
-
-            {/* Footer Note */}
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>
-                {t('settings.supportSubtitle')}
-              </Text>
             </View>
           </View>
         </ScrollView>

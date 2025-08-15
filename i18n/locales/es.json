@@ -71,7 +71,7 @@
   },
   "products": {
     "title": "Productos",
-    "emptyPhotosTitle": "Sin fotos",
+    "emptyPhotosTitle": "Aún no hay fotos del producto",
     "nameYourProduct": "Ponga nombre a su producto",
     "productNamePlaceholder": "Puede introducir un nombre de producto (opcional)",
     "empty": "Aún no hay productos",
@@ -101,7 +101,7 @@
     "photoCountSuffix": "{{count}} fotos",
     "selectedPhotosCount": "{{count}} fotos seleccionadas",
     "addPhoto": "Añadir foto",
-    "addPhotoSubtitle": "Sube tu primera foto",
+    "addPhotoSubtitle": "Sube tu primera foto de producto",
     "enterProductNamePlaceholder": "Introduzca el nombre del producto",
     "nameRequiredMessage": "Por favor, introduzca un nombre para el producto.",
     "status": {

@@ -10,14 +10,16 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import { useProductStore, ProductPhoto } from '@/stores/useProductStore';
-import { Colors, Typography, Spacing, BorderRadius, PHOTO_GRID_GAP } from '@/constants'; // PHOTO_GRID_GAP import edildi
+import { Colors, Typography, Spacing, BorderRadius, PHOTO_GRID_GAP } from '@/constants';
 import { Card } from '@/components/Card';
 import { DialogService } from '@/components/Dialog/DialogService';
 import { InputDialogService } from '@/components/Dialog/InputDialogService';
 import { ImagePickerService } from '@/services/ui';
 import { BackgroundRemovalAnimation } from '@/components/BackgroundRemovalAnimation';
 import AppLoading, { AppLoadingRef } from '@/components/Loading/AppLoading';
-import { ToastService } from '@/components/Toast/ToastService'; // ToastService import edildi
+import { ToastService } from '@/components/Toast/ToastService';
+import { memoryManager } from '@/services/memoryManager'; // memoryManager import edildi
+import { LazyImageUtils } from '@/components/LazyImage'; // LazyImageUtils import edildi
 
 /**
  * ⭐ YÜKSEK KALİTE: PhotoItem component with advanced image optimization
@@ -35,7 +37,6 @@ const PhotoItem: React.FC<{
   // Dinamik değerleri bileşen içinde hesaplayın
   const { width: windowWidth } = Dimensions.get('window');
   // Sütun sayısını doğrudan burada belirleyelim veya Layout.ts'den alabiliriz
-  // Şimdilik burada manuel belirttim, Layout.ts'den almak daha tutarlı olurdu
   const photoColumns = windowWidth > 768 ? 6 : 4;
 
   // itemWidth'i useMemo ile hesaplayın
@@ -46,22 +47,15 @@ const PhotoItem: React.FC<{
 
 
   const cacheBustedUri = useMemo(() => {
-    if (!photo.thumbnailUri) return '';
-    const hasParams = photo.thumbnailUri.includes('?');
-    const timestamp = Date.now();
-    const randomParam = Math.random().toString(36).substr(2, 6);
-    if (hasParams) {
-      return `${photo.thumbnailUri}&t=${timestamp}&r=${randomParam}`;
-    } else {
-      return `${photo.thumbnailUri}?cb=${timestamp}&r=${randomParam}`;
-    }
+    // photo.modifiedAt veya Date.now() kullanarak güçlü cache busting
+    return LazyImageUtils.createStrongCacheBustedUri(photo.thumbnailUri, undefined, photo.modifiedAt);
   }, [photo.thumbnailUri, photo.modifiedAt]);
 
   const isDisabled = photo.status === 'processing';
 
   console.log(t('products.photoItemRenderingLog'), {
     photoId: photo.id,
-    originalUri: photo.thumbnailUri,
+    originalUri: photo.thumbnailUri.substring(0, 50) + '...',
     cacheBustedUri: cacheBustedUri.substring(0, 80) + '...',
     modifiedAt: photo.modifiedAt,
     status: photo.status,
@@ -86,11 +80,10 @@ const PhotoItem: React.FC<{
         source={{ uri: cacheBustedUri }}
         style={styles.photoImage}
         resizeMode="cover"
-        resizeMethod="resize"
         fadeDuration={200}
-        cache="reload"
+        // cache="reload" // Artık URI'de cache buster olduğu için reload'a gerek yok
         onError={(error) => {
-          console.warn(t('products.photoItemLoadErrorLog'), photo.id, error);
+          console.warn(t('products.photoItemLoadErrorLog'), photo.id, error.nativeEvent.error);
         }}
         onLoad={() => {
           console.log(t('products.photoItemLoadedLog'), photo.id);
@@ -117,7 +110,7 @@ const PhotoItem: React.FC<{
 
       {/* ⭐ YENİ: İşleniyor animasyonu */}
       {isDisabled && (
-        <View style={styles.processingOverlay}>
+        <View style={styles.processingOverlay} pointerEvents="none"> {/* pointerEvents eklendi */}
           <ActivityIndicator size="large" color={Colors.card} />
           <Text style={styles.processingText}>{t('products.status.processing')}</Text>
         </View>
@@ -170,59 +163,36 @@ export default function ProductDetailScreen() {
    */
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-
-    try {
-      // ⭐ CACHE INVALIDATION: Force product store refresh
-      console.log(t('loading.refreshingThumbnails')); // Değiştirildi
-
-      // 1. Image cache temizle
-      const { imageProcessor } = await import('@/services/imageProcessor');
-      await imageProcessor.clearImageCache();
-
-      // 2. Product store'u yeniden yükle
-      await useProductStore.getState().loadProducts();
-
-      // 3. Force re-render
-      setTimeout(() => {
-        const currentProducts = useProductStore.getState().products;
-        useProductStore.setState({ products: [...currentProducts] });
-        console.log(t('products.refreshCompleteLog'));
-      }, 500);
-
-    } catch (error) {
-      console.warn(t('products.refreshFailedLog'), error);
-    } finally {
-      setRefreshing(false);
-    }
+    // Güçlü bellek temizliği ve cache invalidation
+    await memoryManager.cleanup();
+    // Ardından ürünleri yeniden yükle
+    await useProductStore.getState().loadProducts();
+    setRefreshing(false);
+    ToastService.show(t('products.refreshCompleteLog'));
   }, [t]);
 
   const handleAddPhotos = useCallback(async () => {
     if (!product?.id) return;
+
+    // Kritik işlemi kilitle
     try {
-      loadingRef.current?.show();
-      const imageUris = await ImagePickerService.pickImagesFromGallery();
+      await memoryManager.critical.withLock('add-photos-product-detail', async () => {
+        loadingRef.current?.show();
+        const imageUris = await ImagePickerService.pickImagesFromGallery();
 
-      if (imageUris && imageUris.length > 0) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        const success = await addMultiplePhotos(product.id, imageUris);
+        if (imageUris && imageUris.length > 0) {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          const success = await addMultiplePhotos(product.id, imageUris);
 
-        // ⭐ CACHE INVALIDATION: Photo ekleme sonrası
-        if (success) {
-          console.log(t('products.photosAddedCacheInvalidationLog'));
-          setTimeout(async () => {
-            try {
-              const { imageProcessor } = await import('@/services/imageProcessor');
-              await imageProcessor.clearImageCache();
-
-              // Force re-render
-              const currentProducts = useProductStore.getState().products;
-              useProductStore.setState({ products: [...currentProducts] });
-            } catch (error) {
-              console.warn(t('products.postAddCacheFailedLog'), error);
-            }
-          }, 1000);
+          // ⭐ CACHE INVALIDATION: Photo ekleme sonrası
+          if (success) {
+            console.log(t('products.photosAddedCacheInvalidationLog'));
+            // memoryManager.cleanup() zaten addMultiplePhotos içinde çağrılıyor
+          }
         }
-      }
+      });
+    } catch (e: any) {
+      ToastService.error(e.message || t('common.errors.galleryPickFailed'));
     } finally {
       loadingRef.current?.hide();
     }
@@ -249,15 +219,7 @@ export default function ProductDetailScreen() {
 
               // ⭐ CACHE INVALIDATION: Photo silme sonrası
               console.log(t('products.photoDeletedCacheInvalidationLog'));
-              setTimeout(async () => {
-                try {
-                  const { imageProcessor } = await import('@/services/imageProcessor');
-                  await imageProcessor.clearImageCache();
-                } catch (error) {
-                  console.warn(t('products.postDeleteCacheFailedLog'), error);
-                }
-              }, 500);
-
+              await memoryManager.cleanup(); // Temizlik
             } finally {
               loadingRef.current?.hide();
             }
@@ -282,22 +244,20 @@ export default function ProductDetailScreen() {
           onPress: async () => {
             loadingRef.current?.show();
             try {
-              for (const photoId of selectedPhotos) {
-                await deletePhoto(product.id, photoId);
-              }
+              // Çoklu silme işlemini sıralı kuyruğa ekle
+              const deletePromises = Array.from(selectedPhotos).map(photoId =>
+                memoryManager.queue.addOperation(`delete-selected-photo-${photoId}`, async () => {
+                  await deletePhoto(product.id, photoId);
+                })
+              );
+              await Promise.all(deletePromises); // Tüm Promise'lerin bitmesini bekle
+
               setSelectedPhotos(new Set());
               setIsSelectionMode(false);
 
               // ⭐ CACHE INVALIDATION: Çoklu silme sonrası
               console.log(t('products.multiPhotoDeletedCacheInvalidationLog'));
-              setTimeout(async () => {
-                try {
-                  const { imageProcessor } = await import('@/services/imageProcessor');
-                  await imageProcessor.clearImageCache();
-                } catch (error) {
-                  console.warn(t('products.postBulkDeleteCacheFailedLog'), error);
-                }
-              }, 500);
+              await memoryManager.cleanup(); // Temizlik
 
             } finally {
               loadingRef.current?.hide();
@@ -338,6 +298,7 @@ export default function ProductDetailScreen() {
             loadingRef.current?.show();
             try {
               await deleteProduct(product.id);
+              router.push('/(tabs)/home'); // Ürün silindiğinde anasayfaya dön
             } finally {
               loadingRef.current?.hide();
             }
@@ -361,26 +322,9 @@ export default function ProductDetailScreen() {
         setSelectedPhotos(new Set());
         setIsSelectionMode(false);
         console.log(t('products.backgroundRemovalCompleteLog'));
-
-        // Tüm asenkron zincir bitene kadar yükleyiciyi tutmak için Promise'i bekliyoruz
-        await new Promise<void>(resolve => {
-          setTimeout(async () => {
-            try {
-              const { imageProcessor } = await import('@/services/imageProcessor');
-              await imageProcessor.clearImageCache();
-              const currentProducts = useProductStore.getState().products;
-              useProductStore.setState({ products: [...currentProducts] });
-              console.log(t('products.productStoreRefreshedUI'));
-            } catch (error) {
-              console.warn(t('products.postBackgroundRemovalFailedLog'), error);
-            } finally {
-              resolve();
-            }
-          }, 1000);
-        });
+        await memoryManager.cleanup(); // İşlem sonrası temizlik
       } else {
-        // İşlem başarısız olursa, seçimi koru veya kullanıcıya geri bildirim ver
-        ToastService.error(t('products.backgroundRemovalFailed')); // Yeni çeviri anahtarı
+        ToastService.error(t('products.backgroundRemovalFailed'));
       }
     } finally {
       loadingRef.current?.hide();
@@ -402,19 +346,10 @@ export default function ProductDetailScreen() {
         setAnimationState(prev => ({ ...prev, processedUri: processedPhoto.processedUri }));
       }
       console.log(t('products.singleBackgroundRemovalCompleteLog'));
-      setTimeout(async () => {
-        try {
-          const { imageProcessor } = await import('@/services/imageProcessor');
-          await imageProcessor.clearImageCache();
-          const currentProducts = useProductStore.getState().products;
-          useProductStore.setState({ products: [...currentProducts] });
-        } catch (error) {
-          console.warn(t('products.postSingleBackgroundRemovalFailedLog'), error);
-        }
-      }, 1000);
+      await memoryManager.cleanup(); // İşlem sonrası temizlik
     } else {
       setAnimationState({ isAnimating: false, originalUri: null, processedUri: null });
-      ToastService.error(t('products.backgroundRemovalFailed')); // Yeni çeviri anahtarı
+      ToastService.error(t('products.backgroundRemovalFailed'));
     }
   }, [product, removeSingleBackground, t]);
 
@@ -426,7 +361,7 @@ export default function ProductDetailScreen() {
   const handlePhotoPress = useCallback((photo: ProductPhoto) => {
     // ⭐ YENİ: Fotoğraf işlemde ise tıklama engellenir
     if (photo.status === 'processing') {
-      ToastService.info(t('products.photoIsProcessing')); // Yeni çeviri anahtarı
+      ToastService.info(t('products.photoIsProcessing'));
       return;
     }
 
@@ -473,7 +408,7 @@ export default function ProductDetailScreen() {
       setIsSelectionMode(true);
       setSelectedPhotos(new Set([photo.id]));
     }
-  }, [isSelectionMode, t]); // t'yi dependency'ye ekle
+  }, [isSelectionMode, t]);
 
   // ⭐ YENİ: Çoklu arka plan temizleme butonu için disabled kontrolü
   const isMultiRemoveButtonDisabled = useMemo(() => {
@@ -545,10 +480,10 @@ export default function ProductDetailScreen() {
             <TouchableOpacity
               style={[
                 styles.selectionButton,
-                isMultiRemoveButtonDisabled && styles.selectionButtonDisabled // ⭐ BURADA disabled stilini uyguladık
+                isMultiRemoveButtonDisabled && styles.selectionButtonDisabled
               ]}
               onPress={handleRemoveBackgrounds}
-              disabled={isMultiRemoveButtonDisabled} // isMultiRemoveButtonDisabled'ı disabled prop'una atadık
+              disabled={isMultiRemoveButtonDisabled}
             >
               <Text style={styles.selectionButtonText}>{t('products.removeBackgroundsButton')}</Text>
             </TouchableOpacity>

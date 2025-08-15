@@ -9,6 +9,7 @@ import { TargetType } from '@/features/editor/config/tools';
 import { useProductStore, ProductPhoto } from './useProductStore';
 import { imageProcessor } from '@/services/imageProcessor';
 import i18n from '@/i18n'; // i18n import edildi
+import { memoryManager } from '@/services/memoryManager'; // memoryManager import edildi
 
 export interface EditorSettings {
   backgroundId: string;
@@ -80,6 +81,7 @@ interface EditorState {
   isUpdatingThumbnail: boolean;
   thumbnailError: string | null;
   lastAutoSave: number;
+  autoSaveEnabled: boolean; // Auto-save özelliğini etkinleştir/devre dışı bırak
 }
 
 interface EditorActions {
@@ -97,7 +99,7 @@ interface EditorActions {
   applyCrop: () => void;
   clearStore: () => void;
   saveDraft: () => void;
-  saveDraftForPhoto: (photoId: string) => void;
+  saveDraftForPhoto: (photoId: string, autoSaved?: boolean) => void; // autoSaved parametresi eklendi
   loadDraftForPhoto: (photoId: string) => PhotoDraft | null;
   clearDraft: () => void;
   clearDraftForPhoto: (photoId: string) => void;
@@ -107,6 +109,7 @@ interface EditorActions {
   performAutoSave: () => void;
   updateThumbnailWithPreview: (previewRef: React.RefObject<any>) => Promise<void>;
   resetAllSettings: () => void;
+  toggleAutoSave: () => void; // Auto-save'i açıp kapamak için
 }
 
 const defaultSettings: EditorSettings = {
@@ -135,32 +138,38 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       isUpdatingThumbnail: false,
       thumbnailError: null,
       lastAutoSave: 0,
+      autoSaveEnabled: true, // Varsayılan olarak auto-save açık
+
+      toggleAutoSave: () => {
+        set(state => ({ autoSaveEnabled: !state.autoSaveEnabled }));
+        ToastService.show(get().autoSaveEnabled ? i18n.t('editor.autoSaveEnabled') : i18n.t('editor.autoSaveDisabled'));
+      },
 
       setActivePhoto: (photo: ProductPhoto) => {
         const currentActivePhoto = get().activePhoto;
         if (currentActivePhoto && currentActivePhoto.id === photo.id) {
-          console.log(i18n.t('editor.activePhotoAlreadySetLog')); // Çeviri anahtarı kullanıldı
+          console.log(i18n.t('editor.activePhotoAlreadySetLog'));
           return;
         }
 
-        console.log(i18n.t('editor.settingActivePhotoLog'), photo.id); // Çeviri anahtarı kullanıldı
+        console.log(i18n.t('editor.settingActivePhotoLog'), photo.id);
 
         const currentPhoto = get().activePhoto;
         if (currentPhoto && get().hasDraftChanges) {
-          get().saveDraftForPhoto(currentPhoto.id);
+          get().saveDraftForPhoto(currentPhoto.id, false); // Manuel kayıtta autoSaved = false
         }
 
         const existingDraft = get().loadDraftForPhoto(photo.id);
         let loadedSettings: EditorSettings;
 
         if (existingDraft) {
-          console.log(i18n.t('editor.autoLoadingDraftLog'), photo.id); // Çeviri anahtarı kullanıldı
+          console.log(i18n.t('editor.autoLoadingDraftLog'), photo.id);
           loadedSettings = existingDraft.settings;
         } else if (photo.editorSettings && Object.keys(photo.editorSettings).length > 0) {
-          console.log(i18n.t('editor.loadingExistingSettingsLog'), photo.id); // Çeviri anahtarı kullanıldı
+          console.log(i18n.t('editor.loadingExistingSettingsLog'), photo.id);
           loadedSettings = { ...photo.editorSettings };
         } else {
-          console.log(i18n.t('editor.firstTimeEditingLog'), photo.id); // Çeviri anahtarı kullanıldı
+          console.log(i18n.t('editor.firstTimeEditingLog'), photo.id);
           loadedSettings = { ...defaultSettings, backgroundId: 'white_solid' };
         }
 
@@ -191,12 +200,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
         const currentPhoto = get().activePhoto;
         if (currentPhoto) {
-          setTimeout(() => {
-            const state = get();
-            if (state.activePhoto?.id === currentPhoto.id && state.hasDraftChanges) {
-              state.performAutoSave();
-            }
-          }, 2000);
+          // Debounced auto-save çağrısı performAutoSave hook'undan yönetilecek
         }
       },
 
@@ -235,35 +239,39 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         get().addSnapshotToHistory();
       },
 
+      // ⭐ ÇÖZÜM 3: Kaydetme işlemi ve bellek güvenli navigasyon
       saveChanges: async (previewRef?: React.RefObject<any>) => {
         const { activePhoto, settings, isSaving } = get();
         if (!activePhoto || isSaving) return;
 
         set({ isSaving: true, thumbnailError: null });
-        console.log(i18n.t('editor.saveChangesStartedLog'), { // Çeviri anahtarı kullanıldı
+        console.log(i18n.t('editor.saveChangesStartedLog'), {
           photoId: activePhoto.id,
           withThumbnailUpdate: !!previewRef,
           hasPreviewRef: !!previewRef?.current
         });
 
         try {
+          // 1. Ürün ayarlarını güncelle
           useProductStore.getState().updatePhotoSettings(
             activePhoto.productId,
             activePhoto.id,
             settings
           );
-          console.log(i18n.t('editor.photoSettingsUpdatedLog')); // Çeviri anahtarı kullanıldı
+          console.log(i18n.t('editor.photoSettingsUpdatedLog'));
 
+          // 2. Thumbnail'ı güncelle (varsa)
           if (previewRef && previewRef.current) {
-            console.log(i18n.t('editor.startingThumbnailUpdateLog')); // Çeviri anahtarı kullanıldı
-            await get().updateThumbnailWithPreview(previewRef);
-            console.log(i18n.t('editor.thumbnailUpdateCompletedLog')); // Çeviri anahtarı kullanıldı
+            console.log(i18n.t('editor.startingThumbnailUpdateLog'));
+            await get().updateThumbnailWithPreview(previewRef); // Bu artık kritik bir işlem olarak kilitli
+            console.log(i18n.t('editor.thumbnailUpdateCompletedLog'));
           } else {
-            console.log(i18n.t('editor.skippingThumbnailUpdateLog')); // Çeviri anahtarı kullanıldı
+            console.log(i18n.t('editor.skippingThumbnailUpdateLog'));
           }
 
+          // 3. Taslağı temizle (işlem başarıyla tamamlandığı için)
           get().clearDraftForPhoto(activePhoto.id);
-          console.log(i18n.t('editor.draftClearedLog')); // Çeviri anahtarı kullanıldı
+          console.log(i18n.t('editor.draftClearedLog'));
 
           set({
             isSaving: false,
@@ -271,20 +279,23 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
             hasDraftChanges: false
           });
 
-          ToastService.show(previewRef ? i18n.t('editor.changesAndThumbnailSaved') : i18n.t('editor.settingsSaved')); // Çeviri anahtarı kullanıldı
+          ToastService.show(previewRef ? i18n.t('editor.changesAndThumbnailSaved') : i18n.t('editor.settingsSaved'));
 
-          console.log(i18n.t('editor.saveChangesCompletedLog')); // Çeviri anahtarı kullanıldı
+          console.log(i18n.t('editor.saveChangesCompletedLog'));
 
         } catch (error: any) {
-          console.error(i18n.t('editor.saveFailedLog'), error); // Çeviri anahtarı kullanıldı
+          console.error(i18n.t('editor.saveFailedLog'), error);
           set({
             isSaving: false,
-            thumbnailError: error.message || i18n.t('editor.saveFailed') // Çeviri anahtarı kullanıldı
+            thumbnailError: error.message || i18n.t('editor.saveFailed')
           });
 
-          ToastService.show(error.message || i18n.t('editor.changesSaveFailed')); // Çeviri anahtarı kullanıldı
+          ToastService.show(error.message || i18n.t('editor.changesSaveFailed'));
 
           throw error;
+        } finally {
+          // Her durumda bellek temizliği yap
+          await memoryManager.cleanup();
         }
       },
 
@@ -301,7 +312,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
         const maxHistorySize = 50;
         if (newHistory.length > maxHistorySize) {
-          newHistory.shift();
+          newHistory.shift(); // En eski snapshot'ı kaldır
         }
 
         set({
@@ -342,11 +353,12 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
       saveDraft: () => {
         const activePhoto = get().activePhoto;
         if (activePhoto) {
-          get().saveDraftForPhoto(activePhoto.id);
+          get().saveDraftForPhoto(activePhoto.id, false); // Manuel kayıtta autoSaved = false
         }
       },
 
-      saveDraftForPhoto: (photoId: string) => {
+      // saveDraftForPhoto içine autoSaved parametresi eklendi
+      saveDraftForPhoto: (photoId: string, autoSaved: boolean = true) => {
         const { settings, photoDrafts, activePhoto } = get();
         if (!activePhoto || activePhoto.id !== photoId) return;
 
@@ -355,7 +367,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           productId: activePhoto.productId,
           settings: { ...settings },
           timestamp: Date.now(),
-          autoSaved: true,
+          autoSaved: autoSaved, // autoSaved parametresi kullanılıyor
           version: Date.now()
         };
 
@@ -367,7 +379,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           lastAutoSave: Date.now()
         });
 
-        console.log(i18n.t('editor.draftSavedLog'), photoId); // Çeviri anahtarı kullanıldı
+        console.log(i18n.t('editor.draftSavedLog'), photoId, autoSaved ? '(Auto)' : '(Manual)');
       },
 
       loadDraftForPhoto: (photoId: string) => {
@@ -388,10 +400,10 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
 
         set({
           photoDrafts: newDrafts,
-          hasDraftChanges: false
+          hasDraftChanges: false // Taslak temizlendiğinde değişiklik kalmaz
         });
 
-        console.log(i18n.t('editor.draftClearedForPhotoLog'), photoId); // Çeviri anahtarı kullanıldı
+        console.log(i18n.t('editor.draftClearedForPhotoLog'), photoId);
       },
 
       hasDraftForPhoto: (photoId: string) => {
@@ -414,96 +426,90 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           activeFilterKey: 'custom'
         });
 
-        console.log(i18n.t('editor.restoredFromDraftLog'), draft.photoId); // Çeviri anahtarı kullanıldı
+        console.log(i18n.t('editor.restoredFromDraftLog'), draft.photoId);
       },
 
       performAutoSave: () => {
-        const { activePhoto, hasDraftChanges } = get();
+        const { activePhoto, hasDraftChanges, autoSaveEnabled, lastAutoSave } = get();
 
-        if (!activePhoto || !hasDraftChanges) {
+        if (!activePhoto || !hasDraftChanges || !autoSaveEnabled) {
           return;
         }
 
         const now = Date.now();
-        const timeSinceLastSave = now - get().lastAutoSave;
-        const minInterval = 5000;
+        const timeSinceLastSave = now - lastAutoSave;
+        const minInterval = 5000; // Minimum 5 saniye aralıkla auto-save
 
         if (timeSinceLastSave < minInterval) {
           return;
         }
 
-        try {
-          get().saveDraftForPhoto(activePhoto.id);
-          console.log(i18n.t('editor.autoSaveCompletedLog'), activePhoto.id); // Çeviri anahtarı kullanıldı
-        } catch (error) {
-          console.warn(i18n.t('editor.autoSaveFailedLog'), error); // Çeviri anahtarı kullanıldı
-        }
+        // Auto-save işlemini bir kuyruğa ekleyerek sequential çalışmasını sağla
+        memoryManager.queue.addOperation(`auto-save-${activePhoto.id}`, async () => {
+          try {
+            get().saveDraftForPhoto(activePhoto.id, true); // autoSaved = true
+            console.log(i18n.t('editor.autoSaveCompletedLog'), activePhoto.id);
+          } catch (error) {
+            console.warn(i18n.t('editor.autoSaveFailedLog'), error);
+          }
+        });
       },
 
+      // ⭐ ÇÖZÜM 5: Thumbnail güncellemesi kritik bir işlem olarak kilitleniyor
       updateThumbnailWithPreview: async (previewRef: React.RefObject<any>) => {
         const { activePhoto } = get();
         if (!activePhoto || !previewRef.current) return;
 
         set({ isUpdatingThumbnail: true, thumbnailError: null });
-        console.log(i18n.t('editor.startingThumbnailUpdatePreviewLog'), activePhoto.id); // Çeviri anahtarı kullanıldı
+        console.log(i18n.t('editor.startingThumbnailUpdatePreviewLog'), activePhoto.id);
 
         try {
-          const capturedUri = await imageProcessor.captureFilteredThumbnail(previewRef, {
-            width: 800,
-            height: 800
+          await memoryManager.critical.withLock(`editor-thumbnail-update-${activePhoto.id}`, async () => {
+            const capturedUri = await imageProcessor.captureFilteredThumbnail(
+              previewRef,
+              imageProcessor.PREVIEW_CAPTURE_CONFIG // Optimize edilmiş boyutlar
+            );
+            console.log(i18n.t('editor.previewCapturedLog'), capturedUri);
+
+            const newThumbnailUri = await imageProcessor.saveFilteredThumbnail(
+              activePhoto.productId,
+              activePhoto.id,
+              capturedUri
+            );
+            console.log(i18n.t('editor.thumbnailSavedLog'), newThumbnailUri);
+
+            await useProductStore.getState().updatePhotoThumbnail(
+              activePhoto.productId,
+              activePhoto.id,
+              newThumbnailUri
+            );
+            console.log(i18n.t('editor.productStoreUpdatedThumbnailLog'));
+
+            const updatedPhoto = {
+              ...activePhoto,
+              thumbnailUri: newThumbnailUri,
+              modifiedAt: new Date().toISOString()
+            };
+
+            set({
+              activePhoto: updatedPhoto,
+              isUpdatingThumbnail: false
+            });
+
+            // Bellek temizliği yap
+            await memoryManager.cleanup();
+
+            console.log(i18n.t('editor.thumbnailUpdateCompletedSuccessLog'));
           });
-          console.log(i18n.t('editor.previewCapturedLog'), capturedUri); // Çeviri anahtarı kullanıldı
-
-          const newThumbnailUri = await imageProcessor.saveFilteredThumbnail(
-            activePhoto.productId,
-            activePhoto.id,
-            capturedUri
-          );
-          console.log(i18n.t('editor.thumbnailSavedLog'), newThumbnailUri); // Çeviri anahtarı kullanıldı
-
-          await useProductStore.getState().updatePhotoThumbnail(
-            activePhoto.productId,
-            activePhoto.id,
-            newThumbnailUri
-          );
-          console.log(i18n.t('editor.productStoreUpdatedThumbnailLog')); // Çeviri anahtarı kullanıldı
-
-          const updatedPhoto = {
-            ...activePhoto,
-            thumbnailUri: newThumbnailUri,
-            modifiedAt: new Date().toISOString()
-          };
-
-          set({
-            activePhoto: updatedPhoto,
-            isUpdatingThumbnail: false
-          });
-
-          setTimeout(async () => {
-            try {
-              await imageProcessor.clearImageCache();
-              const productStore = useProductStore.getState();
-              await productStore.loadProducts();
-              console.log(i18n.t('editor.forcedProductStoreRefreshLog')); // Çeviri anahtarı kullanıldı
-            } catch (refreshError) {
-              console.warn(i18n.t('common.cacheRefreshWarning'), refreshError); // Çeviri anahtarı kullanıldı
-            }
-          }, 300);
-
-          console.log(i18n.t('editor.thumbnailUpdateCompletedSuccessLog')); // Çeviri anahtarı kullanıldı
 
         } catch (error: any) {
-          console.error(i18n.t('editor.thumbnailUpdateFailedLog'), error); // Çeviri anahtarı kullanıldı
+          console.error(i18n.t('editor.thumbnailUpdateFailedLog'), error);
           set({
             isUpdatingThumbnail: false,
-            thumbnailError: error.message || i18n.t('editor.thumbnailUpdateFailed') // Çeviri anahtarı kullanıldı
+            thumbnailError: error.message || i18n.t('editor.thumbnailUpdateFailed')
           });
 
-          try {
-            await imageProcessor.clearImageCache();
-          } catch (cacheError) {
-            console.warn(i18n.t('editor.cacheClearAfterErrorFailedLog'), cacheError); // Çeviri anahtarı kullanıldı
-          }
+          await memoryManager.cleanup(); // Hata durumunda da bellek temizle
 
           throw error;
         }
@@ -527,7 +533,7 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
           get().clearDraftForPhoto(activePhoto.id);
         }
 
-        console.log(i18n.t('editor.allSettingsResetLog')); // Çeviri anahtarı kullanıldı
+        console.log(i18n.t('editor.allSettingsResetLog'));
       },
 
       resetCropAndRotation: () => {
@@ -557,13 +563,13 @@ export const useEnhancedEditorStore = create<EditorState & EditorActions>()(
         get().updateSettings({ visualCrop });
         get().addSnapshotToHistory();
 
-        ToastService.show(i18n.t('editor.crop.applySuccess')); // Çeviri anahtarı kullanıldı
+        ToastService.show(i18n.t('editor.crop.applySuccess'));
       },
 
       clearStore: () => {
         const activePhoto = get().activePhoto;
         if (activePhoto && get().hasDraftChanges) {
-          get().saveDraftForPhoto(activePhoto.id);
+          get().saveDraftForPhoto(activePhoto.id, false); // Manuel kayıt olarak işaretle
         }
 
         set({

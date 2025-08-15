@@ -1,11 +1,10 @@
-// services/exportService.ts - DÜZELTİLDİ
-
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { ExportPreset, ShareOption } from '@/features/editor/config/exportTools';
-import { ToastService } from '@/components/Toast/ToastService'; // ToastService import edildi
-import i18n from '@/i18n'; // i18n import edildi
+import { ToastService } from '@/components/Toast/ToastService';
+import i18n from '@/i18n';
+import { memoryManager } from './memoryManager'; // memoryManager import edildi
 
 interface SharePayload {
   shareOption: ShareOption;
@@ -29,7 +28,7 @@ export class ExportService {
 
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
     if (!fileInfo.exists) {
-      throw new Error(i18n.t('filesystem.fileSaveCheckFailed')); // Çeviri anahtarı kullanıldı
+      throw new Error(i18n.t('filesystem.fileSaveCheckFailed'));
     }
 
     console.log('✅ File created successfully:', fileInfo.size, 'bytes');
@@ -45,7 +44,7 @@ export class ExportService {
 
     console.log('🚀 Starting export:', {
       shareType: shareOption.type,
-      preset: i18n.t(preset.name), // preset.name artık çeviri anahtarı
+      preset: i18n.t(preset.name),
       dimensions: preset.dimensions,
       format: preset.format
     });
@@ -56,7 +55,7 @@ export class ExportService {
       if (shareOption.type === 'gallery') {
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status !== 'granted') {
-          throw new Error(i18n.t('common.permissions.galleryMessage')); // Çeviri anahtarı kullanıldı
+          throw new Error(i18n.t('common.permissions.galleryMessage'));
         }
 
         const asset = await MediaLibrary.createAssetAsync(fileUri);
@@ -65,12 +64,12 @@ export class ExportService {
       } else {
         const isAvailable = await Sharing.isAvailableAsync();
         if (!isAvailable) {
-          throw new Error(i18n.t('export.sharingNotAvailableError')); // Çeviri anahtarı kullanıldı
+          throw new Error(i18n.t('export.sharingNotAvailableError'));
         }
 
         await Sharing.shareAsync(fileUri, {
           mimeType: preset.format === 'png' ? 'image/png' : 'image/jpeg',
-          dialogTitle: i18n.t('export.shareDialogTitle', { presetName: i18n.t(preset.name) }), // preset.name artık çeviri anahtarı
+          dialogTitle: i18n.t('export.shareDialogTitle', { presetName: i18n.t(preset.name) }),
         });
         console.log('📤 Shared successfully');
       }
@@ -86,6 +85,7 @@ export class ExportService {
           console.warn('⚠️ Failed to cleanup temp file:', cleanupError);
         }
       }
+      await memoryManager.cleanup(); // Export sonrası bellek temizliği
     }
   }
 }

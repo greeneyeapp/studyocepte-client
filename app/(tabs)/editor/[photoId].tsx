@@ -40,6 +40,8 @@ import { DialogService } from '@/components/Dialog/DialogService';
 import { InputDialogService } from '@/components/Dialog/InputDialogService';
 import { BottomSheetService } from '@/components/BottomSheet/BottomSheetService';
 
+import { memoryManager } from '@/services/memoryManager'; // memoryManager import edildi
+
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -98,15 +100,15 @@ export default function EnhancedEditorScreen() {
   const [selectedPreset, setSelectedPreset] = useState<ExportPreset | null>(null);
   const [isDraftManagerVisible, setIsDraftManagerVisible] = useState(false);
 
-  const { isExporting, shareWithOption, skiaViewRef } = useExportManager();
+  const { isExporting, skiaViewRef } = useExportManager(); // shareWithOption burada doğrudan kullanılmıyor
   const { currentScrollRef } = useScrollManager({ activeTool, activeTarget, activeFeature, isSliderActive });
 
-  // ===== MEMORY OPTIMIZATION =====
+  // ===== MEMORY OPTIMIZATION (App State) =====
   useEffect(() => {
     const handleAppStateChange = (nextAppState: string) => {
       if (nextAppState === 'background') {
         console.log(t('app.memoryOptimizationWarning'));
-        imageProcessor.optimizeMemoryUsage();
+        memoryManager.cleanup(); // memoryManager'ı kullan
       }
     };
 
@@ -133,11 +135,11 @@ export default function EnhancedEditorScreen() {
       const state = useEnhancedEditorStore.getState();
       if (state.activePhoto && state.hasDraftChanges) {
         console.log(t('editor.savingDraftOnUnmountLog'));
-        state.saveDraft();
+        state.saveDraft(); // Zaten store içinde auto-save mekanizması var
       }
 
       clearStore();
-      imageProcessor.optimizeMemoryUsage();
+      memoryManager.cleanup(); // memoryManager'ı kullan
       DialogService.hide();
       InputDialogService.hide();
       ToastService.hide();
@@ -149,7 +151,6 @@ export default function EnhancedEditorScreen() {
   const selectedBackgroundConfig = useMemo(() => {
     console.log(t('editor.currentBackgroundIdLog'), settings.backgroundId);
     const config = getBackgroundById(settings.backgroundId);
-    // config.name artık çeviri anahtarı, bu yüzden t() ile çevrilmeli
     console.log(t('editor.foundBackgroundConfigLog'), config ? t(config.name) : t('common.notFound'));
     return config;
   }, [settings.backgroundId, t]);
@@ -171,7 +172,7 @@ export default function EnhancedEditorScreen() {
       console.log(t('editor.startingBackgroundResolutionLog'), selectedBackgroundConfig.id);
 
       try {
-        if (typeof selectedBackgroundConfig.thumbnailUrl === 'string') {
+        if (typeof selectedBackgroundConfig.thumbnailUrl === 'string' && selectedBackgroundConfig.thumbnailUrl.startsWith('#')) {
           console.log(t('editor.directThumbnailUrlLog'));
           if (isMounted) {
             setResolvedBackgroundUri(selectedBackgroundConfig.thumbnailUrl);
@@ -187,7 +188,7 @@ export default function EnhancedEditorScreen() {
         );
 
         const timeoutPromise = new Promise<string | null>((_, reject) => {
-          setTimeout(() => reject(new Error(t('editor.resolutionTimeout'))), 2000);
+          setTimeout(() => reject(new Error(t('editor.resolutionTimeout'))), 5000); // Timeout artırıldı
         });
 
         const resolvedUri = await Promise.race([resolvePromise, timeoutPromise]);
@@ -198,9 +199,10 @@ export default function EnhancedEditorScreen() {
             setResolvedBackgroundUri(resolvedUri);
           } else {
             console.warn(t('editor.backgroundUriNullFallbackLog'));
+            // Fallback to directly using asset.uri if getThumbnail fails
             try {
               const Asset = require('expo-asset').Asset;
-              const asset = Asset.fromModule(selectedBackgroundConfig.thumbnailUrl);
+              const asset = Asset.fromModule(selectedBackgroundConfig.fullUrl); // fullUrl'ı dene
               await asset.downloadAsync();
               const fallbackUri = asset.localUri || asset.uri;
 
@@ -233,6 +235,7 @@ export default function EnhancedEditorScreen() {
       isMounted = false;
     };
   }, [selectedBackgroundConfig, t]);
+
 
   // ===== HANDLERS =====
   const animateLayout = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -309,20 +312,19 @@ export default function EnhancedEditorScreen() {
     setTimeout(() => handleToolChange('adjust'), 300);
   };
 
+  // ⭐ ÇÖZÜM 3: Memory-safe navigation
   const handleSave = async (withThumbnailUpdate: boolean = false) => {
     console.log(t('editor.saveTriggeredLog'), withThumbnailUpdate);
 
     try {
-      if (withThumbnailUpdate && skiaViewRef.current) {
-        console.log(t('editor.savingWithThumbnailLog'));
-        await store.saveChanges(skiaViewRef);
-      } else {
-        console.log(t('editor.savingWithoutThumbnailLog'));
-        await store.saveChanges();
-      }
+      // 1. Değişiklikleri kaydet (thumbnail güncellemesi dahil)
+      await store.saveChanges(skiaViewRef);
 
-      console.log(t('editor.saveSuccessfulLog'));
+      // 2. Bellek temizliği ve stabilizasyon için bekle
+      await memoryManager.cleanup(); // Tam temizlik
 
+      // 3. Navigation'ı küçük bir gecikmeyle yap
+      // Bu gecikme, UI thread'inin rahatlaması ve iOS'ta memory stabilization için kritik.
       setTimeout(() => {
         if (productId) {
           console.log(t('editor.navigateToProductLog'), productId);
@@ -334,17 +336,24 @@ export default function EnhancedEditorScreen() {
           console.log(t('editor.noProductIdBackLog'));
           router.back();
         }
-      }, 500);
+      }, Platform.OS === 'ios' ? 300 : 100); // iOS için biraz daha uzun gecikme
 
     } catch (error) {
       console.error(t('editor.saveFailedLog'), error);
+      // Hata durumunda Toast zaten store tarafından gösteriliyor.
     }
   };
 
   const handleResetAll = () => {
     console.log(t('editor.resetAllSettingsLog'));
-    resetAllSettings();
-    store.clearDraft();
+    DialogService.show({
+      title: t('editor.resetAllSettingsTitle'),
+      message: t('editor.resetAllSettingsMessage'),
+      buttons: [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.reset'), style: 'destructive', onPress: resetAllSettings }
+      ],
+    });
   };
 
   const handleCancel = () => {
@@ -352,6 +361,7 @@ export default function EnhancedEditorScreen() {
       setActiveFeature(null);
       handleToolChange('adjust');
     } else {
+      // Eğer taslak değişiklikleri varsa, çıkmadan önce kaydet
       if (hasDraftChanges) {
         console.log(t('editor.savingDraftBeforeExitLog'));
         saveDraft();
@@ -374,7 +384,6 @@ export default function EnhancedEditorScreen() {
     console.log(t('editor.backgroundStateUpdateLog'), {
       selectedBackgroundId: settings.backgroundId,
       hasConfig: !!selectedBackgroundConfig,
-      // config.name artık çeviri anahtarı, bu yüzden t() ile çevrilmeli
       configName: selectedBackgroundConfig ? t(selectedBackgroundConfig.name) : t('common.notFound'),
       resolvedUri: resolvedBackgroundUri ? t('common.resolved') : t('common.notResolved'),
       activeTool
@@ -498,7 +507,12 @@ export default function EnhancedEditorScreen() {
                 selectedPreset={selectedPreset}
                 isExporting={isExporting}
                 setSelectedPreset={setSelectedPreset}
-                shareWithOption={shareWithOption}
+                shareWithOption={async (option, preset) => {
+                  // Export işlemi ExportManager içinde kilitlenecek
+                  await memoryManager.critical.withLock('export-operation', () =>
+                    useExportManager().shareWithOption(option, preset)
+                  );
+                }}
               />
             ) : (
               <View style={styles.upperToolbarContentArea}>
@@ -555,7 +569,7 @@ export default function EnhancedEditorScreen() {
                           {featuresForCurrentTarget.map(f =>
                             <FeatureButton
                               key={f.key}
-                              label={f.label} // label artık çeviri anahtarı, FeatureButton içinde t() çağrılıyor
+                              label={f.label}
                               icon={f.icon}
                               value={getSliderValue(f.key)}
                               isActive={activeFeature === f.key}

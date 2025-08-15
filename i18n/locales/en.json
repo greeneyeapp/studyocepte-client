@@ -71,7 +71,7 @@
   },
   "products": {
     "title": "Products",
-    "emptyPhotosTitle": "No photos",
+    "emptyPhotosTitle": "No Product Photos Yet",
     "nameYourProduct": "Name Your Product",
     "productNamePlaceholder": "You can enter a product name (optional)",
     "empty": "No products yet",
@@ -101,7 +101,7 @@
     "photoCountSuffix": "{{count}} photos",
     "selectedPhotosCount": "{{count}} photos selected",
     "addPhoto": "Add Photo",
-    "addPhotoSubtitle": "Upload your first photo",
+    "addPhotoSubtitle": "Upload your first product photo",
     "enterProductNamePlaceholder": "Enter product name",
     "nameRequiredMessage": "Please enter a name for the product.",
     "status": {

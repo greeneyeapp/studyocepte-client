@@ -71,7 +71,7 @@
   },
   "products": {
     "title": "Ürünler",
-    "emptyPhotosTitle": "Fotoğraf yok",
+    "emptyPhotosTitle": "Henüz Ürün Fotoğrafı Yok",
     "nameYourProduct": "Ürününüze İsim Verin",
     "productNamePlaceholder": "Ürün ismini girebilirsiniz (zorunlu değil)",
     "empty": "Henüz ürün yok",
@@ -101,7 +101,7 @@
     "photoCountSuffix": "{{count}} fotoğraf",
     "selectedPhotosCount": "{{count}} fotoğraf seçili",
     "addPhoto": "Fotoğraf Ekle",
-    "addPhotoSubtitle": "İlk fotoğrafını yükle",
+    "addPhotoSubtitle": "İlk ürün fotoğrafını yükle",
     "enterProductNamePlaceholder": "Ürün adını girin",
     "nameRequiredMessage": "Lütfen ürün için bir isim girin.",
     "status": {

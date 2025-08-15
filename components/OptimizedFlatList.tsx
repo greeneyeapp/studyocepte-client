@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { Colors, Typography, Spacing } from '@/constants';
 import { LazyImageUtils } from './LazyImage';
-import { useTranslation } from 'react-i18next'; // useTranslation import edildi
+import { useTranslation } from 'react-i18next';
+import { memoryManager } from '@/services/memoryManager'; // memoryManager import edildi
 
 // DÜZELTME: global nesnesine 'gc' metodu ekle ve __DEV__ için tip tanımı yap
 declare global {
@@ -74,7 +75,7 @@ const OptimizedFlatListComponent = <T,>(
     if (typeof ref === 'function') {
       ref(node);
     } else if (ref) {
-      ref.current = node;
+      (ref as React.MutableRefObject<FlatList<T> | null>).current = node;
     }
   }, [ref]);
 
@@ -123,6 +124,7 @@ const OptimizedFlatListComponent = <T,>(
     }
   }, [imageExtractor, enableProgressiveLoading, preloadDistance, data]);
 
+  // Bellek optimizasyonunu memoryManager aracılığıyla yap
   useEffect(() => {
     if (!enableMemoryOptimization) return;
 
@@ -131,16 +133,13 @@ const OptimizedFlatListComponent = <T,>(
       
       if (renderCountRef.current > memoryCleanupThreshold) {
         console.log(t('home.renderCountLog', { renderCount: renderCountRef.current }));
-        LazyImageUtils.optimizeMemory();
-        renderCountRef.current = 0;
-        
-        if (__DEV__ && typeof global.gc === 'function') {
-          global.gc();
-        }
+        // Bellek temizliğini memoryManager üzerinden çağır
+        memoryManager.cleanup();
+        renderCountRef.current = 0; // Reset counter after cleanup
       }
     };
 
-    const timer = setInterval(cleanupMemory, 30000);
+    const timer = setInterval(cleanupMemory, 30000); // Her 30 saniyede bir kontrol et
     return () => clearInterval(timer);
   }, [enableMemoryOptimization, memoryCleanupThreshold, t]);
 
@@ -150,7 +149,7 @@ const OptimizedFlatListComponent = <T,>(
   }, [renderItem]);
 
   const getItemLayout = useCallback((_data: ArrayLike<T> | null | undefined, index: number) => {
-    const ITEM_HEIGHT = 200;
+    const ITEM_HEIGHT = 200; // Varsayılan öğe yüksekliği
     return {
       length: ITEM_HEIGHT,
       offset: ITEM_HEIGHT * index,
@@ -160,7 +159,7 @@ const OptimizedFlatListComponent = <T,>(
 
   const keyExtractor = useCallback((item: T, index: number) => {
     if (item && typeof item === 'object' && 'id' in item && item.id != null) {
-      return String(item.id);
+      return String((item as any).id);
     }
     return String(index);
   }, []);
